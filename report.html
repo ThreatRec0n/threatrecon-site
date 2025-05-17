@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Report an Issue</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    .success, .error {
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    button {
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Report an Issue</h2>
+    <div id="response"></div>
+    <form id="reportForm">
+      <label for="name">Name:</label>
+      <input type="text" id="name" name="name" required/>
+
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="email" required/>
+
+      <label for="reportType">Report Type:</label>
+      <select id="reportType" name="reportType" required>
+        <option value="abuse">Report Abuse</option>
+        <option value="security">Security Vulnerability</option>
+        <option value="content">Inappropriate Content</option>
+        <option value="other">Other Issue</option>
+      </select>
+
+      <label for="description">Description:</label>
+      <textarea id="description" name="description" rows="4" required></textarea>
+
+      <button type="submit">Submit Report</button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('reportForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const responseBox = document.getElementById('response');
+      responseBox.innerHTML = '';
+      const form = e.target;
+      const data = {
+        name: form.name.value,
+        email: form.email.value,
+        reportType: form.reportType.value,
+        description: form.description.value
+      };
+
+      try {
+        const res = await fetch('/api/submit-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+          responseBox.innerHTML = `<div class="success">${result.message}</div>`;
+          form.reset();
+        } else {
+          responseBox.innerHTML = `<div class="error">${result.message}</div>`;
+        }
+      } catch (err) {
+        responseBox.innerHTML = `<div class="error">Failed to submit. Try again later.</div>`;
+      }
+    });
+  </script>
+</body>
+</html>
