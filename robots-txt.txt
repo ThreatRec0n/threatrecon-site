@@ -1,0 +1,20 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /dashboard/
+Disallow: /private/
+Disallow: /settings/
+Disallow: /.env
+Disallow: /.git/
+Disallow: /node_modules/
+
+# Allow crawling of public pages
+Allow: /
+Allow: /about
+Allow: /contact
+Allow: /blog/
+Allow: /products/
+
+# Sitemap
+Sitemap: https://yourwebsite.com/sitemap.xml
