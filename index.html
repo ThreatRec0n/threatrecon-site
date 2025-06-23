@@ -261,6 +261,7 @@
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.3s ease;
+            text-decoration: none;
         }
 
         .tab-btn:hover {
@@ -529,7 +530,7 @@
                             <h1>REC<span class="eye-letter">O</span>N</h1>
             <p>Your move now.</p>
             <div class="tool-tabs">
-                <button class="tab-btn active" data-tool="hash">Hash Identifier + Cracker</button>
+                <a href="hash-cracker.html" class="tab-btn active" data-tool="hash">Hash Identifier + Cracker</a>
                 <button class="tab-btn" data-tool="ip">IP Reputation Checker</button>
                 <button class="tab-btn" data-tool="shell">Reverse Shell Generator</button>
             </div>
@@ -555,13 +556,31 @@
     </footer>
 
     <script>
-        // Tab functionality
+        // Tab functionality - modified to handle navigation
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function(e) {
+                // If it's a link (hash cracker), let it navigate
+                if (this.tagName === 'A') {
+                    return; // Allow default link behavior
+                }
+                
+                // For other buttons, prevent default and handle tab switching
+                e.preventDefault();
+                
                 // Remove active class from all buttons
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 // Add active class to clicked button
                 this.classList.add('active');
+                
+                // Handle other tool tabs here when you create them
+                const tool = this.getAttribute('data-tool');
+                if (tool === 'ip') {
+                    // Navigate to IP checker page when created
+                    // window.location.href = 'ip-checker.html';
+                } else if (tool === 'shell') {
+                    // Navigate to shell generator page when created
+                    // window.location.href = 'shell-generator.html';
+                }
             });
         });
 
@@ -622,7 +641,9 @@
             });
         });
 
-        observer.observe(document.querySelector('.stats-section'));
+        if (document.querySelector('.stats-section')) {
+            observer.observe(document.querySelector('.stats-section'));
+        }
 
         // Smooth scrolling for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
