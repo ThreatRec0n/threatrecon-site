@@ -1,4 +1,4 @@
-import { Worker, Job } from 'bullmq';
+import { Worker, Job, Queue } from 'bullmq';
 import { DataRetentionService } from '../services/dataRetentionService';
 import { logger } from '../utils/logger';
 
@@ -65,13 +65,17 @@ export class CleanupWorker {
       logger.info(`Starting purge for session: ${sessionId}`);
 
       // Purge session data
-      const success = await this.retentionService.purgeSession(sessionId);
+      const result = await this.retentionService.purgeSession(sessionId);
       
-      if (success) {
-        logger.info(`Session ${sessionId} purged successfully`);
+      if (result.success) {
+        logger.info(`Session ${sessionId} purged successfully`, {
+          sessionsPurged: result.sessionsPurged,
+          aarsPurged: result.aarsPurged,
+          auditLogsPurged: result.auditLogsPurged
+        });
       } else {
-        logger.error(`Failed to purge session ${sessionId}`);
-        throw new Error(`Failed to purge session ${sessionId}`);
+        logger.error(`Failed to purge session ${sessionId}`, { errors: result.errors });
+        throw new Error(`Failed to purge session ${sessionId}: ${result.errors.join(', ')}`);
       }
 
     } catch (error) {
@@ -95,12 +99,12 @@ export class CleanupWorker {
       let purgedCount = 0;
       let failedCount = 0;
 
-      for (const sessionId of sessionsToPurge) {
+      for (const session of sessionsToPurge) {
         try {
-          await this.purgeSession(sessionId);
+          await this.purgeSession(session.id);
           purgedCount++;
         } catch (error) {
-          logger.error(`Failed to purge session ${sessionId}:`, error);
+          logger.error(`Failed to purge session ${session.id}:`, error);
           failedCount++;
         }
       }
@@ -112,7 +116,8 @@ export class CleanupWorker {
         totalSessions: sessionsToPurge.length,
         purgedCount,
         failedCount,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        retentionDays: this.retentionService.getRetentionPolicy().sessionRetentionDays
       });
 
     } catch (error) {
@@ -124,7 +129,7 @@ export class CleanupWorker {
   /**
    * Log cleanup statistics
    */
-  private async logCleanupStats(stats: any): Promise<void> {
+  private async logCleanupStats(stats: CleanupStats): Promise<void> {
     try {
       // In a real implementation, this would store stats in a database
       logger.info('Cleanup statistics', stats);
@@ -140,12 +145,12 @@ export class CleanupWorker {
   /**
    * Schedule regular cleanup
    */
-  scheduleRegularCleanup(queue: any): void {
+  scheduleRegularCleanup(queue: Queue): void {
     // Schedule cleanup every 24 hours
     queue.add('cleanup-expired-sessions', 
       { type: 'cleanup-expired' },
       {
-        repeat: { cron: '0 2 * * *' }, // 2 AM daily
+        repeat: { pattern: '0 2 * * *' }, // 2 AM daily
         jobId: 'regular-cleanup'
       }
     );

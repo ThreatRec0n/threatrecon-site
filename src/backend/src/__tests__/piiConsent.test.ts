@@ -64,8 +64,8 @@ describe('PII Consent and Data Retention', () => {
       const policy = await retentionService.getRetentionPolicy();
       
       expect(policy).toBeDefined();
-      expect(policy.retentionDays).toBeGreaterThan(0);
-      expect(policy.autoDeleteEnabled).toBeDefined();
+      expect(policy.sessionRetentionDays).toBeGreaterThan(0);
+      expect(policy.enableAutoPurge).toBeDefined();
 
       console.log('✅ Data retention policy test passed');
     });

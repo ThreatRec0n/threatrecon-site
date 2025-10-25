@@ -1,4 +1,4 @@
-import { Scenario, Inject, BranchingRule, EndCondition } from '../shared/types';
+import { Scenario, Inject, BranchingRule, EndCondition, BranchingCondition, RequiredAction } from '../shared/types';
 import { logger } from '../utils/logger';
 
 export interface ValidationResult {
@@ -129,7 +129,7 @@ export class ScenarioValidator {
         errors.push('Duplicate roles found');
       }
       
-      scenario.roles.forEach((role, index) => {
+      scenario.roles.forEach((role: string, index: number) => {
         if (!role || role.trim().length === 0) {
           errors.push(`Role at index ${index} is empty`);
         }
@@ -154,7 +154,7 @@ export class ScenarioValidator {
     const injectIds = new Set<string>();
     const validRoles = new Set(scenario.roles);
 
-    scenario.injects.forEach((inject, index) => {
+    scenario.injects.forEach((inject: Inject, index: number) => {
       // Unique ID validation
       if (!inject.id || inject.id.trim().length === 0) {
         errors.push(`Inject ${index}: ID is required`);
@@ -178,7 +178,7 @@ export class ScenarioValidator {
       if (!Array.isArray(inject.target_roles) || inject.target_roles.length === 0) {
         errors.push(`Inject ${index}: At least one target role is required`);
       } else {
-        inject.target_roles.forEach(role => {
+        inject.target_roles.forEach((role: string) => {
           if (!validRoles.has(role)) {
             errors.push(`Inject ${index}: Target role '${role}' not found in scenario roles`);
           }
@@ -197,7 +197,7 @@ export class ScenarioValidator {
 
       // Required actions validation
       if (inject.required_actions) {
-        inject.required_actions.forEach((action, actionIndex) => {
+        inject.required_actions.forEach((action: RequiredAction, actionIndex: number) => {
           if (!validRoles.has(action.role)) {
             errors.push(`Inject ${index}, Action ${actionIndex}: Invalid role '${action.role}'`);
           }
@@ -215,7 +215,7 @@ export class ScenarioValidator {
 
       // Branching validation
       if (inject.branching) {
-        inject.branching.forEach((branch, branchIndex) => {
+        inject.branching.forEach((branch: BranchingCondition, branchIndex: number) => {
           if (!branch.if || branch.if.trim().length === 0) {
             errors.push(`Inject ${index}, Branch ${branchIndex}: Condition is required`);
           }
@@ -236,9 +236,9 @@ export class ScenarioValidator {
    * Validate branching rules
    */
   private validateBranchingLogic(scenario: Scenario, errors: string[], warnings: string[]): void {
-    const injectIds = new Set(scenario.injects.map(i => i.id));
+    const injectIds = new Set(scenario.injects.map((i: Inject) => i.id));
 
-    scenario.branching_rules.forEach((rule, index) => {
+    scenario.branching_rules.forEach((rule: BranchingRule, index: number) => {
       if (!rule.id || rule.id.trim().length === 0) {
         errors.push(`Branching rule ${index}: ID is required`);
       }
@@ -271,9 +271,9 @@ export class ScenarioValidator {
    * Validate end conditions
    */
   private validateEndConditions(scenario: Scenario, errors: string[], warnings: string[]): void {
-    const injectIds = new Set(scenario.injects.map(i => i.id));
+    const injectIds = new Set(scenario.injects.map((i: Inject) => i.id));
 
-    scenario.end_conditions.forEach((condition, index) => {
+    scenario.end_conditions.forEach((condition: EndCondition, index: number) => {
       if (!condition.type || !['time_elapsed', 'all_injects_complete', 'manual_end'].includes(condition.type)) {
         errors.push(`End condition ${index}: Invalid type '${condition.type}'`);
       }
@@ -283,7 +283,7 @@ export class ScenarioValidator {
       }
 
       if (condition.type === 'all_injects_complete' && condition.inject_ids) {
-        condition.inject_ids.forEach(injectId => {
+        condition.inject_ids.forEach((injectId: string) => {
           if (!injectIds.has(injectId)) {
             errors.push(`End condition ${index}: Inject ID '${injectId}' not found`);
           }
@@ -398,7 +398,7 @@ export class ScenarioValidator {
 
     // Follow branching paths
     if (inject.branching) {
-      inject.branching.forEach(branch => {
+      inject.branching.forEach((branch: BranchingCondition) => {
         if (branch.goto) {
           this.traverseInjects(scenario, branch.goto, reachable, visited);
         }
@@ -409,7 +409,7 @@ export class ScenarioValidator {
     }
 
     // Follow branching rules
-    scenario.branching_rules.forEach(rule => {
+    scenario.branching_rules.forEach((rule: BranchingRule) => {
       if (rule.true_goto) {
         this.traverseInjects(scenario, rule.true_goto, reachable, visited);
       }
