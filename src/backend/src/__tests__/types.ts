@@ -3,7 +3,7 @@ export interface Scenario {
   id: string;
   title: string;
   description: string;
-  difficulty: string;
+  difficulty: 'low' | 'medium' | 'high';
   duration_minutes: number;
   roles: string[];
   injects: Inject[];

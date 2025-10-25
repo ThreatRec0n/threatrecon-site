@@ -179,6 +179,7 @@ export interface SessionSettings {
   allowManualInjects: boolean;
   enableBranching: boolean;
   scoringEnabled: boolean;
+  currentSeverity?: 'info' | 'warning' | 'critical';
 }
 
 export interface SessionEvent {
