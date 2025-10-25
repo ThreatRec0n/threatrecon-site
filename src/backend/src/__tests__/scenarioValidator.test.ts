@@ -1,5 +1,5 @@
 import { ScenarioValidator } from '../services/scenarioValidator';
-import { Scenario } from './types';
+import { Scenario } from '../shared/types';
 
 describe('Scenario Validator', () => {
   let validator: ScenarioValidator;
@@ -39,7 +39,9 @@ describe('Scenario Validator', () => {
         end_conditions: [],
         metadata: {
           author: 'Test Author',
-          version: '1.0'
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
         },
         tenantId: 'test-tenant'
       };
@@ -79,7 +81,12 @@ describe('Scenario Validator', () => {
         ],
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 
@@ -116,7 +123,12 @@ describe('Scenario Validator', () => {
         ],
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 
@@ -147,7 +159,12 @@ describe('Scenario Validator', () => {
         ],
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 
@@ -178,7 +195,12 @@ describe('Scenario Validator', () => {
         ],
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 
@@ -209,7 +231,12 @@ describe('Scenario Validator', () => {
         ],
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 
@@ -238,6 +265,7 @@ describe('Scenario Validator', () => {
             severity: 'info',
             branching: [
               {
+                if: 'always_true',
                 goto: 'inject_2' // Unconditional branch
               }
             ]
@@ -251,6 +279,7 @@ describe('Scenario Validator', () => {
             severity: 'info',
             branching: [
               {
+                if: 'always_true',
                 goto: 'inject_1' // Circular reference
               }
             ]
@@ -258,7 +287,12 @@ describe('Scenario Validator', () => {
         ],
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 
@@ -298,7 +332,12 @@ describe('Scenario Validator', () => {
         ],
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 
@@ -322,7 +361,12 @@ describe('Scenario Validator', () => {
         injects: [], // Empty injects
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 
@@ -353,7 +397,12 @@ describe('Scenario Validator', () => {
         ],
         branching_rules: [],
         end_conditions: [],
-        metadata: {},
+        metadata: {
+          author: 'Test Author',
+          version: '1.0',
+          tags: ['test'],
+          estimated_setup_time: 5
+        },
         tenantId: 'test-tenant'
       };
 

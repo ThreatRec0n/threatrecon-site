@@ -3,6 +3,7 @@ import { SessionService } from '../services/sessionService';
 import { OrchestrationService } from '../services/orchestrationService';
 import { ExportService } from '../services/exportService';
 import { AuditService } from '../services/auditService';
+import { SessionSettings } from '../shared/types';
 
 describe('Facilitator Console Functionality', () => {
   let facilitatorController: FacilitatorController;
