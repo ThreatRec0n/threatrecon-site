@@ -28,5 +28,7 @@
     "server.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "buildCommand": "echo 'Skipping TypeScript build for deployment'",
+  "installCommand": "npm install"
 }
