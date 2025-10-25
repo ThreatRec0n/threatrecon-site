@@ -332,7 +332,7 @@ export class ScenarioValidator {
     }
     
     // Check for referenced injects that don't exist
-    for (const referencedId of referencedInjects) {
+    for (const referencedId of Array.from(referencedInjects)) {
       if (!allInjectIds.has(referencedId)) {
         errors.push(`Branching references non-existent inject: ${referencedId}`);
       }
@@ -341,7 +341,7 @@ export class ScenarioValidator {
     // Only warn about injects that are never referenced and have no time-based trigger
     // This is a very conservative check - most injects are reachable by time
     const timeBasedInjects = new Set<string>(scenario.injects.map(i => i.id));
-    const unreachableInjects = [...referencedInjects].filter(id => 
+    const unreachableInjects = Array.from(referencedInjects).filter(id => 
       !timeBasedInjects.has(id) && allInjectIds.has(id)
     );
     

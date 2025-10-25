@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -60,8 +65,8 @@ jobs:
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./public
-        cname: threatrecon.io
+        publish_dir: ./dist
+        force_orphan: true
     
     - name: Deploy to Vercel
       uses: amondnet/vercel-action@v25
