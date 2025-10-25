@@ -14,8 +14,8 @@ export class CleanupWorker {
     }, {
       connection,
       concurrency: 1, // Process one cleanup job at a time
-      removeOnComplete: 10,
-      removeOnFail: 5
+      removeOnComplete: { count: 10 },
+      removeOnFail: { count: 5 }
     });
 
     this.worker.on('completed', (job) => {

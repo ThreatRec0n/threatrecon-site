@@ -35,7 +35,7 @@ export function validateScenario(scenario: Scenario): ValidationResult {
       errors.push('Duplicate roles found');
     }
     
-    scenario.roles.forEach((role, index) => {
+    scenario.roles.forEach((role: string, index: number) => {
       if (!role || role.trim().length === 0) {
         errors.push(`Role at index ${index} is empty`);
       }
@@ -46,7 +46,7 @@ export function validateScenario(scenario: Scenario): ValidationResult {
   if (!Array.isArray(scenario.injects) || scenario.injects.length === 0) {
     errors.push('At least one inject is required');
   } else {
-    scenario.injects.forEach((inject, index) => {
+    scenario.injects.forEach((inject: any, index: number) => {
       const injectErrors = validateInject(inject, scenario.roles, index);
       errors.push(...injectErrors);
     });
@@ -54,7 +54,7 @@ export function validateScenario(scenario: Scenario): ValidationResult {
 
   // Validate branching rules
   if (scenario.branching_rules) {
-    scenario.branching_rules.forEach((rule, index) => {
+    scenario.branching_rules.forEach((rule: any, index: number) => {
       const ruleErrors = validateBranchingRule(rule, scenario.injects, index);
       errors.push(...ruleErrors);
     });
@@ -64,7 +64,7 @@ export function validateScenario(scenario: Scenario): ValidationResult {
   if (!Array.isArray(scenario.end_conditions) || scenario.end_conditions.length === 0) {
     errors.push('At least one end condition is required');
   } else {
-    scenario.end_conditions.forEach((condition, index) => {
+    scenario.end_conditions.forEach((condition: any, index: number) => {
       const conditionErrors = validateEndCondition(condition, scenario.injects, index);
       errors.push(...conditionErrors);
     });
@@ -120,7 +120,7 @@ function validateInject(inject: Inject, availableRoles: string[], index: number)
 
   // Validate target roles exist
   if (inject.target_roles) {
-    inject.target_roles.forEach(role => {
+    inject.target_roles.forEach((role: string) => {
       if (!availableRoles.includes(role)) {
         errors.push(`Inject ${index}: Target role '${role}' not found in scenario roles`);
       }
@@ -129,7 +129,7 @@ function validateInject(inject: Inject, availableRoles: string[], index: number)
 
   // Validate branching conditions
   if (inject.branching) {
-    inject.branching.forEach((branch, branchIndex) => {
+    inject.branching.forEach((branch: any, branchIndex: number) => {
       if (!branch.if || branch.if.trim().length === 0) {
         errors.push(`Inject ${index}, Branch ${branchIndex}: Condition is required`);
       }
@@ -141,7 +141,7 @@ function validateInject(inject: Inject, availableRoles: string[], index: number)
 
   // Validate required actions
   if (inject.required_actions) {
-    inject.required_actions.forEach((action, actionIndex) => {
+    inject.required_actions.forEach((action: any, actionIndex: number) => {
       if (!action.role || !availableRoles.includes(action.role)) {
         errors.push(`Inject ${index}, Action ${actionIndex}: Invalid role`);
       }
@@ -205,7 +205,7 @@ function validateEndCondition(condition: EndCondition, injects: Inject[], index:
   }
 
   if (condition.type === 'all_injects_complete' && condition.inject_ids) {
-    condition.inject_ids.forEach(injectId => {
+    condition.inject_ids.forEach((injectId: string) => {
       if (!injectIds.includes(injectId)) {
         errors.push(`End condition ${index}: Inject ID '${injectId}' not found`);
       }
@@ -256,7 +256,7 @@ function findReachableInjects(scenario: Scenario): Set<string> {
     reachable.add(injectId);
 
     if (inject.branching) {
-      inject.branching.forEach(branch => {
+      inject.branching.forEach((branch: any) => {
         if (branch.goto) {
           reachable.add(branch.goto);
           followBranches(branch.goto);
@@ -270,7 +270,7 @@ function findReachableInjects(scenario: Scenario): Set<string> {
   }
 
   // Process all injects
-  scenario.injects.forEach(inject => {
+  scenario.injects.forEach((inject: any) => {
     followBranches(inject.id);
   });
 

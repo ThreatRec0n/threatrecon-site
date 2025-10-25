@@ -17,11 +17,11 @@ export interface Scenario {
 
 export interface Inject {
   id: string;
-  time_offset_minutes: number | null;
-  type: string;
+  time_offset_minutes: number;
+  type: 'email' | 'text' | 'sim_log' | 'siem' | 'file' | 'manual';
   target_roles: string[];
   content: string;
-  severity: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
   branching?: any[];
   metadata?: any;
 }
