@@ -3,20 +3,6 @@ import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
 import { SecurityConfig } from '../config/security';
 
-// Extend Request interface to include user and tenantId
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        role: string;
-        tenantId: string;
-      };
-      tenantId?: string;
-    }
-  }
-}
-
 /**
  * Authentication middleware
  */

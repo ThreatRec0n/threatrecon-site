@@ -78,7 +78,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
         name: decoded.name,
         tenantId: decoded.tenantId,
         role: decoded.role,
-        permissions: decoded.permissions || {}
+        permissions: decoded.permissions || {},
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       req.tenantId = decoded.tenantId;

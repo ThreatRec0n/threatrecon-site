@@ -5,6 +5,7 @@ import { ExportService } from '../services/exportService';
 import { AuditService } from '../services/auditService';
 import { logger } from '../utils/logger';
 import { DrillSession, SessionEvent, Inject } from '../shared/types';
+import '../middleware/auth'; // Import to extend Request interface
 
 export class FacilitatorController {
   private sessionService: SessionService;
@@ -30,6 +31,11 @@ export class FacilitatorController {
   async pauseSession(req: Request, res: Response): Promise<void> {
     try {
       const { sessionId } = req.params;
+      if (!sessionId) {
+        res.status(400).json({ error: 'Session ID is required' });
+        return;
+      }
+      
       const facilitatorRole = req.user?.role || 'FACILITATOR';
       const tenantId = req.tenantId;
 
@@ -84,6 +90,11 @@ export class FacilitatorController {
   async resumeSession(req: Request, res: Response): Promise<void> {
     try {
       const { sessionId } = req.params;
+      if (!sessionId) {
+        res.status(400).json({ error: 'Session ID is required' });
+        return;
+      }
+      
       const facilitatorRole = req.user?.role || 'FACILITATOR';
       const tenantId = req.tenantId;
 
@@ -137,6 +148,11 @@ export class FacilitatorController {
   async sendManualInject(req: Request, res: Response): Promise<void> {
     try {
       const { sessionId } = req.params;
+      if (!sessionId) {
+        res.status(400).json({ error: 'Session ID is required' });
+        return;
+      }
+      
       const { type, content, target_roles, severity = 'info', injectId } = req.body;
       const facilitatorRole = req.user?.role || 'FACILITATOR';
       const tenantId = req.tenantId;
@@ -212,6 +228,11 @@ export class FacilitatorController {
   async escalateSession(req: Request, res: Response): Promise<void> {
     try {
       const { sessionId } = req.params;
+      if (!sessionId) {
+        res.status(400).json({ error: 'Session ID is required' });
+        return;
+      }
+      
       const { level, message } = req.body;
       const facilitatorRole = req.user?.role || 'FACILITATOR';
       const tenantId = req.tenantId;
@@ -273,6 +294,11 @@ export class FacilitatorController {
   async endSession(req: Request, res: Response): Promise<void> {
     try {
       const { sessionId } = req.params;
+      if (!sessionId) {
+        res.status(400).json({ error: 'Session ID is required' });
+        return;
+      }
+      
       const { reason = 'Ended by facilitator' } = req.body;
       const facilitatorRole = req.user?.role || 'FACILITATOR';
       const tenantId = req.tenantId;
@@ -336,6 +362,11 @@ export class FacilitatorController {
   async deleteSession(req: Request, res: Response): Promise<void> {
     try {
       const { sessionId } = req.params;
+      if (!sessionId) {
+        res.status(400).json({ error: 'Session ID is required' });
+        return;
+      }
+      
       const facilitatorRole = req.user?.role || 'FACILITATOR';
       const tenantId = req.tenantId;
 

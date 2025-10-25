@@ -26,8 +26,8 @@ export class SessionService {
         scenarioId: sessionData.scenarioId,
         tenantId: sessionData.tenantId,
         status: 'pending',
-        startedAt: null,
-        endedAt: null,
+        startedAt: new Date(),
+        endedAt: undefined,
         participants: sessionData.participants.map(p => ({
           role: p.role,
           name: p.name || `Participant_${p.role}`,
@@ -284,7 +284,7 @@ export class SessionService {
 
       const sessionsToPurge: string[] = [];
 
-      for (const [sessionId, session] of this.sessions.entries()) {
+      for (const [sessionId, session] of Array.from(this.sessions.entries())) {
         if (session.createdAt < cutoffDate && session.status !== 'cancelled') {
           sessionsToPurge.push(sessionId);
         }
