@@ -1,0 +1,267 @@
+{
+  "sessionId": "example-session-2024",
+  "generatedAt": "2024-10-25T06:15:00.000Z",
+  "scenario": {
+    "id": "ransomware_basic",
+    "name": "Ransomware Attack Simulation",
+    "duration_minutes": 60,
+    "description": "Simulated ransomware attack targeting critical business systems"
+  },
+  "participants": [
+    {
+      "role": "IR Lead",
+      "name": "Security Team Lead",
+      "joinedAt": "2024-10-25T06:00:00.000Z"
+    },
+    {
+      "role": "Network Admin",
+      "name": "Network Operations",
+      "joinedAt": "2024-10-25T06:00:30.000Z"
+    },
+    {
+      "role": "Legal Counsel",
+      "name": "Legal Department",
+      "joinedAt": "2024-10-25T06:01:00.000Z"
+    },
+    {
+      "role": "Exec Sponsor",
+      "name": "Executive Team",
+      "joinedAt": "2024-10-25T06:01:30.000Z"
+    },
+    {
+      "role": "PR/Comms",
+      "name": "Communications Team",
+      "joinedAt": "2024-10-25T06:02:00.000Z"
+    }
+  ],
+  "timeline": [
+    {
+      "timestamp": "2024-10-25T06:03:00.000Z",
+      "type": "inject",
+      "severity": "critical",
+      "content": "Suspicious outbound traffic detected from PAYMENT_GATEWAY_SERVICE. Multiple encrypted connections to external IPs.",
+      "target_roles": ["IR Lead", "Network Admin"],
+      "inject_id": "inject_001"
+    },
+    {
+      "timestamp": "2024-10-25T06:07:00.000Z",
+      "type": "decision",
+      "role": "IR Lead",
+      "action": "Initiated incident response protocol",
+      "rationale": "Following standard IR procedures for suspicious network activity"
+    },
+    {
+      "timestamp": "2024-10-25T06:07:30.000Z",
+      "type": "decision",
+      "role": "Network Admin",
+      "action": "Isolated PAYMENT_GATEWAY_SERVICE from network",
+      "rationale": "Preventive measure to contain potential threat"
+    },
+    {
+      "timestamp": "2024-10-25T06:10:00.000Z",
+      "type": "inject",
+      "severity": "warning",
+      "content": "Fake journalist from TechNews Daily requests comment on 'rumored data breach affecting customer payment systems'",
+      "target_roles": ["PR/Comms", "Exec Sponsor"],
+      "inject_id": "inject_002"
+    },
+    {
+      "timestamp": "2024-10-25T06:12:00.000Z",
+      "type": "decision",
+      "role": "PR/Comms",
+      "action": "Prepared 'no comment' statement",
+      "rationale": "Following media policy during active investigation"
+    },
+    {
+      "timestamp": "2024-10-25T06:15:00.000Z",
+      "type": "inject",
+      "severity": "critical",
+      "content": "CFO receives sophisticated wire fraud attempt via email impersonating CEO. Request for urgent $50,000 transfer to 'emergency vendor account'",
+      "target_roles": ["Exec Sponsor", "Legal Counsel"],
+      "inject_id": "inject_003"
+    },
+    {
+      "timestamp": "2024-10-25T06:18:00.000Z",
+      "type": "decision",
+      "role": "Exec Sponsor",
+      "action": "Verified CEO identity through separate channel",
+      "rationale": "Following financial authorization protocols"
+    },
+    {
+      "timestamp": "2024-10-25T06:20:00.000Z",
+      "type": "facilitator_action",
+      "action": "Escalated severity to CRITICAL",
+      "facilitator_role": "FACILITATOR",
+      "metadata": {
+        "reason": "Multiple attack vectors detected simultaneously"
+      }
+    },
+    {
+      "timestamp": "2024-10-25T06:22:00.000Z",
+      "type": "inject",
+      "severity": "critical",
+      "content": "Regulatory notification required within 72 hours. Legal team needs immediate incident assessment for compliance reporting.",
+      "target_roles": ["Legal Counsel", "Exec Sponsor"],
+      "inject_id": "inject_004"
+    },
+    {
+      "timestamp": "2024-10-25T06:25:00.000Z",
+      "type": "decision",
+      "role": "Legal Counsel",
+      "action": "Initiated regulatory notification process",
+      "rationale": "Compliance with data breach notification requirements"
+    },
+    {
+      "timestamp": "2024-10-25T06:30:00.000Z",
+      "type": "facilitator_action",
+      "action": "Ended session",
+      "facilitator_role": "FACILITATOR",
+      "metadata": {
+        "reason": "Sufficient data collected for assessment"
+      }
+    }
+  ],
+  "scoring": {
+    "overall_score": 82,
+    "breakdown": {
+      "technical_response": {
+        "score": 85,
+        "weight": 40,
+        "details": [
+          "Quick incident detection and analysis",
+          "Effective containment measures",
+          "Good forensic evidence preservation",
+          "System restoration procedures followed"
+        ]
+      },
+      "legal_compliance": {
+        "score": 92,
+        "weight": 20,
+        "details": [
+          "Timely regulatory notification initiation",
+          "Proper legal counsel engagement",
+          "Evidence chain of custody maintained",
+          "Policy adherence demonstrated"
+        ]
+      },
+      "communication": {
+        "score": 78,
+        "weight": 20,
+        "details": [
+          "Appropriate media response strategy",
+          "Internal stakeholder communication",
+          "Message consistency maintained",
+          "Crisis communication plan activated"
+        ]
+      },
+      "executive_decision_making": {
+        "score": 88,
+        "weight": 10,
+        "details": [
+          "Strategic decisions made promptly",
+          "Resource allocation appropriate",
+          "Risk assessment conducted",
+          "Leadership presence maintained"
+        ]
+      },
+      "business_continuity": {
+        "score": 88,
+        "weight": 10,
+        "details": [
+          "Business impact analysis initiated",
+          "Recovery procedures followed",
+          "Alternate systems considered",
+          "Data backup verification completed"
+        ]
+      }
+    }
+  },
+  "gaps_identified": [
+    {
+      "category": "Technical",
+      "severity": "medium",
+      "description": "Network monitoring could be enhanced with automated threat detection",
+      "recommendation": "Implement SIEM with behavioral analytics"
+    },
+    {
+      "category": "Communication",
+      "severity": "low",
+      "description": "Media response templates could be more comprehensive",
+      "recommendation": "Develop scenario-specific communication templates"
+    },
+    {
+      "category": "Process",
+      "severity": "medium",
+      "description": "Financial authorization verification process needs strengthening",
+      "recommendation": "Implement multi-factor verification for wire transfers"
+    }
+  ],
+  "remediation_plan": [
+    {
+      "priority": "high",
+      "timeline": "30 days",
+      "action": "Enhance network monitoring with automated threat detection",
+      "owner": "Network Admin",
+      "status": "planned"
+    },
+    {
+      "priority": "medium",
+      "timeline": "60 days",
+      "action": "Develop comprehensive media response templates",
+      "owner": "PR/Comms",
+      "status": "planned"
+    },
+    {
+      "priority": "high",
+      "timeline": "14 days",
+      "action": "Implement multi-factor verification for financial transactions",
+      "owner": "Exec Sponsor",
+      "status": "planned"
+    },
+    {
+      "priority": "medium",
+      "timeline": "90 days",
+      "action": "Conduct tabletop exercise quarterly",
+      "owner": "IR Lead",
+      "status": "planned"
+    }
+  ],
+  "compliance_alignment": {
+    "nist_800_61": {
+      "detection": "Met",
+      "analysis": "Met",
+      "containment": "Met",
+      "eradication": "Partially Met",
+      "recovery": "Met",
+      "lessons_learned": "Met"
+    },
+    "soc2": {
+      "security": "Met",
+      "availability": "Met",
+      "confidentiality": "Met",
+      "processing_integrity": "Partially Met",
+      "privacy": "Met"
+    },
+    "iso_27035": {
+      "incident_management": "Met",
+      "response_procedures": "Met",
+      "communication": "Met",
+      "documentation": "Met"
+    }
+  },
+  "metadata": {
+    "generated_at": "2024-10-25T06:30:00.000Z",
+    "generated_by": "ThreatRecon Platform",
+    "version": "1.0",
+    "scenario_version": "1.0",
+    "tenant_id": "public",
+    "session_duration": 30,
+    "total_decisions": 6,
+    "total_injects": 4,
+    "facilitator_actions": 2,
+    "signed_hash": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+    "signing_key_id": "tr-public-hosted-v1",
+    "generated_at": "2024-10-25T06:30:00.000Z",
+    "content_hash": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+  }
+}

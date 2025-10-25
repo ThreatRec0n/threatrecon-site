@@ -1,0 +1,191 @@
+{
+  "id": "ddos_customer_site",
+  "title": "DDoS Attack on Customer-Facing Systems",
+  "description": "A distributed denial-of-service attack targeting customer-facing systems, testing technical response, business continuity, and customer communication capabilities.",
+  "difficulty": "low",
+  "duration_minutes": 60,
+  "roles": [
+    "SOC Analyst",
+    "Network Engineer",
+    "Web Operations",
+    "Customer Support",
+    "Communications Director",
+    "Business Operations",
+    "Executive Leadership"
+  ],
+  "injects": [
+    {
+      "id": "inject_001",
+      "time_offset_minutes": 0,
+      "type": "siem",
+      "target_roles": ["SOC Analyst"],
+      "content": "Critical Alert: Unusual traffic spike detected on customer portal. Traffic volume increased by {{TRAFFIC_INCREASE}}% in last 5 minutes. Source IPs appear to be distributed globally.",
+      "severity": "warning",
+      "required_actions": [
+        {
+          "role": "SOC Analyst",
+          "action": "Investigate traffic patterns and identify potential DDoS attack",
+          "timeout_minutes": 10,
+          "penalty_points": 15
+        }
+      ],
+      "scoring_impact": {
+        "technical_response": 20
+      }
+    },
+    {
+      "id": "inject_002",
+      "time_offset_minutes": 10,
+      "type": "sim_log",
+      "target_roles": ["Network Engineer", "Web Operations"],
+      "content": "System Status: Customer portal experiencing severe performance degradation. Response times exceeding 30 seconds. Multiple customers reporting inability to access services.",
+      "severity": "critical",
+      "required_actions": [
+        {
+          "role": "Network Engineer",
+          "action": "Activate DDoS mitigation and implement traffic filtering",
+          "timeout_minutes": 5,
+          "penalty_points": 20
+        },
+        {
+          "role": "Web Operations",
+          "action": "Scale up infrastructure and activate load balancing",
+          "timeout_minutes": 10,
+          "penalty_points": 15
+        }
+      ],
+      "scoring_impact": {
+        "technical_response": 30,
+        "business_continuity": 25
+      }
+    },
+    {
+      "id": "inject_003",
+      "time_offset_minutes": 20,
+      "type": "email",
+      "target_roles": ["Customer Support"],
+      "content": "Customer Impact: Support tickets increased by {{TICKET_INCREASE}}% in last 15 minutes. Customers reporting complete inability to access services. Social media complaints escalating.",
+      "severity": "critical",
+      "required_actions": [
+        {
+          "role": "Customer Support",
+          "action": "Activate incident response procedures and prepare customer communications",
+          "timeout_minutes": 10,
+          "penalty_points": 20
+        }
+      ],
+      "scoring_impact": {
+        "communication": 25,
+        "business_continuity": 20
+      }
+    },
+    {
+      "id": "inject_004",
+      "time_offset_minutes": 30,
+      "type": "email",
+      "target_roles": ["Communications Director"],
+      "content": "Media Inquiry: Technology news outlet asking about reports of service outages affecting {{ORG_NAME}} customers. They have received multiple customer complaints about inaccessible services.",
+      "severity": "warning",
+      "required_actions": [
+        {
+          "role": "Communications Director",
+          "action": "Prepare public statement and customer communication strategy",
+          "timeout_minutes": 15,
+          "penalty_points": 15
+        }
+      ],
+      "scoring_impact": {
+        "communication": 30,
+        "executive_decision": 20
+      }
+    },
+    {
+      "id": "inject_005",
+      "time_offset_minutes": 40,
+      "type": "siem",
+      "target_roles": ["SOC Analyst", "Network Engineer"],
+      "content": "Attack Analysis: DDoS attack confirmed. Traffic patterns indicate {{ATTACK_TYPE}} attack targeting {{TARGET_SYSTEMS}}. Attack appears to be coordinated and ongoing.",
+      "severity": "info",
+      "required_actions": [
+        {
+          "role": "SOC Analyst",
+          "action": "Document attack characteristics and update threat intelligence",
+          "timeout_minutes": 10,
+          "penalty_points": 10
+        },
+        {
+          "role": "Network Engineer",
+          "action": "Implement additional mitigation measures and monitor effectiveness",
+          "timeout_minutes": 5,
+          "penalty_points": 10
+        }
+      ],
+      "scoring_impact": {
+        "technical_response": 20
+      }
+    },
+    {
+      "id": "inject_006",
+      "time_offset_minutes": 50,
+      "type": "manual",
+      "target_roles": ["Executive Leadership"],
+      "content": "Business Impact Assessment: Service outage has affected {{AFFECTED_CUSTOMERS}} customers for {{OUTAGE_DURATION}} minutes. Revenue impact estimated at {{REVENUE_IMPACT}}. How do you prioritize response efforts?",
+      "severity": "warning",
+      "required_actions": [
+        {
+          "role": "Executive Leadership",
+          "action": "Provide strategic direction for response prioritization and customer communication",
+          "timeout_minutes": 10,
+          "penalty_points": 20
+        }
+      ],
+      "scoring_impact": {
+        "executive_decision": 35,
+        "business_continuity": 30,
+        "communication": 25
+      }
+    }
+  ],
+  "branching_rules": [
+    {
+      "id": "branch_001",
+      "condition": "response.action == 'activate_mitigation'",
+      "true_goto": "inject_007",
+      "false_goto": "inject_008"
+    },
+    {
+      "id": "branch_002",
+      "condition": "response.action == 'scale_infrastructure'",
+      "true_goto": "inject_009",
+      "false_goto": "inject_010"
+    }
+  ],
+  "end_conditions": [
+    {
+      "type": "time_elapsed",
+      "minutes": 60
+    },
+    {
+      "type": "manual_end"
+    }
+  ],
+  "metadata": {
+    "author": "ThreatRecon Team",
+    "version": "1.0",
+    "tags": ["ddos", "availability", "customer-impact", "infrastructure"],
+    "industry": "technology",
+    "compliance_frameworks": ["SOC2", "ISO27001"],
+    "mitre_attack_techniques": ["T1498", "T1499"],
+    "estimated_setup_time": 10,
+    "facilitator_notes": "This scenario focuses on availability and customer communication during service disruptions. Emphasize the importance of rapid technical response and transparent customer communication.",
+    "prerequisites": [
+      "Understanding of DDoS attacks",
+      "Network infrastructure knowledge",
+      "Customer communication protocols",
+      "Business continuity procedures"
+    ]
+  },
+  "tenantId": "public",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z"
+}
