@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger';
-import { AuditEvent, FacilitatorAction } from '../../shared/types';
+import { AuditEvent, FacilitatorAction } from '../shared/types';
 
 export class AuditService {
   private auditEvents: Map<string, AuditEvent[]> = new Map();

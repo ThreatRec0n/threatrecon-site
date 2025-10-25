@@ -7,14 +7,6 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": false,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": true,
     "noImplicitAny": false,
     "noImplicitReturns": false,
     "noImplicitThis": false,
@@ -24,11 +16,21 @@
     "noImplicitOverride": false,
     "noPropertyAccessFromIndexSignature": false,
     "noUncheckedIndexedAccess": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@/shared/*": ["../shared/*"],
-      "../../shared/*": ["../shared/*"]
+      "@/shared/*": ["./src/shared/*"],
+      "../../shared/*": ["./src/shared/*"],
+      "../../shared/types": ["./src/shared/types"],
+      "../../shared/types/*": ["./src/shared/types/*"]
     }
   },
   "include": [
@@ -36,8 +38,6 @@
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts"
+    "dist"
   ]
 }

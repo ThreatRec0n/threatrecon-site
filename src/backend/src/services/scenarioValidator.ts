@@ -1,4 +1,4 @@
-import { Scenario, Inject, BranchingRule, EndCondition } from '../../shared/types';
+import { Scenario, Inject, BranchingRule, EndCondition } from '../shared/types';
 import { logger } from '../utils/logger';
 
 export interface ValidationResult {
@@ -311,7 +311,7 @@ export class ScenarioValidator {
    */
   private validateReachability(scenario: Scenario, errors: string[], warnings: string[]): void {
     const reachableInjects = this.findReachableInjects(scenario);
-    const allInjectIds = new Set(scenario.injects.map(i => i.id));
+    const allInjectIds = new Set<string>(scenario.injects.map(i => i.id));
     
     const unreachableInjects = [...allInjectIds].filter(id => !reachableInjects.has(id));
     

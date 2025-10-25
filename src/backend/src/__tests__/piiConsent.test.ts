@@ -236,7 +236,7 @@ describe('PII Consent and Data Retention', () => {
       expect(publicTenantNeedsPIIGuard).toBe(true);
 
       // Private tenant should have PII guard disabled
-      const privateTenantNeedsPIIGuard = privateTenant !== 'public';
+      const privateTenantNeedsPIIGuard = !privateTenant.includes('public');
       expect(privateTenantNeedsPIIGuard).toBe(true);
 
       console.log('✅ Tenant isolation test passed');

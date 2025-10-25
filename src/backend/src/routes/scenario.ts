@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { ScenarioValidator } from '../services/scenarioValidator';
 import { ScenarioService } from '../services/scenarioService';
 import { logger } from '../utils/logger';
-import { Scenario } from '../../shared/types';
+import { Scenario } from '../shared/types';
 
 const router = Router();
 const scenarioValidator = new ScenarioValidator();

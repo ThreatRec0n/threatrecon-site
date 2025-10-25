@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { logger } from '../utils/logger';
-import { User, AuthToken } from '../../shared/types';
+import { User, AuthToken } from '../shared/types';
 
 // Extend Request interface
 declare global {

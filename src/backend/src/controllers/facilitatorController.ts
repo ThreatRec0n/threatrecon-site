@@ -4,7 +4,7 @@ import { OrchestrationService } from '../services/orchestrationService';
 import { ExportService } from '../services/exportService';
 import { AuditService } from '../services/auditService';
 import { logger } from '../utils/logger';
-import { DrillSession, SessionEvent, Inject } from '../../shared/types';
+import { DrillSession, SessionEvent, Inject } from '../shared/types';
 
 export class FacilitatorController {
   private sessionService: SessionService;

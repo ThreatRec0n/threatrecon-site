@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger';
 import { AARSigningService } from './aarSigningService';
-import { DrillSession, Decision, SessionEvent } from '../../shared/types';
+import { DrillSession, Decision, SessionEvent } from '../shared/types';
 
 export class ExportService {
   private aarSigningService: AARSigningService;

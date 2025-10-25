@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger';
-import { Inject, DrillSession } from '../../shared/types';
+import { Inject, DrillSession } from '../shared/types';
 
 export class OrchestrationService {
   private queuedInjects: Map<string, Inject[]> = new Map();

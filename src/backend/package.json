@@ -75,6 +75,26 @@
       "src/**/*.ts",
       "!src/**/*.d.ts",
       "!src/server.ts"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^@/shared/(.*)$": "<rootDir>/src/shared/$1",
+      "^../../shared/(.*)$": "<rootDir>/src/shared/$1",
+      "^../../shared/types$": "<rootDir>/src/shared/types",
+      "^../../shared/types/(.*)$": "<rootDir>/src/shared/types/$1",
+      "^./shared/(.*)$": "<rootDir>/src/shared/$1",
+      "^./shared/types$": "<rootDir>/src/shared/types"
+    },
+    "transform": {
+      "^.+\\.ts$": ["ts-jest", {
+        "tsconfig": {
+          "strict": false,
+          "noImplicitAny": false,
+          "skipLibCheck": true
+        }
+      }]
+    },
+    "moduleFileExtensions": ["ts", "js", "json"],
+    "setupFilesAfterEnv": ["<rootDir>/src/__tests__/setup.ts"]
   }
 }

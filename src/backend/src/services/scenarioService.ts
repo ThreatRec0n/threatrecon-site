@@ -1,4 +1,4 @@
-import { Scenario, Inject, BranchingRule, EndCondition } from '../../shared/types';
+import { Scenario, Inject, BranchingRule, EndCondition } from '../shared/types';
 import { validateScenario } from '../utils/scenarioValidator';
 import { logger } from '../utils/logger';
 import fs from 'fs/promises';

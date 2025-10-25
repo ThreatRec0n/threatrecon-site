@@ -1,4 +1,4 @@
-import { Scenario, Inject, BranchingRule, EndCondition } from '../../shared/types';
+import { Scenario, Inject, BranchingRule, EndCondition } from '../shared/types';
 
 export interface ValidationResult {
   valid: boolean;

@@ -1,5 +1,5 @@
 import { ScenarioValidator } from '../services/scenarioValidator';
-import { Scenario } from '../../shared/types';
+import { Scenario } from './types';
 
 describe('Scenario Validator', () => {
   let validator: ScenarioValidator;

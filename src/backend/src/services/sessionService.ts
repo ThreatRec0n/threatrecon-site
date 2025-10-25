@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger';
-import { DrillSession, SessionEvent, Decision } from '../../shared/types';
+import { DrillSession, SessionEvent, Decision } from '../shared/types';
 
 export class SessionService {
   private sessions: Map<string, DrillSession> = new Map();
