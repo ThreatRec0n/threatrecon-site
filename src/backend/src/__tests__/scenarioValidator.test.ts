@@ -36,14 +36,21 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(validScenario);
@@ -80,19 +87,26 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(invalidScenario);
       expect(result.status).toBe('fail');
-      expect(result.errors).toContain('Duplicate inject ID found: duplicate_id');
+      expect(result.errors).toContain("Inject 1: Duplicate ID 'duplicate_id'");
 
       console.log('✅ Duplicate ID validation test passed');
     });
@@ -122,19 +136,26 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(invalidScenario);
       expect(result.status).toBe('fail');
-      expect(result.errors).toContain('Inject inject_1 branches to non-existent inject ID: nonexistent_inject');
+      expect(result.errors).toContain("Inject 0, Branch 0: Goto target 'nonexistent_inject' not found");
 
       console.log('✅ Invalid branching validation test passed');
     });
@@ -158,19 +179,26 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(invalidScenario);
       expect(result.status).toBe('fail');
-      expect(result.errors).toContain('Inject inject_1 targets non-existent role: INVALID_ROLE');
+      expect(result.errors).toContain("Inject 0: Target role 'INVALID_ROLE' not found in scenario roles");
 
       console.log('✅ Invalid role validation test passed');
     });
@@ -194,19 +222,26 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(invalidScenario);
       expect(result.status).toBe('fail');
-      expect(result.errors).toContain('Inject inject_1 has invalid time_offset_minutes: -5');
+      expect(result.errors).toContain('Inject 0: Time offset cannot be negative');
 
       console.log('✅ Negative time offset validation test passed');
     });
@@ -230,19 +265,26 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(invalidScenario);
       expect(result.status).toBe('fail');
-      expect(result.errors).toContain('Scenario duration (30 min) is less than the maximum inject offset (45 min).');
+      expect(result.errors).toContain('Scenario duration (30 min) is less than maximum inject time (45 min)');
 
       console.log('✅ Duration mismatch validation test passed');
     });
@@ -286,14 +328,21 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(invalidScenario);
@@ -322,7 +371,7 @@ describe('Scenario Validator', () => {
           },
           {
             id: 'unreachable_inject',
-            time_offset_minutes: null, // No initial trigger
+            time_offset_minutes: -1, // Invalid negative offset
             type: 'text',
             target_roles: ['SOC_ANALYST'],
             content: 'Unreachable inject',
@@ -331,14 +380,21 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(scenarioWithWarning);
@@ -360,14 +416,21 @@ describe('Scenario Validator', () => {
         roles: ['SOC_ANALYST'],
         injects: [], // Empty injects
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(emptyScenario);
@@ -388,7 +451,7 @@ describe('Scenario Validator', () => {
         injects: [
           {
             id: 'inject_1',
-            time_offset_minutes: null, // Null offset
+            time_offset_minutes: -5, // Invalid negative offset
             type: 'text',
             target_roles: ['SOC_ANALYST'],
             content: 'First inject',
@@ -396,19 +459,26 @@ describe('Scenario Validator', () => {
           }
         ],
         branching_rules: [],
-        end_conditions: [],
+        end_conditions: [
+          {
+            type: 'time_elapsed',
+            minutes: 60
+          }
+        ],
         metadata: {
           author: 'Test Author',
           version: '1.0',
           tags: ['test'],
           estimated_setup_time: 5
         },
-        tenantId: 'test-tenant'
+        tenantId: 'test-tenant',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const result = await validator.validateScenario(nullOffsetScenario);
       expect(result.status).toBe('fail');
-      expect(result.errors).toContain('Inject inject_1 has invalid time_offset_minutes: null');
+      expect(result.errors).toContain('Inject 0: Time offset cannot be negative');
 
       console.log('✅ Null time offset validation test passed');
     });

@@ -94,6 +94,7 @@ export interface InjectMetadata {
   ip_address?: string;
   user_agent?: string;
   headers?: Record<string, string>;
+  facilitatorRole?: string;
 }
 
 export interface BranchingRule {

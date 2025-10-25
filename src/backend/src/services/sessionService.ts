@@ -32,11 +32,30 @@ export class SessionService {
           role: p.role,
           name: p.name || `Participant_${p.role}`,
           joinedAt: new Date(),
-          lastActivity: new Date()
+          lastActivity: new Date(),
+          decisions: []
         })),
         events: [],
-        scores: {},
+        scores: {
+          technical_response: { score: 0, maxScore: 100, penalties: [], bonuses: [], breakdown: { requiredActionsCompleted: 0, totalRequiredActions: 0, evidencePreserved: false, legalNotified: false, communicationsSent: false, businessContinuityActivated: false } },
+          legal_compliance: { score: 0, maxScore: 100, penalties: [], bonuses: [], breakdown: { requiredActionsCompleted: 0, totalRequiredActions: 0, evidencePreserved: false, legalNotified: false, communicationsSent: false, businessContinuityActivated: false } },
+          communication: { score: 0, maxScore: 100, penalties: [], bonuses: [], breakdown: { requiredActionsCompleted: 0, totalRequiredActions: 0, evidencePreserved: false, legalNotified: false, communicationsSent: false, businessContinuityActivated: false } },
+          executive_decision: { score: 0, maxScore: 100, penalties: [], bonuses: [], breakdown: { requiredActionsCompleted: 0, totalRequiredActions: 0, evidencePreserved: false, legalNotified: false, communicationsSent: false, businessContinuityActivated: false } },
+          business_continuity: { score: 0, maxScore: 100, penalties: [], bonuses: [], breakdown: { requiredActionsCompleted: 0, totalRequiredActions: 0, evidencePreserved: false, legalNotified: false, communicationsSent: false, businessContinuityActivated: false } },
+          overall: 0,
+          calculatedAt: new Date()
+        },
         settings: sessionData.settings || {},
+        facilitator: {
+          name: 'Test Facilitator',
+          permissions: {
+            canPause: true,
+            canInject: true,
+            canEscalate: true,
+            canEndSession: true,
+            canViewAllDecisions: true
+          }
+        },
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -138,7 +157,14 @@ export class SessionService {
       }
 
       if (!session.settings) {
-        session.settings = {};
+        session.settings = {
+          difficulty: 'medium',
+          noiseLevel: 0,
+          timeAcceleration: 1.0,
+          allowManualInjects: true,
+          enableBranching: true,
+          scoringEnabled: true
+        };
       }
       session.settings.currentSeverity = severity;
       session.updatedAt = new Date();
