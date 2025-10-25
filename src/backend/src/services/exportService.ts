@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger';
 import { AARSigningService } from './aarSigningService';
-import { DrillSession, Decision, SessionEvent } from '../shared/types';
+import { DrillSession, Decision, SessionEvent, AARMetadata } from '../shared/types';
 
 export class ExportService {
   private aarSigningService: AARSigningService;
@@ -44,8 +44,11 @@ export class ExportService {
       const signature = this.aarSigningService.signAAR(mockAAR);
       mockAAR.metadata = {
         ...mockAAR.metadata,
-        ...signature
-      };
+        signed_hash: signature.signed_hash,
+        signing_key_id: signature.signing_key_id,
+        content_hash: signature.content_hash
+        // Keep generated_at as Date, don't overwrite with string
+      } as AARMetadata;
 
       const downloadUrl = `/api/export/${sessionId}/${format}`;
 

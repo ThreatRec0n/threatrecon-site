@@ -353,6 +353,9 @@ export interface AARMetadata {
   total_decisions: number;
   total_injects: number;
   cryptographic_hash?: string;
+  signed_hash?: string;
+  signing_key_id?: string;
+  content_hash?: string;
 }
 
 // User and Authentication Types

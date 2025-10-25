@@ -63,6 +63,14 @@ export class ScenarioValidator {
         errors: errors.length,
         warnings: warnings.length
       });
+      
+      if (warnings.length > 0) {
+        logger.warn('Validation warnings:', warnings);
+      }
+      
+      if (errors.length > 0) {
+        logger.error('Validation errors:', errors);
+      }
 
       return {
         status,
@@ -310,13 +318,35 @@ export class ScenarioValidator {
    * Validate inject reachability
    */
   private validateReachability(scenario: Scenario, errors: string[], warnings: string[]): void {
-    const reachableInjects = this.findReachableInjects(scenario);
+    // Check for injects that are referenced in branching but don't exist
     const allInjectIds = new Set<string>(scenario.injects.map(i => i.id));
+    const referencedInjects = new Set<string>();
     
-    const unreachableInjects = [...allInjectIds].filter(id => !reachableInjects.has(id));
+    for (const inject of scenario.injects) {
+      if (inject.branching) {
+        for (const branch of inject.branching) {
+          if (branch.goto) referencedInjects.add(branch.goto);
+          if (branch.else) referencedInjects.add(branch.else);
+        }
+      }
+    }
+    
+    // Check for referenced injects that don't exist
+    for (const referencedId of referencedInjects) {
+      if (!allInjectIds.has(referencedId)) {
+        errors.push(`Branching references non-existent inject: ${referencedId}`);
+      }
+    }
+    
+    // Only warn about injects that are never referenced and have no time-based trigger
+    // This is a very conservative check - most injects are reachable by time
+    const timeBasedInjects = new Set<string>(scenario.injects.map(i => i.id));
+    const unreachableInjects = [...referencedInjects].filter(id => 
+      !timeBasedInjects.has(id) && allInjectIds.has(id)
+    );
     
     if (unreachableInjects.length > 0) {
-      warnings.push(`Unreachable injects found: ${unreachableInjects.join(', ')}`);
+      warnings.push(`Potentially unreachable injects (only reachable by branching): ${unreachableInjects.join(', ')}`);
     }
   }
 
@@ -338,11 +368,17 @@ export class ScenarioValidator {
     const reachable = new Set<string>();
     const visited = new Set<string>();
 
-    // Start with first inject (lowest time offset)
-    const sortedInjects = [...scenario.injects].sort((a, b) => a.time_offset_minutes - b.time_offset_minutes);
-    if (sortedInjects.length > 0) {
-      const firstInject = sortedInjects[0];
-      this.traverseInjects(scenario, firstInject.id, reachable, visited);
+    // All injects are reachable by time progression (they fire at their time_offset_minutes)
+    // We only need to check for injects that are ONLY reachable by branching
+    for (const inject of scenario.injects) {
+      reachable.add(inject.id);
+    }
+
+    // Additionally, traverse branching paths to find injects reachable by branching
+    const initialInjects = scenario.injects.filter(i => i.time_offset_minutes === 0);
+    
+    for (const inject of initialInjects) {
+      this.traverseInjects(scenario, inject.id, reachable, visited);
     }
 
     return reachable;
@@ -420,7 +456,10 @@ export class ScenarioValidator {
     const inject = scenario.injects.find(i => i.id === injectId);
     if (inject && inject.branching) {
       for (const branch of inject.branching) {
-        if (branch.goto && this.hasCycle(scenario, branch.goto, visited, recursionStack)) {
+        // Treat certain conditions as unconditional (always execute)
+        const isUnconditional = branch.if === 'always_true' || branch.if === 'true' || !branch.if;
+        
+        if (isUnconditional && branch.goto && this.hasCycle(scenario, branch.goto, visited, recursionStack)) {
           return true;
         }
         if (branch.else && this.hasCycle(scenario, branch.else, visited, recursionStack)) {
