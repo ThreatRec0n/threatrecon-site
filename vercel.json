@@ -29,6 +29,7 @@
       "maxDuration": 30
     }
   },
-  "buildCommand": "echo 'Skipping TypeScript build for deployment'",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "installCommand": "npm install"
 }
