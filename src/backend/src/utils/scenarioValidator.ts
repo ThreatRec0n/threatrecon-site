@@ -162,7 +162,7 @@ function validateInject(inject: Inject, availableRoles: string[], index: number)
 
 function validateBranchingRule(rule: BranchingRule, injects: Inject[], index: number): string[] {
   const errors: string[] = [];
-  const injectIds = injects.map(i => i.id);
+  const injectIds = injects.map((i: any) => i.id);
 
   if (!rule.id) {
     errors.push(`Branching rule ${index}: ID is required`);
@@ -194,7 +194,7 @@ function validateBranchingRule(rule: BranchingRule, injects: Inject[], index: nu
 
 function validateEndCondition(condition: EndCondition, injects: Inject[], index: number): string[] {
   const errors: string[] = [];
-  const injectIds = injects.map(i => i.id);
+  const injectIds = injects.map((i: any) => i.id);
 
   if (!condition.type || !['time_elapsed', 'all_injects_complete', 'manual_end'].includes(condition.type)) {
     errors.push(`End condition ${index}: Invalid type`);
