@@ -2,6 +2,7 @@
 
 **Enterprise-grade incident response training platform that transforms tabletop chaos into auditable remediation and training artifacts.**
 
+
 ## 🎯 **What This Is**
 
 ThreatRecon Drill Platform is a comprehensive breach simulation engine that runs full incident response war rooms in the browser. It captures authoritative incident timelines, scores team readiness across multiple axes, and produces regulatory/compliance artifacts that turn tabletop exercises into auditable remediation and training records.
