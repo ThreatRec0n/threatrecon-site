@@ -1,0 +1,13 @@
+name: Vercel (Disabled)
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  manual_vercel_deploy_disabled:
+    runs-on: ubuntu-latest
+    if: false  # Never runs automatically
+    steps:
+      - name: Vercel deployment disabled
+        run: echo "Vercel deployment is disabled. Production is served from GitHub Pages."
+
