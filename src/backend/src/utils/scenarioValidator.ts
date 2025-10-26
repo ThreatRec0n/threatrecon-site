@@ -72,9 +72,9 @@ export function validateScenario(scenario: Scenario): ValidationResult {
 
   // Check for unreachable injects
   const reachableInjects = findReachableInjects(scenario);
-  const unreachableInjects = scenario.injects.filter(inject => !reachableInjects.has(inject.id));
+  const unreachableInjects = scenario.injects.filter((inject: any) => !reachableInjects.has(inject.id));
   if (unreachableInjects.length > 0) {
-    warnings.push(`Unreachable injects found: ${unreachableInjects.map(i => i.id).join(', ')}`);
+    warnings.push(`Unreachable injects found: ${unreachableInjects.map((inject: any) => inject.id).join(', ')}`);
   }
 
   // Check for infinite loops
@@ -250,7 +250,7 @@ function findReachableInjects(scenario: Scenario): Set<string> {
     if (visited.has(injectId)) return;
     visited.add(injectId);
 
-    const inject = scenario.injects.find(i => i.id === injectId);
+    const inject = scenario.injects.find((i: any) => i.id === injectId);
     if (!inject) return;
 
     reachable.add(injectId);
@@ -293,7 +293,7 @@ function detectInfiniteLoop(scenario: Scenario): boolean {
     visited.add(injectId);
     recursionStack.add(injectId);
 
-    const inject = scenario.injects.find(i => i.id === injectId);
+    const inject = scenario.injects.find((i: any) => i.id === injectId);
     if (inject && inject.branching) {
       for (const branch of inject.branching) {
         if (branch.goto && hasCycle(branch.goto)) {
