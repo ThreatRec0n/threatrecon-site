@@ -20,8 +20,13 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
       const decoded = jwt.verify(token, SecurityConfig.JWT_SECRET) as any;
       req.user = {
         id: decoded.id,
+        email: decoded.email || '',
+        name: decoded.name || '',
         role: decoded.role,
-        tenantId: decoded.tenantId
+        tenantId: decoded.tenantId,
+        permissions: decoded.permissions || [],
+        createdAt: decoded.createdAt || new Date(),
+        updatedAt: decoded.updatedAt || new Date()
       };
       req.tenantId = decoded.tenantId;
       next();

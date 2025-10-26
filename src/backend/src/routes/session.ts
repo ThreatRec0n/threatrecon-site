@@ -38,7 +38,7 @@ router.post('/start',
       });
 
       // Load the scenario
-      const scenario = await scenarioService.getScenario(scenarioId);
+      const scenario = await scenarioService.getScenario(scenarioId, tenantId);
       if (!scenario) {
         res.status(404).json({ 
           error: 'Scenario not found',
