@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { generateExampleAAR, exportExampleAARAsJSON, exportExampleAARAsMarkdown } from '../generateExampleAAR';
+import { generateExampleAAR, exportExampleAARAsJSON, exportExampleAARAsMarkdown } from './generateExampleAAR';
 
 /**
  * Generate example AAR files for marketing purposes
@@ -87,9 +87,9 @@ BT
 0 -20 Td
 (Business Continuity: ${aar.scoring.category_scores.business_continuity.percentage}%) Tj
 0 -40 Td
-(Signed Hash: ${aar.metadata.signed_hash}) Tj
+(Signed Hash: ${(aar.metadata as any).signed_hash || 'N/A'}) Tj
 0 -20 Td
-(Signing Key ID: ${aar.metadata.signing_key_id}) Tj
+(Signing Key ID: ${(aar.metadata as any).signing_key_id || 'N/A'}) Tj
 ET
 endstream
 endobj
