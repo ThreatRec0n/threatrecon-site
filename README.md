@@ -2,6 +2,7 @@
 
 **Enterprise-grade incident response training platform that transforms tabletop chaos into auditable remediation and training artifacts.**
 
+Deployment sync check: OK
 
 ## 🎯 **What This Is**
 
