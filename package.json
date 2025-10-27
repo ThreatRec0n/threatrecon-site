@@ -8,7 +8,7 @@
     "dev:backend": "cd src/backend && npm run dev",
     "dev:frontend": "cd src/frontend && npm run dev",
     "build": "npm run build:deploy",
-    "build:deploy": "node -e \"const fs=require('fs');const path=require('path');const dist='dist';if(!fs.existsSync(dist))fs.mkdirSync(dist,{recursive:true});if(fs.existsSync('server.js'))fs.copyFileSync('server.js',path.join(dist,'server.js'));if(fs.existsSync('labs-server.js'))fs.copyFileSync('labs-server.js',path.join(dist,'labs-server.js'));fs.cpSync('public',path.join(dist,'public'),{recursive:true});if(fs.existsSync('lib'))fs.cpSync('lib',path.join(dist,'lib'),{recursive:true});if(fs.existsSync('engine'))fs.cpSync('engine',path.join(dist,'engine'),{recursive:true});console.log('✅ Build complete - files copied to dist/');\"",
+    "build:deploy": "node -e \"const fs=require('fs');const path=require('path');const dist='dist';if(!fs.existsSync(dist))fs.mkdirSync(dist,{recursive:true});if(fs.existsSync('server.js'))fs.copyFileSync('server.js',path.join(dist,'server.js'));fs.cpSync('public',path.join(dist,'public'),{recursive:true,force:true});if(fs.existsSync('lib'))fs.cpSync('lib',path.join(dist,'lib'),{recursive:true,force:true});if(fs.existsSync('engine'))fs.cpSync('engine',path.join(dist,'engine'),{recursive:true,force:true});console.log('✅ Build complete - files copied to dist/');\"",
     "build:backend": "cd src/backend && npm run build",
     "build:frontend": "cd src/frontend && npm run build",
     "test": "npm run test:backend && npm run test:frontend",
