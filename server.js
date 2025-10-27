@@ -101,12 +101,12 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 ThreatRecon Backend running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🎯 Frontend: http://localhost:${PORT}`);
-  console.log(`📄 Example AAR: http://localhost:${PORT}/example-aar.html`);
-});
+// Start server (disabled for Vercel serverless functions)
+// app.listen(PORT, () => {
+//   console.log(`🚀 ThreatRecon Backend running on port ${PORT}`);
+//   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+//   console.log(`🎯 Frontend: http://localhost:${PORT}`);
+//   console.log(`📄 Example AAR: http://localhost:${PORT}/example-aar.html`);
+// });
 
 module.exports = app;
