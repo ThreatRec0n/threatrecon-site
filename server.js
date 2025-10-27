@@ -77,6 +77,31 @@ io.on('connection', (socket) => {
   
   let currentMatch = null;
   
+  // New xterm.js compatible handlers
+  socket.on('initSession', async ({ role }) => {
+    try {
+      const match = gameEngine.createMatch(role || 'attacker');
+      currentMatch = match;
+      aiLogic.startAI(match);
+      
+      socket.emit('sessionCreated', {
+        role: match.playerRole,
+        user: match.playerRole === 'attacker' ? 'attacker' : 'defender',
+        host: match.playerRole === 'attacker' ? 'kali' : 'SOC',
+        cwd: '~',
+        isRoot: false,
+        objectiveTitle: role === 'attacker' ? 'Exfiltrate data and maintain persistence' : 'Detect and contain intrusion',
+        objectiveText: role === 'attacker' ? 'Gain access, pivot laterally, exfiltrate sensitive data without detection.' : 'Monitor logs, collect evidence, block threats while maintaining service uptime.'
+      });
+      
+      // Join the socket to this match
+      socket.join(match.id);
+    } catch (err) {
+      console.error('Init session error:', err);
+      socket.emit('error', { message: 'Failed to create session' });
+    }
+  });
+  
   socket.on('join_match', ({ matchId }) => {
     currentMatch = gameEngine.getMatch(matchId);
     if (!currentMatch) {
@@ -85,6 +110,91 @@ io.on('connection', (socket) => {
     }
     socket.join(matchId);
     console.log(`Socket ${socket.id} joined match ${matchId}`);
+  });
+  
+  // New playerCommand handler for xterm.js
+  socket.on('playerCommand', async ({ cmd }) => {
+    if (!currentMatch || currentMatch.status !== 'active') {
+      return;
+    }
+    
+    try {
+      const match = currentMatch;
+      let result = { output: '', error: false };
+      
+      // Handle sudo/su commands for privilege escalation
+      if (/^\s*(sudo|su\s?-|su)\b/.test(cmd)) {
+        match.playerState.isRoot = true;
+        socket.emit('output', { text: '\x1b[1;32mroot access granted\x1b[0m\n' });
+        socket.emit('promptUpdate', { 
+          user: 'root', 
+          host: match.playerState.currentHost?.hostname || match.playerRole === 'attacker' ? 'kali' : 'SOC',
+          cwd: match.playerState.cwd || '~',
+          isRoot: true 
+        });
+        gameEngine.addEvent(match, { type: 'player_action', message: cmd, timestamp: new Date().toISOString() });
+        return;
+      }
+      
+      // Parse command and args
+      const parts = cmd.split(' ');
+      const command = parts[0];
+      const args = parts.slice(1);
+      
+      if (match.playerRole === 'attacker') {
+        const attackerCmds = new AttackerCommands();
+        result = attackerCmds.handleCommand(match, command, args);
+        
+        gameEngine.addEvent(match, {
+          type: 'player_action',
+          message: cmd,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        const defenderCmds = new DefenderCommands();
+        result = defenderCmds.handleCommand(match, command, args);
+        
+        gameEngine.addEvent(match, {
+          type: 'player_action',
+          message: cmd,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      // Send ANSI-colored output
+      const ansiOutput = result.error 
+        ? `\x1b[31m${result.output}\x1b[0m`
+        : result.output || '';
+      
+      socket.emit('output', { 
+        text: ansiOutput,
+        appendTimeline: {
+          time: new Date().toLocaleTimeString(),
+          msg: cmd
+        }
+      });
+      
+      // Check win conditions
+      const winner = gameEngine.checkWinConditions(match);
+      if (winner) {
+        gameEngine.endMatch(match.id, winner);
+        aiLogic.stopAI(match);
+        
+        const aar = AARGenerator.generateAAR(match);
+        socket.emit('matchEnded', { 
+          aar: {
+            outcome: winner === 'player' ? 'Victory' : 'Defeated',
+            duration: Math.round((Date.now() - new Date(match.startedAt)) / 60000),
+            timeline: match.timeline.map(t => ({ time: new Date(t.timestamp).toLocaleTimeString(), summary: t.message })),
+            recommendations: aar.recommendations || []
+          }
+        });
+      }
+      
+    } catch (err) {
+      console.error('Command error:', err);
+      socket.emit('output', { text: `\x1b[31mError: ${err.message}\x1b[0m\n` });
+    }
   });
   
   socket.on('execute_command', async ({ matchId, command, args }) => {

@@ -1,234 +1,166 @@
-// ThreatRecon Labs - Main Game Client
-// Handles UI interactions, terminal rendering, and WebSocket communication
-
-let socket;
-let matchId;
-let playerRole;
-let matchState = { status: 'waiting' };
-
-// DOM Elements
-const modeSelection = document.getElementById('modeSelection');
-const gameInterface = document.getElementById('gameInterface');
-const aarScreen = document.getElementById('aarScreen');
-const terminal = document.getElementById('terminal');
-const commandInput = document.getElementById('commandInput');
-const executeBtn = document.getElementById('executeBtn');
-const selectAttacker = document.getElementById('selectAttacker');
-const selectDefender = document.getElementById('selectDefender');
-const gameStatus = document.getElementById('gameStatus');
-const aarTitle = document.getElementById('aarTitle');
-const aarContent = document.getElementById('aarContent');
-const playAgainBtn = document.getElementById('playAgainBtn');
-
-// Connect WebSocket when role is selected
-function connectSocket() {
-  socket = io({
-    transports: ['polling', 'websocket'], // Ensure polling works on Vercel
-    upgrade: true,
-    rememberUpgrade: true
+// public/labs.js
+(() => {
+  const { Terminal } = window;
+  const { FitAddon } = window;
+  const term = new Terminal({
+    rows: 24,
+    cols: 120,
+    cursorBlink: true,
+    fontFamily: '"Fira Mono", "Source Code Pro", Menlo, monospace',
+    theme: {
+      background: '#000000',
+      foreground: '#cbd5e1',
+      cursor: '#94a3b8',
+    }
   });
-  
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
+
+  const socket = io({ transports: ['polling', 'websocket'] });
+  let session = null;
+  let prompt = '$';
+  let promptStr = '';
+  let inputBuffer = '';
+  let history = [];
+  let historyIndex = -1;
+  let connected = false;
+  const terminalEl = document.getElementById('terminal');
+  term.open(terminalEl);
+  fitAddon.fit();
+
+  // UI
+  document.getElementById('btn-attack').addEventListener('click', () => startSession('attacker'));
+  document.getElementById('btn-defend').addEventListener('click', () => startSession('defender'));
+  document.getElementById('btn-clear').addEventListener('click', () => term.clear());
+  window.addEventListener('resize', () => fitAddon.fit());
+
+  function writePrompt() {
+    promptStr = `${session?.user || 'player'}@${session?.host || 'lab'}:${session?.cwd || '~'}${session?.isRoot ? '#' : '$'} `;
+    term.write(`\x1b[1;32m${promptStr}\x1b[0m`);
+  }
+
+  function startSession(role) {
+    if (connected) return;
+    term.clear();
+    term.writeln(`Starting session as ${role}...`);
+    socket.emit('initSession', { role });
+  }
+
   socket.on('connect', () => {
-    log('Connected to ThreatRecon Labs server', 'system');
+    console.log('socket connected');
   });
-  
-  socket.on('connect_error', (err) => {
-    log(`Connection error: ${err.message}`, 'error');
+
+  socket.on('sessionCreated', (s) => {
+    session = s;
+    connected = true;
+    document.getElementById('sessionState').textContent = `Connected — ${s.role}`;
+    document.getElementById('objectiveTitle').textContent = s.objectiveTitle;
+    document.getElementById('objectiveText').textContent = s.objectiveText;
+    term.writeln('');
+    writePrompt();
   });
-  
-  socket.on('command_output', (data) => {
-    if (data.output && data.output.trim()) {
-      addOutput(data.output);
+
+  // Server can send raw ANSI bytes as a string
+  socket.on('output', (data) => {
+    // data: { text: ansiString, appendTimeline: {time,msg} }
+    if (data.appendTimeline) {
+      addTimelineEvent(data.appendTimeline);
+    }
+    term.write(data.text.replace(/\n/g, '\r\n'));
+    // After output, if session exists and not ended, reprint prompt if last char is newline
+    if (!session?.ended && data.showPrompt !== false) {
+      // If server wants to update prompt (e.g., become root), server emits 'promptUpdate'
+      if (!data.text.endsWith('\n')) return;
+      writePrompt();
     }
   });
-  
-  socket.on('ai_event', (data) => {
-    log(`[AI] ${data.message}`, 'ai');
-  });
-  
-  socket.on('match_ended', (data) => {
-    matchState = data;
-    showAAR(data);
-  });
-  
-  socket.on('timeline_update', (data) => {
-    updateTimeline(data.timeline);
-  });
-  
-  socket.on('disconnect', () => {
-    log('Disconnected from server', 'system');
-  });
-}
 
-// Mode selection handlers
-selectAttacker.addEventListener('click', () => {
-  startMatch('attacker');
-});
+  socket.on('promptUpdate', (s) => {
+    session = Object.assign(session || {}, s);
+    // redraw prompt on new line
+    term.write('\r\n');
+    writePrompt();
+  });
 
-selectDefender.addEventListener('click', () => {
-  startMatch('defender');
-});
+  socket.on('matchEnded', (payload) => {
+    session.ended = true;
+    term.write('\r\n\r\n\x1b[1;33m-- MATCH ENDED --\x1b[0m\r\n');
+    document.getElementById('aar').hidden = false;
+    document.getElementById('aar').innerText = formatAAR(payload.aar);
+    document.getElementById('btn-playagain').style.display = 'inline-block';
+  });
 
-// Start match
-async function startMatch(role) {
-  playerRole = role;
-  
-  try {
-    const res = await fetch('/api/labs/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role }),
-    });
-    
-    const data = await res.json();
-    
-    if (!res.ok || !data.matchId) {
-      log(`Error: ${data.error || 'Failed to create match'}`, 'error');
-      return;
-    }
-    
-    matchId = data.matchId;
-    
-    // Connect to socket now
-    connectSocket();
-    
-    modeSelection.classList.add('hidden');
-    gameInterface.classList.remove('hidden');
-    
-    log(`Match started. You are playing as ${role.toUpperCase()}.`, 'system');
-    log('Type "help" to see available commands.', 'system');
-    
-    // Join the match once connected
-    socket.once('connect', () => {
-      socket.emit('join_match', { matchId });
-    });
-    
-  } catch (err) {
-    log(`Error: ${err.message}`, 'error');
+  function addTimelineEvent(ev) {
+    const el = document.getElementById('timeline');
+    const p = document.createElement('div');
+    p.style.padding = '6px 8px';
+    p.style.borderBottom = '1px solid rgba(255,255,255,0.02)';
+    p.innerHTML = `<div style="font-size:12px;color:#94a3b8">${ev.time}</div><div style="margin-top:4px">${ev.msg}</div>`;
+    el.prepend(p); // newest on top
   }
-}
 
-// Terminal functions
-function log(message, type = 'system') {
-  const div = document.createElement('div');
-  div.className = 'mb-1';
-  
-  switch (type) {
-    case 'system':
-      div.className += ' text-blue-400';
-      break;
-    case 'ai':
-      div.className += ' text-yellow-400 italic';
-      break;
-    case 'error':
-      div.className += ' text-red-400';
-      break;
-    case 'prompt':
-      div.className += ' text-green-400';
-      break;
-    default:
-      div.className += ' text-white';
+  function formatAAR(aar) {
+    // Create a readable block
+    const lines = [];
+    lines.push(`Outcome: ${aar.outcome}`);
+    lines.push(`Duration: ${aar.duration}`);
+    lines.push('');
+    lines.push('Key Events:');
+    aar.timeline.forEach(t => lines.push(`- ${t.time} — ${t.summary}`));
+    lines.push('');
+    lines.push('Recommendations:');
+    aar.recommendations.forEach(r => lines.push(`- ${r}`));
+    return lines.join('\n');
   }
-  
-  div.textContent = message;
-  terminal.appendChild(div);
-  terminal.scrollTop = terminal.scrollHeight;
-}
 
-function addOutput(output) {
-  const lines = output.split('\n');
-  lines.forEach(line => {
-    if (line.trim()) {
-      log(line, 'output');
+  // Terminal input handling
+  term.onKey(e => {
+    const ev = e.domEvent;
+    const key = e.key;
+    if (session?.ended) return;
+
+    if (ev.key === 'Enter') {
+      term.write('\r\n');
+      const cmd = inputBuffer.trim();
+      history.unshift(cmd);
+      historyIndex = -1;
+      inputBuffer = '';
+      if (cmd.length > 0) {
+        socket.emit('playerCommand', { cmd });
+      } else {
+        writePrompt();
+      }
+    } else if (ev.key === 'Backspace') {
+      if (inputBuffer.length > 0) {
+        inputBuffer = inputBuffer.slice(0, -1);
+        term.write('\b \b');
+      }
+    } else if (ev.key === 'ArrowUp') {
+      if (history.length > 0) {
+        historyIndex = Math.min(history.length - 1, historyIndex + 1);
+        // clear current
+        for (let i=0;i<inputBuffer.length;i++) term.write('\b \b');
+        inputBuffer = history[historyIndex] || '';
+        term.write(inputBuffer);
+      }
+    } else if (ev.key === 'ArrowDown') {
+      if (historyIndex > 0) {
+        historyIndex--;
+        for (let i=0;i<inputBuffer.length;i++) term.write('\b \b');
+        inputBuffer = history[historyIndex] || '';
+        term.write(inputBuffer);
+      } else {
+        // clear
+        for (let i=0;i<inputBuffer.length;i++) term.write('\b \b');
+        inputBuffer = '';
+      }
+    } else if (key.length === 1) {
+      // printable
+      inputBuffer += key;
+      term.write(key);
     }
   });
-}
 
-// Execute command
-executeBtn.addEventListener('click', executeCommand);
-commandInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') executeCommand();
-});
-
-function executeCommand() {
-  const command = commandInput.value.trim();
-  if (!command) return;
-  
-  log(`${getPrompt()} ${command}`, 'command');
-  
-  socket.emit('execute_command', {
-    matchId,
-    command,
-    args: command.split(' ').slice(1),
-  });
-  
-  commandInput.value = '';
-}
-
-function getPrompt() {
-  if (playerRole === 'attacker') {
-    return `attacker@kali:$`;
-  } else {
-    return `PS SOC:\\>`;
-  }
-}
-
-// Update timeline
-function updateTimeline(timeline) {
-  const timelineDiv = document.getElementById('timeline');
-  timelineDiv.innerHTML = '';
-  
-  const recent = timeline.slice(-10); // Last 10 events
-  recent.forEach(event => {
-    const div = document.createElement('div');
-    div.className = 'text-xs text-gray-400 border-l-2 border-gray-700 pl-2';
-    div.textContent = `[${new Date(event.timestamp).toLocaleTimeString()}] ${event.message}`;
-    timelineDiv.appendChild(div);
-  });
-}
-
-// Show AAR
-function showAAR(data) {
-  gameInterface.classList.add('hidden');
-  aarScreen.classList.remove('hidden');
-  
-  const winner = data.winner === 'player' ? 'Victory' : 'Defeated';
-  aarTitle.textContent = winner;
-  aarTitle.className = data.winner === 'player' ? 'glow-green' : 'glow-red';
-  
-  let html = `
-    <div class="space-y-4">
-      <p><strong>Role:</strong> ${data.aar.playerRole}</p>
-      <p><strong>Duration:</strong> ${data.aar.duration} minutes</p>
-      <p><strong>Outcome:</strong> ${data.aar.outcome}</p>
-      
-      <h3 class="font-semibold">Statistics:</h3>
-      <ul class="list-disc list-inside text-sm text-gray-400">
-        <li>Total Events: ${data.aar.statistics.totalEvents}</li>
-        <li>Player Actions: ${data.aar.statistics.playerActions}</li>
-        <li>AI Actions: ${data.aar.statistics.aiActions}</li>
-      </ul>
-      
-      <h3 class="font-semibold">Key Findings:</h3>
-      <ul class="list-disc list-inside text-sm text-gray-400">
-        ${data.aar.keyFindings.map(f => `<li>${f}</li>`).join('')}
-      </ul>
-      
-      <h3 class="font-semibold">Recommendations:</h3>
-      <ul class="list-disc list-inside text-sm text-gray-400">
-        ${data.aar.recommendations.map(r => `<li>${r}</li>`).join('')}
-      </ul>
-    </div>
-  `;
-  
-  aarContent.innerHTML = html;
-}
-
-// Play again
-playAgainBtn.addEventListener('click', () => {
-  aarScreen.classList.add('hidden');
-  modeSelection.classList.remove('hidden');
-  terminal.innerHTML = '';
-  matchState = { status: 'waiting' };
-});
-
+  // keep the prompt accessible on click
+  terminalEl.addEventListener('click', () => term.focus());
+})();
