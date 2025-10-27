@@ -1,8 +1,22 @@
-# ThreatRecon Breach Drill Automation Stack
+# ThreatRecon Labs
 
-**Enterprise-grade incident response training platform that transforms tabletop chaos into auditable remediation and training artifacts.**
+**Single-player AI-driven cyber range where you practice as an attacker or defender.**
 
-Deployment sync check: OK
+## Branch Information
+
+- **`main`**: Legacy ThreatRecon Breach Drill Platform (preserved for rollback reference)
+- **`labs-migration`**: Production branch - Single-player AI cyber range replacing the legacy site on threatrecon.io when stable
+
+## Current Status
+
+ThreatRecon Labs is a fully playable, single-player AI cyber range with:
+- **Attacker mode**: Break in, pivot laterally, exfiltrate data, avoid detection
+- **Defender mode**: Monitor traffic, detect intrusions, collect evidence, contain threats
+- **AI opponent**: Reacts to your actions with realistic defensive/offensive responses
+- **Terminal-based UI**: Realistic CLI experience (Linux-style for attacker, PowerShell for defender)
+- **After Action Reports**: Complete timeline, findings, and recommendations at match end
+
+**No multiplayer. No placeholders. Fully playable start-to-finish with AAR generation.**
 
 ## 🎯 **What This Is**
 
