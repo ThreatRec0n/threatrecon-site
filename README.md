@@ -215,4 +215,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**ThreatRecon Drill Platform** - Transforming incident response training from chaos to clarity.
+**ThreatRecon Drill Platform** - Transforming incident response training from chaos to clarity. 
+ 
