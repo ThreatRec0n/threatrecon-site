@@ -147,6 +147,8 @@ io.on('connection', (socket) => {
     console.log('Client disconnected:', socket.id);
     if (currentMatch) {
       aiLogic.stopAI(currentMatch);
+      // Clean up the match from in-memory store
+      gameEngine.matches.delete(currentMatch.id);
     }
   });
 });

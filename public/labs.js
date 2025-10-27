@@ -20,22 +20,26 @@ const aarTitle = document.getElementById('aarTitle');
 const aarContent = document.getElementById('aarContent');
 const playAgainBtn = document.getElementById('playAgainBtn');
 
-// Connect WebSocket
+// Connect WebSocket when role is selected
 function connectSocket() {
-  socket = io();
+  socket = io({
+    transports: ['polling', 'websocket'], // Ensure polling works on Vercel
+    upgrade: true,
+    rememberUpgrade: true
+  });
   
   socket.on('connect', () => {
     log('Connected to ThreatRecon Labs server', 'system');
   });
   
-  socket.on('match_created', (data) => {
-    matchId = data.matchId;
-    playerRole = data.playerRole;
-    log(`Match ${matchId} created. Playing as ${playerRole}.`, 'system');
+  socket.on('connect_error', (err) => {
+    log(`Connection error: ${err.message}`, 'error');
   });
   
   socket.on('command_output', (data) => {
-    addOutput(data.output);
+    if (data.output && data.output.trim()) {
+      addOutput(data.output);
+    }
   });
   
   socket.on('ai_event', (data) => {
@@ -50,10 +54,11 @@ function connectSocket() {
   socket.on('timeline_update', (data) => {
     updateTimeline(data.timeline);
   });
+  
+  socket.on('disconnect', () => {
+    log('Disconnected from server', 'system');
+  });
 }
-
-// Initialize
-connectSocket();
 
 // Mode selection handlers
 selectAttacker.addEventListener('click', () => {
@@ -68,23 +73,39 @@ selectDefender.addEventListener('click', () => {
 async function startMatch(role) {
   playerRole = role;
   
-  const res = await fetch('/api/labs/create', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role }),
-  });
-  
-  const data = await res.json();
-  matchId = data.matchId;
-  
-  modeSelection.classList.add('hidden');
-  gameInterface.classList.remove('hidden');
-  
-  log(`Match started. You are playing as ${role.toUpperCase()}.`, 'system');
-  log('Type "help" to see available commands.', 'system');
-  log('', 'prompt');
-  
-  socket.emit('join_match', { matchId });
+  try {
+    const res = await fetch('/api/labs/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok || !data.matchId) {
+      log(`Error: ${data.error || 'Failed to create match'}`, 'error');
+      return;
+    }
+    
+    matchId = data.matchId;
+    
+    // Connect to socket now
+    connectSocket();
+    
+    modeSelection.classList.add('hidden');
+    gameInterface.classList.remove('hidden');
+    
+    log(`Match started. You are playing as ${role.toUpperCase()}.`, 'system');
+    log('Type "help" to see available commands.', 'system');
+    
+    // Join the match once connected
+    socket.once('connect', () => {
+      socket.emit('join_match', { matchId });
+    });
+    
+  } catch (err) {
+    log(`Error: ${err.message}`, 'error');
+  }
 }
 
 // Terminal functions
