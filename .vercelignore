@@ -1,0 +1,21 @@
+# Vercel ignore file
+# Exclude development files from deployment
+
+src/
+node_modules/
+.github/
+.git/
+*.md
+docker/
+scenarios/
+docs/
+*.bat
+*.ps1
+*.sh
+.env*
+!.vercelignore
+docker-compose*.yml
+nginx.conf
+env.template
+next-env.d.ts
+
