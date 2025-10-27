@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThreatRecon Labs - Single-Player Cyber Range</title>
+    <link rel="stylesheet" href="https://cdn.tailwindcss.com/2.2.19/tailwind.min.css">
+    <style>
+        /* Cyber theme styling */
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
+            color: #e2e8f0;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        .glow-green { text-shadow: 0 0 10px #22c55e; }
+        .glow-red { text-shadow: 0 0 10px #ef4444; }
+        .glow-blue { text-shadow: 0 0 10px #3b82f6; }
+        
+        #terminal {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8 text-center">
+            <h1 class="text-4xl font-bold mb-2">
+                <span class="glow-green">Threat</span><span class="glow-blue">Recon</span> <span class="glow-red">Labs</span>
+            </h1>
+            <p class="text-gray-400">Single-Player AI Cyber Range</p>
+        </div>
+
+        <!-- Mode Selection Screen -->
+        <div id="modeSelection" class="max-w-2xl mx-auto">
+            <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-8">
+                <h2 class="text-2xl font-semibold mb-6 text-center">Choose Your Role</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Attacker Option -->
+                    <button id="selectAttacker" class="bg-red-900/30 border-2 border-red-500 rounded-lg p-6 hover:bg-red-900/50 transition">
+                        <div class="text-4xl mb-3">⚔️</div>
+                        <h3 class="text-xl font-bold mb-2 glow-red">Attacker</h3>
+                        <p class="text-sm text-gray-400">Break into systems, pivot laterally, and exfiltrate data while avoiding detection.</p>
+                        <div class="mt-4 text-xs text-gray-500">
+                            Objective: Exfiltrate sensitive data and maintain persistence for 10 minutes
+                        </div>
+                    </button>
+
+                    <!-- Defender Option -->
+                    <button id="selectDefender" class="bg-blue-900/30 border-2 border-blue-500 rounded-lg p-6 hover:bg-blue-900/50 transition">
+                        <div class="text-4xl mb-3">🛡️</div>
+                        <h3 class="text-xl font-bold mb-2 glow-blue">Defender</h3>
+                        <p class="text-sm text-gray-400">Monitor logs, detect intrusions, collect evidence, and contain threats.</p>
+                        <div class="mt-4 text-xs text-gray-500">
+                            Objective: Detect and contain intrusion while maintaining uptime
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Interface (hidden initially) -->
+        <div id="gameInterface" class="hidden">
+            <!-- Objectives Panel -->
+            <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4 mb-4">
+                <h3 class="text-lg font-semibold mb-2">Objectives:</h3>
+                <p id="objectives" class="text-sm text-gray-400"></p>
+            </div>
+
+            <!-- Terminal -->
+            <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4 mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-semibold">Terminal</h3>
+                    <div class="text-xs text-gray-500">
+                        <span id="gameStatus" class="glow-green">● Active</span>
+                    </div>
+                </div>
+                <div id="terminal" class="h-96 overflow-y-auto text-green-400"></div>
+                <div class="mt-2 flex gap-2">
+                    <input type="text" id="commandInput" 
+                           class="flex-1 bg-black border border-gray-600 text-green-400 px-3 py-2 rounded"
+                           placeholder="Enter command...">
+                    <button id="executeBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        Execute
+                    </button>
+                </div>
+            </div>
+
+            <!-- Timeline Panel -->
+            <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
+                <h3 class="text-lg font-semibold mb-2">Timeline</h3>
+                <div id="timeline" class="text-sm space-y-2 max-h-48 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- AAR Screen (hidden initially) -->
+        <div id="aarScreen" class="hidden max-w-4xl mx-auto">
+            <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-8">
+                <h2 id="aarTitle" class="text-3xl font-bold mb-4 text-center"></h2>
+                <div id="aarContent" class="space-y-4"></div>
+                <button id="playAgainBtn" class="mt-6 bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 block mx-auto">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/labs.js"></script>
+</body>
+</html>
+
