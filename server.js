@@ -2,8 +2,25 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 
+const { init, createSession, getSession, endSession, addParticipant, listParticipants, addEvent, listEvents } = require('./lib/store');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Initialize store
+init();
+
+// SSE broadcast hub
+const sseClients = new Map(); // session_id -> Set(res)
+
+function sseBroadcast(session_id, data) {
+  const set = sseClients.get(session_id);
+  if (!set) return;
+  const payload = `data: ${JSON.stringify(data)}\n\n`;
+  for (const res of set) {
+    res.write(payload);
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -90,8 +107,135 @@ app.post('/api/scenario/validate', (req, res) => {
   });
 });
 
-// Demo session page
+// Session page
 app.get('/session/:sessionId', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'session.html'));
+});
+
+// Create session
+app.post('/api/sessions', async (req, res) => {
+  try {
+    const id = `session-${Date.now()}`;
+    const out = await createSession({ id, title: req.body?.title || 'Live Drill', scenario_id: req.body?.scenarioId || null });
+    // seed a system event
+    await addEvent({ session_id: out.id, type: 'system', message: 'Session created', severity: 'info' });
+    res.status(201).json(out);
+  } catch(e) { 
+    console.error(e); 
+    res.status(500).json({error:'create_failed'}); 
+  }
+});
+
+// Get session
+app.get('/api/sessions/:id', async (req, res) => {
+  try {
+    const s = await getSession(req.params.id);
+    if(!s) return res.status(404).json({error:'not_found'});
+    const participants = await listParticipants(req.params.id);
+    const events = await listEvents(req.params.id);
+    res.json({ session: s, participants, events });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({error:'fetch_failed'});
+  }
+});
+
+// End session
+app.post('/api/sessions/:id/end', async (req, res) => {
+  try {
+    const s = await endSession(req.params.id);
+    if(!s) return res.status(404).json({error:'not_found'});
+    await addEvent({ session_id: s.id, type: 'system', message: 'Session ended', severity: 'info' });
+    sseBroadcast(s.id, { type:'system', message:'ended' });
+    res.json(s);
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({error:'end_failed'});
+  }
+});
+
+// Join participant
+app.post('/api/sessions/:id/participants', async (req, res) => {
+  try {
+    const { name, role } = req.body || {};
+    if(!name || !role) return res.status(400).json({error:'name_and_role_required'});
+    const s = await getSession(req.params.id);
+    if(!s) return res.status(404).json({error:'not_found'});
+    const p = await addParticipant({ session_id: s.id, name, role });
+    await addEvent({ session_id: s.id, type: 'system', message: `${name} joined as ${role}`, severity: 'info' });
+    sseBroadcast(s.id, { type:'participant_joined', participant: p });
+    res.status(201).json(p);
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({error:'join_failed'});
+  }
+});
+
+// Add inject (facilitator)
+app.post('/api/sessions/:id/injects', async (req, res) => {
+  try {
+    const { severity='info', message='', author='Facilitator', role='facilitator', payload } = req.body || {};
+    if(!message) return res.status(400).json({error:'message_required'});
+    const s = await getSession(req.params.id);
+    if(!s) return res.status(404).json({error:'not_found'});
+    if(s.status === 'ended') return res.status(400).json({error:'session_ended'});
+    const ev = await addEvent({ session_id: s.id, type:'inject', severity, message, author, role, payload });
+    sseBroadcast(s.id, { type:'event', event: ev });
+    res.status(201).json(ev);
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({error:'inject_failed'});
+  }
+});
+
+// Add decision (participant)
+app.post('/api/sessions/:id/decisions', async (req, res) => {
+  try {
+    const { name='Participant', role='member', message='', payload } = req.body || {};
+    if(!message) return res.status(400).json({error:'message_required'});
+    const s = await getSession(req.params.id);
+    if(!s) return res.status(404).json({error:'not_found'});
+    if(s.status === 'ended') return res.status(400).json({error:'session_ended'});
+    const ev = await addEvent({ session_id: s.id, type:'decision', message, author: name, role, payload });
+    sseBroadcast(s.id, { type:'event', event: ev });
+    res.status(201).json(ev);
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({error:'decision_failed'});
+  }
+});
+
+// SSE stream
+app.get('/api/sessions/:id/stream', async (req, res) => {
+  try {
+    const sid = req.params.id;
+    res.setHeader('Content-Type','text/event-stream');
+    res.setHeader('Cache-Control','no-cache');
+    res.setHeader('Connection','keep-alive');
+    res.flushHeaders?.();
+    // add to set
+    if(!sseClients.has(sid)) sseClients.set(sid, new Set());
+    sseClients.get(sid).add(res);
+
+    // heartbeat
+    const hb = setInterval(()=>res.write(':\n\n'), 30000);
+
+    // initial snapshot
+    const events = await listEvents(sid);
+    res.write(`data: ${JSON.stringify({ type:'bootstrap', events })}\n\n`);
+
+    req.on('close', ()=>{
+      clearInterval(hb);
+      sseClients.get(sid)?.delete(res);
+    });
+  } catch(e) {
+    console.error(e);
+    res.status(500).end();
+  }
+});
+
+// Deprecated demo session page (keeping for backwards compat)
+app.get('/session/demo-:sessionId', (req, res) => {
   const sessionId = req.params.sessionId;
   const html = `
 <!DOCTYPE html>

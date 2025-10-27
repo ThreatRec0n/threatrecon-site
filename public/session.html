@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ThreatRecon – Live Session</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; }
+    .wrap { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+    .row { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .card { background:#0b1220; border:1px solid #243146; border-radius:10px; padding:16px; }
+    .timeline { display:flex; flex-direction:column; gap:10px; max-height: 60vh; overflow:auto; }
+    .event { padding:12px; border-radius:8px; background:#101a2d; border:1px solid #223049; }
+    .event .meta { font-size:12px; color:#94a3b8; margin-bottom:6px; }
+    .event.inject { border-left:4px solid #22d3ee; }
+    .event.decision { border-left:4px solid #a3e635; }
+    .event.system { border-left:4px solid #60a5fa; opacity:0.9; }
+    .pill { padding:2px 8px; border-radius:9999px; background:#1f2b43; color:#cbd5e1; font-size:12px; }
+    .btn { background:#2563eb; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+    .btn:hover { background:#1d4ed8; }
+    .btn.secondary { background:#1f2937; }
+    .btn.secondary:hover { background:#374151; }
+    .btn:disabled { opacity:0.5; cursor:not-allowed; }
+    input, select, textarea { background:#0b1220; border:1px solid #243146; color:#e2e8f0; border-radius:8px; padding:8px; }
+    textarea { width:100%; min-height:80px; }
+    .grow { flex:1; }
+    h1, h3 { margin: 0 0 12px 0; }
+    h1 { font-size: 24px; }
+    h3 { font-size: 18px; }
+    .status { font-size: 12px; color: #94a3b8; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row">
+      <h1 class="grow">Live Breach Drill</h1>
+      <div><a class="btn secondary" href="/">← Home</a></div>
+    </div>
+
+    <div id="joinCard" class="card" style="margin-top:12px;">
+      <h3>Join Session</h3>
+      <div class="row" style="margin-top:8px;">
+        <input id="name" placeholder="Your name" />
+        <select id="role">
+          <option value="IR Lead">IR Lead</option>
+          <option value="Network Admin">Network Admin</option>
+          <option value="Legal Counsel">Legal Counsel</option>
+          <option value="PR/Comms">PR/Comms</option>
+          <option value="Executive">Executive</option>
+        </select>
+        <button id="joinBtn" class="btn">Join</button>
+      </div>
+      <p id="joinStatus" class="status"></p>
+    </div>
+
+    <div id="facCard" class="card" style="margin-top:12px; display:none;">
+      <h3>Facilitator Controls</h3>
+      <div class="row" style="margin-top:8px;">
+        <select id="injSeverity">
+          <option>info</option><option>low</option><option>medium</option><option>high</option><option>critical</option>
+        </select>
+        <input id="injMessage" class="grow" placeholder="Inject message..." />
+        <button id="sendInject" class="btn">Send Inject</button>
+        <button id="endSession" class="btn secondary">End Session</button>
+        <a id="genReport" class="btn secondary" href="/example-aar.pdf.html" target="_blank">Generate Report</a>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3>Timeline</h3>
+      <div id="timeline" class="timeline"></div>
+    </div>
+
+    <div id="decCard" class="card" style="margin-top:12px;">
+      <h3>Submit Decision</h3>
+      <textarea id="decMessage" placeholder="What do you do?"></textarea>
+      <div class="row" style="margin-top:8px; justify-content:space-between;">
+        <span id="decStatus" class="status"></span>
+        <button id="sendDecision" class="btn">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/session.js"></script>
+</body>
+</html>
+
