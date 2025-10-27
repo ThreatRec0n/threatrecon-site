@@ -24,6 +24,7 @@
     "db:seed": "cd src/backend && npm run db:seed",
     "scenario:validate": "cd src/backend && npm run scenario:validate",
     "export:aar": "cd src/backend && npm run export:aar",
+    "smoke": "node scripts/smoke-test.js",
     "start": "cd src/backend && npm start"
   },
   "keywords": [
@@ -52,6 +53,7 @@
     "concurrently": "^8.2.2",
     "eslint": "^8.55.0",
     "prettier": "^3.1.0",
+    "supertest": "^6.3.3",
     "typescript": "^5.3.0"
   },
   "repository": {

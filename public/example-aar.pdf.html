@@ -229,15 +229,15 @@
         <div class="info-grid">
             <div class="info-item">
                 <div class="info-label">Session ID</div>
-                <div class="info-value">example-session-2024</div>
+                <div class="info-value" id="report-session-id">example-session-2024</div>
             </div>
             <div class="info-item">
                 <div class="info-label">Scenario</div>
-                <div class="info-value">Ransomware Attack Simulation</div>
+                <div class="info-value" id="report-scenario">Ransomware Attack Simulation</div>
             </div>
             <div class="info-item">
                 <div class="info-label">Duration</div>
-                <div class="info-value">30 minutes</div>
+                <div class="info-value" id="report-duration">30 minutes</div>
             </div>
             <div class="info-item">
                 <div class="info-label">Participants</div>
@@ -245,7 +245,7 @@
             </div>
             <div class="info-item">
                 <div class="info-label">Generated</div>
-                <div class="info-value">October 25, 2024</div>
+                <div class="info-value" id="report-generated">October 25, 2024</div>
             </div>
             <div class="info-item">
                 <div class="info-label">Overall Score</div>
@@ -512,5 +512,84 @@
         <p>For sensitive drills, deploy ThreatRecon on-premise using our Docker Compose bundle</p>
         <p>© 2024 ThreatRecon. Built for security teams who take readiness seriously.</p>
     </div>
+
+    <script>
+    (async function () {
+        // grab sessionId from the query string
+        const m = location.search.match(/[?&]sessionId=([^&]+)/);
+        if (!m) return; // if no sessionId, leave the static demo values
+        const sessionId = decodeURIComponent(m[1]);
+
+        try {
+            const res = await fetch(`/api/sessions/${sessionId}`);
+            if (!res.ok) {
+                console.error('Could not load session data for report');
+                return;
+            }
+
+            const data = await res.json();
+            const { session, participants, events } = data;
+
+            // fill top summary
+            const sessionIdEl = document.getElementById('report-session-id');
+            const scenarioEl = document.getElementById('report-scenario');
+            const generatedEl = document.getElementById('report-generated');
+            
+            if (sessionIdEl) sessionIdEl.textContent = session.id;
+            if (scenarioEl) scenarioEl.textContent = session.scenario_id || 'Custom Incident Simulation';
+            if (generatedEl) generatedEl.textContent = new Date().toLocaleString();
+
+            // naive duration: now - session.created_at in minutes
+            if (session.created_at) {
+                const start = new Date(session.created_at);
+                const now = new Date();
+                const mins = Math.max(1, Math.round((now - start) / 60000));
+                const durationEl = document.getElementById('report-duration');
+                if (durationEl) durationEl.textContent = mins + ' minutes';
+            }
+
+            // fill participants list if element exists
+            const pList = document.getElementById('report-participants');
+            if (pList) {
+                pList.innerHTML = '';
+                participants.forEach(p => {
+                    const li = document.createElement('li');
+                    li.textContent = `${p.role} - ${p.name}`;
+                    pList.appendChild(li);
+                });
+            }
+
+            // fill timeline if element exists
+            const tDiv = document.getElementById('report-timeline');
+            if (tDiv) {
+                tDiv.innerHTML = '';
+                events.forEach(ev => {
+                    const block = document.createElement('div');
+                    block.style.borderLeft = '4px solid ' + (
+                        ev.type === 'inject'    ? '#22d3ee' :
+                        ev.type === 'decision'  ? '#a3e635' :
+                        '#60a5fa'
+                    );
+                    block.style.padding = '8px 12px';
+                    block.style.marginBottom = '12px';
+                    block.style.background = '#f8fafc';
+                    block.style.border = '1px solid #cbd5e1';
+                    block.style.borderRadius = '6px';
+                    block.style.fontFamily = 'system-ui, sans-serif';
+                    const ts = new Date(ev.ts || Date.now()).toLocaleString();
+                    block.innerHTML = `
+                        <div style="font-size:12px;color:#475569;margin-bottom:4px;">
+                            [${ts}] ${ev.type.toUpperCase()} ${ev.severity ? '('+ev.severity+')' : ''} ${ev.author ? '— '+ev.author : ''}
+                        </div>
+                        <div style="font-size:14px;color:#0f172a;">${ev.message}</div>
+                    `;
+                    tDiv.appendChild(block);
+                });
+            }
+        } catch (err) {
+            console.error('Failed to load session data:', err);
+        }
+    })();
+    </script>
 </body>
 </html>
