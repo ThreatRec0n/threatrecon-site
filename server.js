@@ -12,6 +12,7 @@ const aiLogic = new AILogic();
 const AttackerCommands = require('./engine/commands/attackerCommands');
 const DefenderCommands = require('./engine/commands/defenderCommands');
 const AARGenerator = require('./engine/aar');
+const runCommandInEngine = require('./engine/runCommandInEngine');
 
 const app = express();
 const server = http.createServer(app);
@@ -119,75 +120,30 @@ io.on('connection', (socket) => {
     }
     
     try {
-      const match = currentMatch;
-      let result = { output: '', error: false };
+      // Use the command engine
+      const result = await runCommandInEngine(currentMatch, cmd);
       
-      // Handle sudo/su commands for privilege escalation
+      // Handle privilege escalation prompt updates
       if (/^\s*(sudo|su\s?-|su)\b/.test(cmd)) {
-        match.playerState.isRoot = true;
-        socket.emit('output', { text: '\x1b[1;32mroot access granted\x1b[0m\n' });
         socket.emit('promptUpdate', { 
-          user: 'root', 
-          host: match.playerState.currentHost?.hostname || match.playerRole === 'attacker' ? 'kali' : 'SOC',
-          cwd: match.playerState.cwd || '~',
-          isRoot: true 
-        });
-        gameEngine.addEvent(match, { type: 'player_action', message: cmd, timestamp: new Date().toISOString() });
-        return;
-      }
-      
-      // Parse command and args
-      const parts = cmd.split(' ');
-      const command = parts[0];
-      const args = parts.slice(1);
-      
-      if (match.playerRole === 'attacker') {
-        const attackerCmds = new AttackerCommands();
-        result = attackerCmds.handleCommand(match, command, args);
-        
-        gameEngine.addEvent(match, {
-          type: 'player_action',
-          message: cmd,
-          timestamp: new Date().toISOString(),
-        });
-      } else {
-        const defenderCmds = new DefenderCommands();
-        result = defenderCmds.handleCommand(match, command, args);
-        
-        gameEngine.addEvent(match, {
-          type: 'player_action',
-          message: cmd,
-          timestamp: new Date().toISOString(),
+          user: currentMatch.playerState.user || 'root',
+          host: currentMatch.playerState.host || (currentMatch.playerRole === 'attacker' ? 'kali' : 'SOC'),
+          cwd: currentMatch.playerState.cwd || '~',
+          isRoot: currentMatch.playerState.isRoot || true
         });
       }
       
-      // Send ANSI-colored output
-      const ansiOutput = result.error 
-        ? `\x1b[31m${result.output}\x1b[0m`
-        : result.output || '';
-      
+      // Send output
       socket.emit('output', { 
-        text: ansiOutput,
-        appendTimeline: {
-          time: new Date().toLocaleTimeString(),
-          msg: cmd
-        }
+        text: result.text,
+        appendTimeline: result.appendTimeline
       });
       
-      // Check win conditions
-      const winner = gameEngine.checkWinConditions(match);
-      if (winner) {
-        gameEngine.endMatch(match.id, winner);
-        aiLogic.stopAI(match);
-        
-        const aar = AARGenerator.generateAAR(match);
+      // Handle match end
+      if (result.endMatch) {
         socket.emit('matchEnded', { 
-          aar: {
-            outcome: winner === 'player' ? 'Victory' : 'Defeated',
-            duration: Math.round((Date.now() - new Date(match.startedAt)) / 60000),
-            timeline: match.timeline.map(t => ({ time: new Date(t.timestamp).toLocaleTimeString(), summary: t.message })),
-            recommendations: aar.recommendations || []
-          }
+          aar: result.aar,
+          outcome: result.outcome
         });
       }
       
