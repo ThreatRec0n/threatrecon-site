@@ -25,16 +25,45 @@
   let historyIndex = -1;
   let connected = false;
   const terminalEl = document.getElementById('terminal');
-  term.open(terminalEl);
-  fitAddon.fit();
+  if (terminalEl) {
+    term.open(terminalEl);
+    fitAddon.fit();
+  } else {
+    console.warn('Terminal element not found at initialization');
+  }
 
   // Global functions for UI
   window.selectRole = (role) => {
+    console.info('[Client] selectRole called:', role);
+    
+    // Disable role selection buttons
+    const attackerBtn = document.querySelector('[onclick*="attacker"]');
+    const defenderBtn = document.querySelector('[onclick*="defender"]');
+    if (attackerBtn) attackerBtn.style.pointerEvents = 'none';
+    if (defenderBtn) defenderBtn.style.pointerEvents = 'none';
+    
     document.getElementById('roleSelection').classList.add('hidden');
     document.getElementById('dashboard').classList.remove('hidden');
     document.getElementById('endSimulation').classList.remove('hidden');
-    startSession(role);
+    
     logToTimeline(`Selected role: ${role}`, 'info');
+    startSession(role);
+    
+    // Client-side timeout: if no sessionCreated within 10s, show error
+    const timeoutId = setTimeout(() => {
+      if (!connected) {
+        console.error('[Client] Timeout: sessionCreated not received within 10s');
+        logToTimeline('Connection timeout - please try again', 'error');
+        if (attackerBtn) attackerBtn.style.pointerEvents = 'auto';
+        if (defenderBtn) defenderBtn.style.pointerEvents = 'auto';
+      }
+    }, 10000);
+    
+    // Clear timeout on success
+    socket.once('sessionCreated', () => {
+      clearTimeout(timeoutId);
+      connected = true;
+    });
   };
 
   window.resetSession = () => {
@@ -70,7 +99,19 @@
   }
 
   function startSession(role) {
-    if (connected) return;
+    if (connected) {
+      console.warn('[Client] Session already connected, ignoring startSession');
+      return;
+    }
+    
+    console.info('[Client] startSession called for role:', role);
+    
+    if (!term || !terminalEl) {
+      console.error('[Client] Terminal not initialized');
+      logToTimeline('Terminal error: please refresh page', 'error');
+      return;
+    }
+    
     term.clear();
     term.writeln(`\x1b[1;36m[ThreatRecon Labs]\x1b[0m`);
     term.writeln(`Starting session as \x1b[1;${role === 'attacker' ? '31' : '34'}m${role}\x1b[0m...`);
@@ -79,11 +120,46 @@
     logToTimeline(`Session starting...`, 'info');
     logToTimeline(`Role: ${role}`, 'info');
     
-    socket.emit('initSession', { role });
+    // Ensure socket is connected before emitting
+    if (!socket.connected) {
+      console.info('[Client] Socket not connected, waiting for connect...');
+      socket.once('connect', () => {
+        console.info('[Client] Socket connected, emitting initSession');
+        socket.emit('initSession', { role });
+      });
+      
+      // Timeout if connect doesn't happen
+      setTimeout(() => {
+        if (!socket.connected) {
+          console.error('[Client] Failed to connect socket');
+          logToTimeline('Failed to connect to server', 'error');
+        }
+      }, 5000);
+    } else {
+      console.info('[Client] Socket already connected, emitting initSession');
+      socket.emit('initSession', { role });
+    }
   }
 
   socket.on('connect', () => {
-    console.log('socket connected');
+    console.info('[Client] socket connected');
+    logToTimeline('Connected to server', 'success');
+  });
+  
+  socket.on('connect_error', (err) => {
+    console.error('[Client] Socket connect error:', err.message);
+    logToTimeline(`Connection error: ${err.message}`, 'error');
+  });
+  
+  socket.on('disconnect', () => {
+    console.warn('[Client] Socket disconnected');
+    logToTimeline('Disconnected from server', 'error');
+    connected = false;
+  });
+  
+  socket.on('errorEvent', (data) => {
+    console.error('[Client] Server error event:', data);
+    logToTimeline(`Server error: ${data.msg || 'Unknown error'}`, 'error');
   });
 
   socket.on('sessionCreated', (s) => {
