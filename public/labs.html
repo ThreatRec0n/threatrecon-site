@@ -5,60 +5,265 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ThreatRecon Labs — Live CLI</title>
 
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Custom fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
   <!-- xterm CSS -->
   <link rel="stylesheet" href="https://unpkg.com/xterm/css/xterm.css" />
 
-  <!-- Your custom CSS -->
-  <link rel="stylesheet" href="/labs.css?v=prod-cutover-1">
-
   <style>
-    /* Minimal fallback */
-    body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: #0f1724; color:#dbeafe; }
+    * { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'Roboto Mono', monospace; }
+    
+    /* Custom scrollbar for terminals and logs */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+    
+    /* Animated background */
+    .bg-cyber {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      background-size: 400% 400%;
+      animation: gradientShift 15s ease infinite;
+    }
+    
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    
+    /* Glass effect for cards */
+    .glass {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Terminal window buttons */
+    .terminal-header {
+      background: rgba(31, 41, 55, 0.9);
+      backdrop-filter: blur(8px);
+    }
+    
+    .window-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    
+    .window-btn.red { background: #ef4444; }
+    .window-btn.yellow { background: #f59e0b; }
+    .window-btn.green { background: #10b981; }
+    
+    /* Animated pulse for active status */
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+    
+    /* Command highlight in terminal output */
+    .command-output { color: #a78bfa; }
   </style>
 </head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo">ThreatRecon <span class="labs">Labs</span></div>
-      <div class="subtitle">Single-player AI Cyber Range — Terminal</div>
-    </div>
-    <div class="session-controls">
-      <button id="btn-attack" class="role-btn">Attacker</button>
-      <button id="btn-defend" class="role-btn">Defender</button>
-      <div id="sessionState" class="small muted">Not connected</div>
+<body class="bg-cyber min-h-screen text-gray-300 overflow-x-hidden">
+
+  <!-- Header -->
+  <header class="glass border-b border-white/10 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold text-white">
+          <span class="text-red-500">Threat</span><span class="text-blue-500">Recon</span> 
+          <span class="text-purple-500">Labs</span>
+        </h1>
+        <p class="text-xs text-gray-400 mt-1">Single-player AI cyber range with terminal interface</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <div id="sessionState" class="text-sm text-gray-400">
+          <span class="pulse-dot"></span> Ready
+        </div>
+        <button id="endSimulation" onclick="resetSession()" class="hidden px-4 py-2 bg-red-900/50 hover:bg-red-900/70 text-red-400 rounded-lg transition-colors border border-red-900/50">
+          End Simulation
+        </button>
+      </div>
     </div>
   </header>
 
-  <main class="main-grid">
-    <section class="left-panel">
-      <h3>Objectives</h3>
-      <div id="objectives" class="card">
-        <strong id="objectiveTitle">Choose a role to start</strong>
-        <p id="objectiveText">Pick Attacker or Defender to begin a 10 minute scenario.</p>
+  <!-- Role Selection (Initial View) -->
+  <div id="roleSelection" class="min-h-[calc(100vh-120px)] flex items-center justify-center px-6 py-16">
+    <div class="max-w-4xl w-full">
+      <div class="text-center mb-12">
+        <h2 class="text-5xl font-bold text-white mb-4">Choose Your Role</h2>
+        <p class="text-xl text-gray-400">Select attacker or defender to begin your mission</p>
+      </div>
+      
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- Attacker Card -->
+        <div class="glass rounded-2xl p-8 hover:border-red-500 border-2 border-transparent transition-all cursor-pointer" onclick="selectRole('attacker')">
+          <div class="flex justify-center mb-6">
+            <svg class="w-24 h-24 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-bold text-red-500 mb-3">Attacker</h3>
+          <p class="text-gray-400 mb-6">Penetrate defenses, escalate privileges, and exfiltrate sensitive data. Use stealth and precision to avoid detection.</p>
+          <div class="mb-6">
+            <h4 class="text-sm font-semibold text-white mb-2">Objective:</h4>
+            <p class="text-sm text-gray-400">Exfiltrate data and maintain persistence for 10 minutes</p>
+          </div>
+          <button class="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-semibold transition-colors border border-red-500/30">
+            Select Attacker
+          </button>
+        </div>
+
+        <!-- Defender Card -->
+        <div class="glass rounded-2xl p-8 hover:border-blue-500 border-2 border-transparent transition-all cursor-pointer" onclick="selectRole('defender')">
+          <div class="flex justify-center mb-6">
+            <svg class="w-24 h-24 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-bold text-blue-500 mb-3">Defender</h3>
+          <p class="text-gray-400 mb-6">Monitor systems, detect intrusions, collect evidence, and contain threats. Maintain service uptime while protecting assets.</p>
+          <div class="mb-6">
+            <h4 class="text-sm font-semibold text-white mb-2">Objective:</h4>
+            <p class="text-sm text-gray-400">Detect and contain intrusion while preserving evidence</p>
+          </div>
+          <button class="w-full py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg font-semibold transition-colors border border-blue-500/30">
+            Select Defender
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard (Post-Selection View) -->
+  <div id="dashboard" class="hidden max-w-7xl mx-auto px-6 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Left Column (33%) - Objectives & Logs -->
+      <div class="space-y-6">
+        <!-- Objectives Box -->
+        <div class="glass rounded-xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">Objectives</h3>
+            <span id="objectiveCount" class="text-xs text-gray-400">0/5 completed</span>
+          </div>
+          <ul id="objectives" class="space-y-2 text-sm">
+            <li class="flex items-center text-gray-400">
+              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Gain initial foothold
+            </li>
+            <li class="flex items-center text-gray-400">
+              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Perform lateral movement
+            </li>
+            <li class="flex items-center text-gray-400">
+              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Locate sensitive data
+            </li>
+            <li class="flex items-center text-gray-400">
+              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Exfiltrate data files
+            </li>
+            <li class="flex items-center text-gray-400">
+              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Maintain persistence (10 min)
+            </li>
+          </ul>
+        </div>
+
+        <!-- System Log Box -->
+        <div class="glass rounded-xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">System Log</h3>
+            <button onclick="clearLog()" class="text-xs text-gray-400 hover:text-white transition-colors">
+              Clear
+            </button>
+          </div>
+          <div id="systemLog" class="h-64 overflow-y-auto space-y-2 text-xs mono">
+            <div class="text-gray-500">No events yet...</div>
+          </div>
+        </div>
       </div>
 
-      <h3>Timeline</h3>
-      <div id="timeline" class="timeline card"></div>
-    </section>
-
-    <section class="terminal-panel card">
-      <div id="terminal" class="terminal"></div>
-      <div class="terminal-controls">
-        <button id="btn-clear">Clear</button>
-        <button id="btn-playagain" style="display:none">Play Again</button>
-        <div id="aar" class="aar" hidden></div>
+      <!-- Right Column (67%) - Terminal -->
+      <div class="lg:col-span-2">
+        <div class="glass rounded-xl overflow-hidden">
+          <!-- Terminal Header -->
+          <div class="terminal-header flex items-center justify-between px-4 py-2 border-b border-white/10">
+            <div class="flex items-center">
+              <span class="window-btn red"></span>
+              <span class="window-btn yellow"></span>
+              <span class="window-btn green"></span>
+              <span class="ml-4 text-xs text-gray-400">Terminal</span>
+            </div>
+            <div class="text-xs text-gray-400">
+              <span id="termStatus">●</span> Active
+            </div>
+          </div>
+          
+          <!-- Terminal Content -->
+          <div class="p-4" style="background: rgba(0,0,0,0.9);">
+            <div id="terminal" class="terminal"></div>
+          </div>
+          
+          <!-- Terminal Controls -->
+          <div class="px-4 py-3 bg-gray-900/50 border-t border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <button id="btn-clear" class="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors">
+                Clear
+              </button>
+              <button id="btn-playagain" class="hidden text-xs px-3 py-1 bg-blue-900/50 hover:bg-blue-900/70 rounded text-blue-400 transition-colors">
+                Play Again
+              </button>
+            </div>
+            <div class="text-xs text-gray-500">
+              Press Enter to execute • Use ↑/↓ for history
+            </div>
+          </div>
+          
+          <!-- AAR Panel -->
+          <div id="aar" class="hidden p-4 bg-black/50 border-t border-white/10 text-sm" style="max-height: 200px; overflow-y: auto;">
+            <!-- AAR content will be inserted here -->
+          </div>
+        </div>
       </div>
-    </section>
-  </main>
 
-  <!-- xterm + addons -->
+    </div>
+  </div>
+
+  <!-- xterm and socket.io -->
   <script src="https://unpkg.com/xterm/lib/xterm.js"></script>
   <script src="https://unpkg.com/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
-
-  <!-- socket.io client -->
   <script src="/socket.io/socket.io.js"></script>
-
-  <!-- Client logic -->
   <script src="/labs.js?v=prod-cutover-1"></script>
+
 </body>
 </html>

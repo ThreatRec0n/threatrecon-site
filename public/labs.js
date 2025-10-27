@@ -28,9 +28,39 @@
   term.open(terminalEl);
   fitAddon.fit();
 
+  // Global functions for UI
+  window.selectRole = (role) => {
+    document.getElementById('roleSelection').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('endSimulation').classList.remove('hidden');
+    startSession(role);
+    logToTimeline(`Selected role: ${role}`, 'info');
+  };
+
+  window.resetSession = () => {
+    document.getElementById('roleSelection').classList.remove('hidden');
+    document.getElementById('dashboard').classList.add('hidden');
+    document.getElementById('endSimulation').classList.add('hidden');
+    document.getElementById('systemLog').innerHTML = '<div class="text-gray-500">No events yet...</div>';
+    term.clear();
+    if (socket.connected) socket.disconnect();
+    connected = false;
+    session = null;
+  };
+
+  window.clearLog = () => {
+    document.getElementById('systemLog').innerHTML = '<div class="text-gray-500">No events yet...</div>';
+  };
+
+  window.logToTimeline = (message, type = 'info') => {
+    const log = document.getElementById('systemLog');
+    const timestamp = new Date().toLocaleTimeString();
+    const color = type === 'error' ? 'text-red-400' : type === 'success' ? 'text-green-400' : 'text-gray-300';
+    const html = `<div class="${color}">[${timestamp}] ${message}</div>`;
+    log.innerHTML = html + log.innerHTML;
+  };
+
   // UI
-  document.getElementById('btn-attack').addEventListener('click', () => startSession('attacker'));
-  document.getElementById('btn-defend').addEventListener('click', () => startSession('defender'));
   document.getElementById('btn-clear').addEventListener('click', () => term.clear());
   window.addEventListener('resize', () => fitAddon.fit());
 
@@ -42,7 +72,13 @@
   function startSession(role) {
     if (connected) return;
     term.clear();
-    term.writeln(`Starting session as ${role}...`);
+    term.writeln(`\x1b[1;36m[ThreatRecon Labs]\x1b[0m`);
+    term.writeln(`Starting session as \x1b[1;${role === 'attacker' ? '31' : '34'}m${role}\x1b[0m...`);
+    term.writeln('');
+    
+    logToTimeline(`Session starting...`, 'info');
+    logToTimeline(`Role: ${role}`, 'info');
+    
     socket.emit('initSession', { role });
   }
 
@@ -53,9 +89,8 @@
   socket.on('sessionCreated', (s) => {
     session = s;
     connected = true;
-    document.getElementById('sessionState').textContent = `Connected — ${s.role}`;
-    document.getElementById('objectiveTitle').textContent = s.objectiveTitle;
-    document.getElementById('objectiveText').textContent = s.objectiveText;
+    document.getElementById('sessionState').innerHTML = `<span class="pulse-dot"></span> Connected as ${s.role}`;
+    logToTimeline(`Connected to ThreatRecon Labs server`, 'success');
     term.writeln('');
     writePrompt();
   });
@@ -126,6 +161,7 @@
       historyIndex = -1;
       inputBuffer = '';
       if (cmd.length > 0) {
+        logToTimeline(`Command: ${cmd}`, 'info');
         socket.emit('playerCommand', { cmd });
       } else {
         writePrompt();
