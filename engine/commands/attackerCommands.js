@@ -1,8 +1,10 @@
 // ThreatRecon Labs - Attacker Commands
 // Simulates offensive commands and returns realistic output
 
+const gameEngine = require('../gameEngine');
+
 class AttackerCommands {
-  constructor(gameEngine) {
+  constructor() {
     this.gameEngine = gameEngine;
   }
 

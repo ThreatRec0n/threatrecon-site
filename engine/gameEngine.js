@@ -205,5 +205,6 @@ class GameEngine {
   }
 }
 
-module.exports = new GameEngine();
+const gameEngine = new GameEngine();
+module.exports = gameEngine;
 

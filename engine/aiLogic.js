@@ -1,8 +1,10 @@
 // ThreatRecon Labs - AI Opponent Logic
 // Handles AI behavior for attacker and defender roles
 
+const gameEngine = require('./gameEngine');
+
 class AILogic {
-  constructor(gameEngine) {
+  constructor() {
     this.gameEngine = gameEngine;
     this.aiTimers = new Map(); // sessionId -> intervalId
   }
@@ -134,9 +136,11 @@ class AILogic {
         execute: () => {
           if (match.playerState.detectionLevel > 20) {
             match.aiState.awareness += 10;
+            const hosts = match.network.hosts;
+            const target = hosts[Math.floor(Math.random() * hosts.length)];
             this.gameEngine.addEvent(match, {
               type: 'ai_action',
-              message: 'AI Defender: Detected suspicious network activity',
+              message: `AI Defender: Analyzing network traffic on ${target.hostname}. Suspicious patterns detected.`,
               timestamp: new Date().toISOString(),
             });
           }
@@ -151,7 +155,7 @@ class AILogic {
             match.aiState.blockList.push('10.0.2.99'); // simulated player IP
             this.gameEngine.addEvent(match, {
               type: 'ai_action',
-              message: 'AI Defender: Blocking suspicious IP address in firewall',
+              message: 'AI Defender: Implementing firewall rule to block source IP 10.0.2.99',
               timestamp: new Date().toISOString(),
             });
           }
@@ -162,8 +166,10 @@ class AILogic {
         prob: 0.15,
         execute: () => {
           if (match.aiState.awareness > 30 && match.aiState.evidenceCollected.length < 3) {
+            const hosts = match.network.hosts;
+            const target = hosts[Math.floor(Math.random() * hosts.length)];
             const evidence = {
-              hostname: match.network.hosts[0].hostname,
+              hostname: target.hostname,
               timestamp: new Date().toISOString(),
               hash: this.generateHash(),
             };
@@ -171,7 +177,20 @@ class AILogic {
             match.evidenceChain.push(evidence);
             this.gameEngine.addEvent(match, {
               type: 'ai_action',
-              message: `AI Defender: Collected forensic snapshot from ${evidence.hostname}`,
+              message: `AI Defender: Collected forensic snapshot from ${target.hostname}. Hash: ${evidence.hash}`,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        },
+      },
+      {
+        name: 'scan_detection',
+        prob: 0.25,
+        execute: () => {
+          if (match.playerState.detectionLevel > 30) {
+            this.gameEngine.addEvent(match, {
+              type: 'ai_action',
+              message: 'AI Defender: IDS alert - Multiple port scan attempts detected from internal network',
               timestamp: new Date().toISOString(),
             });
           }

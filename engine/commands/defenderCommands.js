@@ -1,8 +1,10 @@
 // ThreatRecon Labs - Defender Commands
 // Simulates defensive/soc analyst commands and returns realistic output
 
+const gameEngine = require('../gameEngine');
+
 class DefenderCommands {
-  constructor(gameEngine) {
+  constructor() {
     this.gameEngine = gameEngine;
   }
 

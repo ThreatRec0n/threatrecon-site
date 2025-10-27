@@ -44,23 +44,29 @@ class AARGenerator {
     
     if (match.playerRole === 'attacker') {
       if (match.playerState.dataStolen.length > 0) {
-        findings.push('Successfully exfiltrated sensitive data');
+        findings.push('Successfully exfiltrated sensitive data files from multiple hosts');
       }
       if (match.playerState.detectionLevel > 50) {
-        findings.push('High detection level - defensive measures were too noisy');
+        findings.push('High detection level - excessive noise from aggressive scanning triggered defensive response');
       }
       if (match.aiState.containmentActive) {
-        findings.push('Containment detected - firewall rules activated against you');
+        findings.push('Containment detected - firewall rules activated by defender');
+      }
+      if (match.playerState.foothold.length > 1) {
+        findings.push('Successfully performed lateral movement across multiple systems');
       }
     } else {
       if (match.aiState.evidenceCollected.length > 0) {
-        findings.push('Forensic evidence collected with proper chain of custody');
+        findings.push('Forensic evidence collected with proper chain of custody and cryptographic hashing');
       }
       if (match.aiState.containmentActive) {
-        findings.push('Successfully contained threat with firewall rules');
+        findings.push('Successfully contained threat through firewall rule implementation and host isolation');
       }
       if (match.playerState.detectionLevel < 20) {
-        findings.push('Low detection - attacker remained below radar');
+        findings.push('Attacker remained below detection threshold for significant duration');
+      }
+      if (match.aiState.evidenceCollected.length >= 3) {
+        findings.push('Comprehensive evidence collection across multiple compromised systems');
       }
     }
     
@@ -88,5 +94,6 @@ class AARGenerator {
   }
 }
 
-module.exports = AARGenerator;
+const aarGenerator = new AARGenerator();
+module.exports = aarGenerator;
 
