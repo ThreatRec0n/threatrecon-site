@@ -409,8 +409,7 @@
             });
 
             openBtn.addEventListener('click', () => {
-                const url = `${location.protocol}//${location.host}/session/${encodeURIComponent(sessionId)}`;
-                window.open(url, '_blank', 'noopener');
+                window.location.href = `/session/${encodeURIComponent(sessionId)}`;
             });
 
             // close when clicking outside modal content
