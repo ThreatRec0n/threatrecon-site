@@ -16,6 +16,9 @@
   <!-- xterm CSS -->
   <link rel="stylesheet" href="https://unpkg.com/xterm/css/xterm.css" />
 
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/labs.css?v=prod-cutover-3">
+
   <style>
     * { font-family: 'Inter', sans-serif; }
     .mono { font-family: 'Roboto Mono', monospace; }
@@ -77,9 +80,6 @@
       0%, 100% { opacity: 1; }
       50% { opacity: .5; }
     }
-    
-    /* Command highlight in terminal output */
-    .command-output { color: #a78bfa; }
   </style>
 </head>
 <body class="bg-cyber min-h-screen text-gray-300 overflow-x-hidden">
@@ -95,10 +95,10 @@
         <p class="text-xs text-gray-400 mt-1">Single-player AI cyber range with terminal interface</p>
       </div>
       <div class="flex items-center gap-4">
-        <div id="sessionState" class="text-sm text-gray-400">
+        <div id="statusIndicator" class="text-sm text-gray-400">
           <span class="pulse-dot"></span> Ready
         </div>
-        <button id="endSimulation" onclick="resetSession()" class="hidden px-4 py-2 bg-red-900/50 hover:bg-red-900/70 text-red-400 rounded-lg transition-colors border border-red-900/50">
+        <button id="endSimulation" class="hidden px-4 py-2 bg-red-900/50 hover:bg-red-900/70 text-red-400 rounded-lg transition-colors border border-red-900/50">
           End Simulation
         </button>
       </div>
@@ -115,7 +115,7 @@
       
       <div class="grid md:grid-cols-2 gap-8">
         <!-- Attacker Card -->
-        <div class="glass rounded-2xl p-8 hover:border-red-500 border-2 border-transparent transition-all cursor-pointer" onclick="selectRole('attacker')">
+        <div class="glass rounded-2xl p-8 hover:border-red-500 border-2 border-transparent transition-all">
           <div class="flex justify-center mb-6">
             <svg class="w-24 h-24 text-red-500" fill="currentColor" viewBox="0 0 20 20">
               <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
@@ -127,13 +127,13 @@
             <h4 class="text-sm font-semibold text-white mb-2">Objective:</h4>
             <p class="text-sm text-gray-400">Exfiltrate data and maintain persistence for 10 minutes</p>
           </div>
-          <button class="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-semibold transition-colors border border-red-500/30">
+          <button id="btn-attack" class="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-semibold transition-colors border border-red-500/30">
             Select Attacker
           </button>
         </div>
 
         <!-- Defender Card -->
-        <div class="glass rounded-2xl p-8 hover:border-blue-500 border-2 border-transparent transition-all cursor-pointer" onclick="selectRole('defender')">
+        <div class="glass rounded-2xl p-8 hover:border-blue-500 border-2 border-transparent transition-all">
           <div class="flex justify-center mb-6">
             <svg class="w-24 h-24 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
@@ -145,7 +145,7 @@
             <h4 class="text-sm font-semibold text-white mb-2">Objective:</h4>
             <p class="text-sm text-gray-400">Detect and contain intrusion while preserving evidence</p>
           </div>
-          <button class="w-full py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg font-semibold transition-colors border border-blue-500/30">
+          <button id="btn-defend" class="w-full py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg font-semibold transition-colors border border-blue-500/30">
             Select Defender
           </button>
         </div>
@@ -154,115 +154,117 @@
   </div>
 
   <!-- Dashboard (Post-Selection View) -->
-  <div id="dashboard" class="hidden max-w-7xl mx-auto px-6 py-8">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      
-      <!-- Left Column (33%) - Objectives & Logs -->
-      <div class="space-y-6">
-        <!-- Objectives Box -->
-        <div class="glass rounded-xl p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-white">Objectives</h3>
-            <span id="objectiveCount" class="text-xs text-gray-400">0/5 completed</span>
-          </div>
-          <ul id="objectives" class="space-y-2 text-sm">
-            <li class="flex items-center text-gray-400">
-              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-              Gain initial foothold
-            </li>
-            <li class="flex items-center text-gray-400">
-              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-              Perform lateral movement
-            </li>
-            <li class="flex items-center text-gray-400">
-              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-              Locate sensitive data
-            </li>
-            <li class="flex items-center text-gray-400">
-              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-              Exfiltrate data files
-            </li>
-            <li class="flex items-center text-gray-400">
-              <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-              Maintain persistence (10 min)
-            </li>
-          </ul>
-        </div>
-
-        <!-- System Log Box -->
-        <div class="glass rounded-xl p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-white">System Log</h3>
-            <button onclick="clearLog()" class="text-xs text-gray-400 hover:text-white transition-colors">
-              Clear
-            </button>
-          </div>
-          <div id="systemLog" class="h-64 overflow-y-auto space-y-2 text-xs mono">
-            <div class="text-gray-500">No events yet...</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right Column (67%) - Terminal -->
-      <div class="lg:col-span-2">
-        <div class="glass rounded-xl overflow-hidden">
-          <!-- Terminal Header -->
-          <div class="terminal-header flex items-center justify-between px-4 py-2 border-b border-white/10">
-            <div class="flex items-center">
-              <span class="window-btn red"></span>
-              <span class="window-btn yellow"></span>
-              <span class="window-btn green"></span>
-              <span class="ml-4 text-xs text-gray-400">Terminal</span>
+  <div id="dashboard" class="hidden">
+    <div class="max-w-7xl mx-auto px-6 py-8">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Column (33%) - Objectives & Logs -->
+        <div class="space-y-6">
+          <!-- Objectives Box -->
+          <div class="glass rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-white">Objectives</h3>
+              <span id="objectiveCount" class="text-xs text-gray-400">0/5 completed</span>
             </div>
-            <div class="text-xs text-gray-400">
-              <span id="termStatus">●</span> Active
-            </div>
+            <ul id="objectives" class="space-y-2 text-sm">
+              <li class="flex items-center text-gray-400" data-status="pending">
+                <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                Gain initial foothold
+              </li>
+              <li class="flex items-center text-gray-400" data-status="pending">
+                <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                Perform lateral movement
+              </li>
+              <li class="flex items-center text-gray-400" data-status="pending">
+                <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                Locate sensitive data
+              </li>
+              <li class="flex items-center text-gray-400" data-status="pending">
+                <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                Exfiltrate data files
+              </li>
+              <li class="flex items-center text-gray-400" data-status="pending">
+                <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                Maintain persistence (10 min)
+              </li>
+            </ul>
           </div>
-          
-          <!-- Terminal Content -->
-          <div class="p-4" style="background: rgba(0,0,0,0.9);">
-            <div id="terminal" class="terminal"></div>
-          </div>
-          
-          <!-- Terminal Controls -->
-          <div class="px-4 py-3 bg-gray-900/50 border-t border-white/10 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-              <button id="btn-clear" class="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors">
+
+          <!-- System Log Box -->
+          <div class="glass rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-white">System Log</h3>
+              <button id="btn-clear-log" class="text-xs text-gray-400 hover:text-white transition-colors">
                 Clear
               </button>
-              <button id="btn-playagain" class="hidden text-xs px-3 py-1 bg-blue-900/50 hover:bg-blue-900/70 rounded text-blue-400 transition-colors">
-                Play Again
-              </button>
             </div>
-            <div class="text-xs text-gray-500">
-              Press Enter to execute • Use ↑/↓ for history
+            <div id="timeline" class="h-64 overflow-y-auto space-y-2 text-xs mono">
+              <div class="text-gray-500">No events yet...</div>
             </div>
-          </div>
-          
-          <!-- AAR Panel -->
-          <div id="aar" class="hidden p-4 bg-black/50 border-t border-white/10 text-sm" style="max-height: 200px; overflow-y: auto;">
-            <!-- AAR content will be inserted here -->
           </div>
         </div>
-      </div>
 
+        <!-- Right Column (67%) - Terminal -->
+        <div class="lg:col-span-2">
+          <div class="glass rounded-xl overflow-hidden">
+            <!-- Terminal Header -->
+            <div class="terminal-header flex items-center justify-between px-4 py-2 border-b border-white/10">
+              <div class="flex items-center">
+                <span class="window-btn red"></span>
+                <span class="window-btn yellow"></span>
+                <span class="window-btn green"></span>
+                <span class="ml-4 text-xs text-gray-400">Terminal</span>
+              </div>
+              <div class="text-xs text-gray-400">
+                <span id="termStatus">●</span> Active
+              </div>
+            </div>
+            
+            <!-- Terminal Content -->
+            <div class="p-4" style="background: rgba(0,0,0,0.9);">
+              <div id="terminal" class="terminal"></div>
+            </div>
+            
+            <!-- Terminal Controls -->
+            <div class="px-4 py-3 bg-gray-900/50 border-t border-white/10 flex items-center justify-between">
+              <div class="flex items-center gap-4">
+                <button id="btn-clear" class="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors">
+                  Clear
+                </button>
+                <button id="btn-playagain" class="hidden text-xs px-3 py-1 bg-blue-900/50 hover:bg-blue-900/70 rounded text-blue-400 transition-colors">
+                  Play Again
+                </button>
+              </div>
+              <div class="text-xs text-gray-500">
+                Press Enter to execute • Use ↑/↓ for history
+              </div>
+            </div>
+            
+            <!-- AAR Panel -->
+            <div id="aar" class="hidden p-4 bg-black/50 border-t border-white/10 text-sm" style="max-height: 200px; overflow-y: auto;">
+              <!-- AAR content will be inserted here -->
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
-  <!-- xterm and socket.io -->
-  <script src="https://unpkg.com/xterm/lib/xterm.js"></script>
-  <script src="https://unpkg.com/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- Load xterm.js and socket.io from CDN -->
+  <script src="https://unpkg.com/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://unpkg.com/xterm-addon-fit@0.11.0/lib/xterm-addon-fit.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   
   <!-- Vercel Analytics -->
   <script>
@@ -272,7 +274,7 @@
     })(window,document,'script','https://cdn.vercel-insights.com/v1/script.js','va');
   </script>
   
-  <script src="/labs.js?v=prod-cutover-1"></script>
+  <script src="/labs.js?v=3"></script>
 
 </body>
 </html>
