@@ -316,6 +316,14 @@
         term.open(termEl);
       }
       
+      // Ensure stdin is enabled and terminal can receive focus
+      if (typeof term.setOption === 'function') {
+        term.setOption('disableStdin', false);
+      }
+      if (term.element) {
+        term.element.tabIndex = term.element.tabIndex || 0;
+      }
+      
       // Initialize readline
       readline = new window.ReadlineSim();
       
@@ -394,8 +402,10 @@
         // Get result from readline handler
         const result = readline.handleKey(ev.key, ctrl, shift, false, term);
         
-        // Prevent default for keys we're handling
-        if (result.type !== 'noop') {
+        // Prevent default for all handled keys (we're managing input via readline)
+        const shouldPreventDefault = result.type !== 'noop';
+        
+        if (shouldPreventDefault) {
           ev.preventDefault();
         }
         
@@ -407,6 +417,9 @@
           // Rerender the line (e.g., after backspace or history)
           const promptText = window.kali_interpreter?.getPrompt?.() || promptCached;
           readline.renderLine(term, promptText);
+        } else if (result.type === 'print') {
+          // Write the printable character
+          term.write(result.char);
         }
       });
       
