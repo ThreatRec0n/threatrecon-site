@@ -412,13 +412,22 @@
     term.write(promptCached);
   }
 
-  // Load local snapshot
+  // Load local snapshot and initialize Kali interpreter
   async function loadSnapshot() {
-    if (localSnapshot) return localSnapshot;
+    if (localSnapshot && window.kali_interpreter.runtime) {
+      return localSnapshot;
+    }
     try {
       const response = await fetch('/kali_snapshot_full.json');
       localSnapshot = await response.json();
       console.info('[Client] Loaded local snapshot');
+      
+      // Initialize Kali interpreter
+      if (window.kali_interpreter) {
+        await window.kali_interpreter.init(localSnapshot);
+        console.info('[Client] Kali interpreter initialized');
+      }
+      
       return localSnapshot;
     } catch (e) {
       console.error('[Client] Failed to load snapshot:', e);
@@ -616,16 +625,44 @@
     return false;
   }
 
-  function submitCommand(cmd) {
+  async function submitCommand(cmd) {
     if (!cmd) {
       writePrompt();
       return;
     }
     
-    // Try local command handler first
+    // Add to history
+    if (cmd.trim()) {
+      history.unshift(cmd);
+      if (history.length > 100) history = history.slice(0, 100);
+      historyIndex = -1;
+    }
+    
+    // Check for pager mode
+    if (window.kali_pager && window.kali_pager.state && window.kali_pager.state.active) {
+      if (cmd === ' ') {
+        window.kali_pager.next();
+        return;
+      } else if (cmd.toLowerCase() === 'q') {
+        window.kali_pager.quit();
+        writePrompt();
+        return;
+      }
+    }
+    
+    // Try Kali interpreter first
+    if (window.kali_interpreter && window.kali_interpreter.runtime) {
+      const handled = await window.kali_interpreter.handle(cmd, term);
+      if (handled) {
+        writePrompt();
+        return;
+      }
+    }
+    
+    // Try legacy local command handler
     const handledLocally = handleLocalCommand(cmd);
     if (handledLocally) {
-      // Command was handled locally, already rendered output
+      writePrompt();
       return;
     }
     
