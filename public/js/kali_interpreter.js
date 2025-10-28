@@ -160,29 +160,51 @@
     
     // Command implementations
     cmd_ls(args, term) {
-      const path = args.find(a => !a.startsWith('-')) || this.runtime.cwd;
+      let target = args.find(a => !a.startsWith('-'));
+      if (!target) target = this.runtime.cwd || '/home/kali';
+      
       const detailed = args.includes('-l') || args.includes('-la');
       
-      const node = this.getFSNode(path);
+      // Expand ~
+      target = target.replace(/^~(\/|$)/, '/home/kali$1');
+      
+      // Build absolute path
+      if (!target.startsWith('/')) {
+        const base = this.runtime.cwd || '/home/kali';
+        target = base.endsWith('/') ? base + target : base + '/' + target;
+      }
+      
+      // Normalize
+      const parts = target.split('/').filter(p => p);
+      const stack = [];
+      for (const p of parts) {
+        if (p === '..' && stack.length > 0) stack.pop();
+        else if (p !== '.') stack.push(p);
+      }
+      const normPath = '/' + stack.join('/');
+      
+      const node = this.runtime.fs[normPath];
       if (!node) {
-        term.writeln(`ls: cannot access '${path}': No such file or directory`);
+        term.writeln(`ls: cannot access '${args.find(a => !a.startsWith('-')) || args[0] || target}': No such file or directory`);
         return true;
       }
       
       if (node.type !== 'dir') {
-        term.writeln(`ls: cannot access '${path}': Not a directory`);
+        term.writeln(`ls: cannot access '${args.find(a => !a.startsWith('-')) || args[0] || target}': Not a directory`);
         return true;
       }
       
       if (detailed) {
         const files = node.children || [];
         files.forEach(f => {
-          const p = this.runtime.cwd === '/' ? '/' + f : this.runtime.cwd + '/' + f;
-          const fn = this.getFSNode(p);
-          if (fn && fn.type === 'file') {
-            term.writeln(`-rw-r--r-- 1 kali kali 1024 ${new Date().toISOString().split('T')[0]} ${f}`);
-          } else {
-            term.writeln(`drwxr-xr-x 2 kali kali 4096 ${new Date().toISOString().split('T')[0]} ${f}`);
+          const fullPath = normPath === '/' ? '/' + f : normPath + '/' + f;
+          const childNode = this.runtime.fs[fullPath];
+          if (childNode) {
+            if (childNode.type === 'file') {
+              term.writeln(`-rw-r--r-- 1 kali kali ${childNode.size || 1024} ${(new Date(childNode.mtime || Date.now())).toISOString().split('T')[0]} ${f}`);
+            } else if (childNode.type === 'dir') {
+              term.writeln(`drwxr-xr-x 2 kali kali 4096 ${(new Date(childNode.mtime || Date.now())).toISOString().split('T')[0]} ${f}`);
+            }
           }
         });
       } else {
@@ -194,16 +216,32 @@
     
     cmd_cd(args, term) {
       const target = args[0] || '/home/kali';
-      const node = this.getFSNode(target);
-      if (!node) {
+      // Expand ~
+      const normalized = target.replace(/^~(\/|$)/, '/home/kali$1');
+      
+      // Build absolute path
+      let newPath = normalized;
+      if (!newPath.startsWith('/')) {
+        // Relative path
+        const base = this.runtime.cwd || '/home/kali';
+        newPath = base.endsWith('/') ? base + newPath : base + '/' + newPath;
+      }
+      
+      // Normalize dots
+      const parts = newPath.split('/').filter(p => p);
+      const stack = [];
+      for (const p of parts) {
+        if (p === '..' && stack.length > 0) stack.pop();
+        else if (p !== '.') stack.push(p);
+      }
+      newPath = '/' + stack.join('/');
+      
+      const node = this.runtime.fs[newPath];
+      if (!node || node.type !== 'dir') {
         term.writeln(`bash: cd: ${target}: No such file or directory`);
         return true;
       }
-      if (node.type !== 'dir') {
-        term.writeln(`bash: cd: ${target}: Not a directory`);
-        return true;
-      }
-      this.runtime.cwd = node.path || target;
+      this.runtime.cwd = newPath;
       this.save();
       return true;
     },

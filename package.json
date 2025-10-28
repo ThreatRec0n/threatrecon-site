@@ -25,6 +25,8 @@
     "scenario:validate": "cd src/backend && npm run scenario:validate",
     "export:aar": "cd src/backend && npm run export:aar",
     "smoke": "node scripts/smoke-test.js",
+    "kali:generate": "node scripts/generate_kali_snapshot.js",
+    "kali:test": "node scripts/test_kali_handlers.js",
     "start": "cd src/backend && npm start"
   },
   "keywords": [
