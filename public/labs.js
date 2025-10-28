@@ -416,7 +416,7 @@
   async function loadSnapshot() {
     if (localSnapshot) return localSnapshot;
     try {
-      const response = await fetch('/kali_snapshot_large.json');
+      const response = await fetch('/kali_snapshot_full.json');
       localSnapshot = await response.json();
       console.info('[Client] Loaded local snapshot');
       return localSnapshot;
@@ -449,76 +449,171 @@
     }
   }
   
-  // Local command handlers (for file system operations)
-  function handleLocalCommand(cmd, args) {
-    if (!localSnapshot) return null;
+  // Filesystem helpers
+  function fsNode(path, session = window.__TR_session) {
+    const fs = localSnapshot && localSnapshot.fs;
+    if (!fs) return null;
     
-    const parts = cmd.trim().split(/\s+/).filter(Boolean);
-    const command = parts[0];
-    const arguments_ = parts.slice(1);
+    if (!path) path = (session && session.cwd) || '/home/kali';
     
-    // Helper to get file/dir from snapshot
-    function getFSNode(path) {
-      return localSnapshot.fs && localSnapshot.fs[path];
+    // Handle relative paths
+    if (!path.startsWith('/')) {
+      let base = (session && session.cwd) || '/home/kali';
+      if (base.endsWith('/')) base = base.slice(0, -1);
+      path = base + '/' + path;
     }
     
-    switch (command) {
-      case 'ls':
-      case 'dir':
-        const path = arguments_[0] || localCwd;
-        const key = path === '/' ? '/' : path;
-        const node = getFSNode(key);
-        if (!node || node.type !== 'dir') return `ls: cannot access '${path}': No such file or directory\n`;
-        return node.children.join('  ') + '\n';
-      
-      case 'pwd':
-        return localCwd + '\n';
-      
-      case 'cd':
-        const target = arguments_[0] || localSnapshot.users?.kali?.home || '/home/kali';
-        let newPath = target.startsWith('/') ? target : (localCwd.endsWith('/') ? localCwd + target : localCwd + '/' + target);
-        newPath = newPath.replace(/\/\.\//g, '/').replace(/\/+$/,'') || '/';
-        if (getFSNode(newPath) || newPath === '/') {
-          localCwd = newPath;
-          return '';
-        } else {
-          return `bash: cd: ${target}: No such file or directory\n`;
-        }
-      
-      case 'cat':
-        const catNode = getFSNode(arguments_[0]);
-        return catNode && catNode.content ? catNode.content + '\n' : `cat: ${arguments_[0]}: No such file or directory\n`;
-      
-      case 'whoami':
-        return 'kali\n';
-      
-      case 'id':
-        return 'uid=1000(kali) gid=1000(kali) groups=1000(kali)\n';
-      
-      case 'hostname':
-        return localSnapshot.env?.HOSTNAME || 'kali\n';
-      
-      case 'man':
-        const manTarget = arguments_[0];
-        if (!manTarget) {
-          term.writeln('What manual page do you want?');
-          writePrompt();
-          return '';
-        }
-        const manPath = `/usr/share/man_sim/${manTarget}.1.txt`;
-        const manPathAlt = `/usr/share/man_sim/${manTarget}.8.txt`;
-        const manNode = getFSNode(manPath) || getFSNode(manPathAlt);
-        if (!manNode || !manNode.content) {
-          term.writeln(`No manual entry for ${manTarget}`);
-          writePrompt();
-          return '';
-        }
-        startPager(manNode.content);
-        return '';
-      
-      default:
-        return null; // Let backend handle it
+    // Collapse dots (simple implementation)
+    const parts = path.split('/').filter(Boolean);
+    const stack = [];
+    for (const p of parts) {
+      if (p === '..') stack.pop();
+      else if (p === '.') continue;
+      else stack.push(p);
     }
+    const norm = '/' + stack.join('/');
+    
+    // Direct special-case root
+    if (norm === '/') return fs['/'];
+    return fs[norm] || null;
+  }
+
+  function listDir(path) {
+    const session = window.__TR_session;
+    const node = fsNode(path, session);
+    if (!node) return { err: 'No such file or directory' };
+    if (node.type !== 'dir') return { err: 'Not a directory' };
+    return { children: node.children || [] };
+  }
+
+  // Local command handlers
+  function handleLocalCommand(rawCmd) {
+    if (!localSnapshot) return false;
+    
+    const parts = rawCmd.trim().split(/\s+/);
+    const cmd = parts[0];
+    const args = parts.slice(1);
+    const session = window.__TR_session;
+    
+    if (!cmd) { 
+      writePrompt(); 
+      return true; 
+    }
+
+    // man: use snapshot man pages
+    if (cmd === 'man') {
+      const target = args[0];
+      if (!target) { 
+        term.writeln('What manual page do you want?'); 
+        writePrompt(); 
+        return true; 
+      }
+      const manPath1 = `/usr/share/man_sim/${target}.1.txt`;
+      const manPath2 = `/usr/share/man_sim/${target}.8.txt`;
+      const node = localSnapshot.fs[manPath1] || localSnapshot.fs[manPath2];
+      if (!node || !node.content) { 
+        term.writeln(`No manual entry for ${target}`); 
+        writePrompt(); 
+        return true; 
+      }
+      startPager(node.content); 
+      return true;
+    }
+
+    if (cmd === 'ls' || cmd === 'dir') {
+      const target = args[0] || (session && session.cwd) || '/home/kali';
+      const res = listDir(target);
+      if (res.err) { 
+        term.writeln(`ls: ${res.err}`); 
+        writePrompt(); 
+        return true; 
+      }
+      const out = res.children.join('  ');
+      term.writeln(out);
+      writePrompt();
+      return true;
+    }
+
+    if (cmd === 'pwd') { 
+      term.writeln((session && session.cwd) || '/home/kali'); 
+      writePrompt(); 
+      return true; 
+    }
+
+    if (cmd === 'cd') {
+      const target = args[0] || '/home/kali';
+      const t = target.replace(/^~(?=$|\/)/, '/home/kali');
+      const node = fsNode(t, session);
+      if (!node) { 
+        term.writeln(`bash: cd: ${target}: No such file or directory`); 
+        writePrompt(); 
+        return true; 
+      }
+      if (node.type !== 'dir') { 
+        term.writeln(`bash: cd: ${target}: Not a directory`); 
+        writePrompt(); 
+        return true; 
+      }
+      if (session) session.cwd = t.endsWith('/') && t.length > 1 ? t.slice(0, -1) : t;
+      localCwd = t.endsWith('/') && t.length > 1 ? t.slice(0, -1) : t;
+      writePrompt();
+      return true;
+    }
+
+    if (cmd === 'cat') {
+      const target = args[0];
+      if (!target) { 
+        term.writeln('Usage: cat <file>'); 
+        writePrompt(); 
+        return true; 
+      }
+      const node = fsNode(target, session) || fsNode('/' + target, session);
+      if (!node) { 
+        term.writeln(`cat: ${target}: No such file or directory`); 
+        writePrompt(); 
+        return true; 
+      }
+      if (node.type === 'dir') { 
+        term.writeln(`cat: ${target}: Is a directory`); 
+        writePrompt(); 
+        return true; 
+      }
+      term.writeln(node.content || '');
+      writePrompt();
+      return true;
+    }
+
+    if (cmd === 'whoami') { 
+      const isRoot = (session && (session.isRoot || session.asRoot));
+      term.writeln(isRoot ? 'root' : ((session && session.user) || 'kali')); 
+      writePrompt(); 
+      return true; 
+    }
+
+    if (cmd === 'id') {
+      const isRoot = (session && (session.isRoot || session.asRoot));
+      const u = isRoot ? {uid:0,gid:0} : {uid:1000,gid:1000};
+      term.writeln(`uid=${u.uid}(${isRoot ? 'root' : 'kali'}) gid=${u.gid}(${isRoot ? 'root' : 'kali'}) groups=${u.gid}`);
+      writePrompt(); 
+      return true;
+    }
+
+    if (cmd === 'hostname') { 
+      term.writeln((localSnapshot && localSnapshot.env && localSnapshot.env.HOSTNAME) || 'kali'); 
+      writePrompt(); 
+      return true; 
+    }
+
+    if (cmd === 'ifconfig' || cmd === 'ip') {
+      term.writeln('eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500');
+      term.writeln('    inet 192.168.56.101  netmask 255.255.255.0  broadcast 192.168.56.255');
+      term.writeln('    ether 02:42:ac:11:00:02');
+      term.writeln('');
+      writePrompt();
+      return true;
+    }
+
+    return false;
   }
 
   function submitCommand(cmd) {
@@ -528,17 +623,13 @@
     }
     
     // Try local command handler first
-    if (localSnapshot) {
-      const localResult = handleLocalCommand(cmd);
-      if (localResult !== null) {
-        if (term) {
-          term.write(localResult.replace(/\n/g, '\r\n'));
-          writePrompt();
-        }
-        return;
-      }
+    const handledLocally = handleLocalCommand(cmd);
+    if (handledLocally) {
+      // Command was handled locally, already rendered output
+      return;
     }
     
+    // Send to backend for intensive commands
     const s = window.__TR_socket;
     if (!s || !s.connected) {
       if (term) {

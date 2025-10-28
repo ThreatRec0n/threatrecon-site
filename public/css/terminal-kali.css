@@ -1,30 +1,59 @@
-/* public/css/terminal-kali.css */
+/* terminal-kali.css - High fidelity Kali terminal styling */
+@font-face {
+  font-family: 'HackLocal';
+  src: local('Hack'), local('Fira Mono'), local('DejaVu Sans Mono'), local('Courier New');
+}
 
+.xterm, .xterm .xterm-rows, .xterm .xterm-rows div {
+  font-family: "HackLocal", "Fira Mono", "DejaVu Sans Mono", monospace !important;
+  font-size: 15px !important;
+  line-height: 1.18 !important;
+  letter-spacing: 0.9px !important;
+}
+
+.xterm .xterm-rows {
+  padding: 8px 12px !important;
+}
+
+.xterm .xterm-viewport { 
+  overflow-y: auto !important; 
+}
+
+.xterm .xterm-rows .xterm-row { 
+  white-space: pre !important; 
+}
+
+.xterm .xterm-rows .xterm-col {
+  font-variant-ligatures: none !important;
+}
+
+/* Black background, bright green/yellow prompt colors like default Kali-ish theme */
+.xterm .xterm-viewport, .xterm .xterm-rows {
+  background: #000 !important;
+  color: #cfdc39 !important;
+}
+
+/* Terminal container styling */
 .kali-terminal-container {
-  background: #000; /* pitch black terminal box */
+  background: #000;
   border-radius: 6px;
   box-shadow: 0 6px 0 rgba(0,0,0,0.35), inset 0 2px 0 rgba(255,255,255,0.02);
   padding: 12px;
 }
 
-/* xterm.js terminal element */
-.xterm {
-  font-family: "Fira Mono", "DejaVu Sans Mono", "Source Code Pro", monospace !important;
-  font-size: 14px !important;
-  letter-spacing: 0.9px !important;
-  line-height: 1.3 !important;
-  color: #dcdcdc !important;
-}
-
-/* simulate bright green for user text and cyan for path like Kali */
-.kali-prompt .user { color: #8ae234; font-weight:700; }   /* green */
-.kali-prompt .host { color: #ff5c57; font-weight:700; }   /* red-ish */
-.kali-prompt .cwd  { color: #5fb3ff; font-weight:700; }   /* blue/cyan */
+/* Prompt colors for Kali style */
+.kali-prompt .user { color: #8ae234; font-weight:700; }
+.kali-prompt .host { color: #ff5c57; font-weight:700; }
+.kali-prompt .cwd  { color: #5fb3ff; font-weight:700; }
 
 .xterm .xterm-viewport { scrollbar-color: rgba(255,255,255,0.16) transparent; }
 
 /* make scrollbar narrow and dark */
-.xterm .xterm-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
+.xterm .xterm-viewport::-webkit-scrollbar { 
+  width: 8px; 
+  height: 8px; 
+}
+
 .xterm .xterm-viewport::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,0.08);
   border-radius: 4px;
