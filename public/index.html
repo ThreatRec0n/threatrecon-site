@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ThreatRecon Labs</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background: radial-gradient(circle at 20% 20%, #1a2337 0%, #0c1222 80%);
+      color: #f8fafc;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: rgba(15,23,42,0.8);
+      border: 1px solid rgba(148,163,184,0.2);
+      border-radius: 16px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+      padding: 2rem 2.5rem;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      color: #94a3b8;
+      margin: 0 0 0.5rem;
+    }
+    h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      line-height: 1.2;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+    p {
+      font-size: 0.9rem;
+      line-height: 1.5rem;
+      color: #94a3b8;
+      margin: 1rem 0 2rem;
+    }
+    a.launch-btn {
+      background: linear-gradient(to right, #7f1d1d, #991b1b, #dc2626);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 8px;
+      display: block;
+      padding: 0.8rem 1rem;
+      text-decoration: none;
+      box-shadow: 0 15px 40px rgba(220,38,38,0.4);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    a.launch-btn:hover {
+      filter: brightness(1.08);
+    }
+    .foot {
+      font-size: 0.7rem;
+      margin-top: 1.5rem;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>ThreatRecon Labs</h1>
+    <h2>Single-player breach simulation</h2>
+    <p>
+      Drop into an attacker or defender role. Train decision-making in a live incident scenario.
+      Realistic CLI, active adversary AI, and an after-action report at the end.
+    </p>
+    <a class="launch-btn" href="/labs.html">Launch Simulation (beta)</a>
+    <div class="foot">Note: Simulation backend may be offline while in development.</div>
+  </main>
+</body>
+</html>
+
