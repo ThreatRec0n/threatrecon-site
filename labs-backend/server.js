@@ -25,6 +25,9 @@ app.use(cors({
 
 app.use(express.json());
 
+// In-memory sessions (needed by health endpoint)
+const sessions = new Map();
+
 app.get("/healthz", (req, res) => res.send("OK"));
 
 app.get('/health', (req, res) => {
@@ -41,9 +44,6 @@ const io = new Server(server, {
   transports: ["polling", "websocket"],
   pingTimeout: 60000
 });
-
-// In-memory sessions
-const sessions = new Map();
 
 // Helper: push timeline event
 function pushTimeline(session, msg) {
