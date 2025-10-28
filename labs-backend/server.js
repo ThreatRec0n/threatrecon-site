@@ -155,14 +155,22 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
-    console.info('[labs-backend] disconnect', socket.id);
+  socket.on('disconnect', (reason) => {
+    console.info('[labs-backend] disconnect', socket.id, 'reason:', reason);
     const session = sessions.get(socket.id);
     if (session) {
       if (session.aiInterval) clearInterval(session.aiInterval);
       sessions.delete(socket.id);
     }
   });
+  
+  socket.on('error', (err) => {
+    console.error('[labs-backend] socket error', socket.id, err);
+  });
+});
+
+io.on('error', (err) => {
+  console.error('[labs-backend] IO error:', err);
 });
 
 const PORT = process.env.PORT || 8080;
