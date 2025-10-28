@@ -13,31 +13,27 @@ const app = express();
 const allowedOrigins = [
   "https://threatrecon.io",
   "https://www.threatrecon.io",
-  "http://localhost:8080",
-  "http://127.0.0.1:8080"
+  "https://threatrecon-site.onrender.com",
+  "http://localhost:3000",
+  "http://localhost:8080"
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (like curl) or matching domains
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn("Blocked CORS for origin:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
   })
 );
 
 app.use(express.json());
 
-// Health check
+// Health check endpoints
 app.get('/health', (req, res) => {
   res.json({ ok: true, ts: Date.now(), sessions: sessions.size });
 });
+
+app.get("/healthz", (req, res) => res.send("OK"));
 
 // In-memory sessions
 const sessions = new Map();
