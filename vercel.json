@@ -6,12 +6,16 @@
   "framework": null,
   "routes": [
     {
+      "src": "/socket.io/(.*)",
+      "dest": "/api/server.js"
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "/api/index.js"
+      "dest": "/api/server.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/api/index.js"
+      "dest": "/api/server.js"
     }
   ]
 }

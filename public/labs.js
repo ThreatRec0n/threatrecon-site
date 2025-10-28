@@ -44,7 +44,7 @@
   });
 
   // Start role selection
-  async function startRole(role) {
+  function startRole(role) {
     console.info('[Client] startRole called:', role);
     
     // Hide role selection, show dashboard
@@ -55,52 +55,24 @@
     showStatus('Connecting...');
     pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Selected role: ${role}` });
     
-    // Try to connect with multiple path attempts
-    const candidatePaths = ['/socket.io', '/api/socket.io', '/labs/socket.io'];
-    let connected = false;
-    
-    for (const path of candidatePaths) {
-      console.info('[Client] Trying Socket.IO path:', path);
+    // Create socket with fixed path (no path guessing needed anymore)
+    if (!socket) {
+      console.info('[Client] Creating Socket.IO connection with path /socket.io');
+      socket = io(window.location.origin, {
+        path: '/socket.io',
+        transports: ['polling'],
+        timeout: 5000
+      });
       
-      try {
-        // Create socket with explicit path
-        const testSocket = io(window.location.origin, {
-          ...socketOpts,
-          path: path
-        });
-        
-        // Try to connect
-        testSocket.on('connect', () => {
-          console.info('[Client] Connected on path:', path);
-          socket = testSocket;
-          connected = true;
-          
-          // Set up event handlers
-          setupSocketHandlers();
-          
-          pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to server', type: 'success' });
-          socket.emit('initSession', { role });
-        });
-        
-        testSocket.on('connect_error', (err) => {
-          console.warn('[Client] Failed on path:', path, err.message);
-          testSocket.close();
-        });
-        
-        // Wait for connection or timeout
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        if (connected) break;
-        
-      } catch (err) {
-        console.warn('[Client] Error trying path:', path, err);
-      }
-    }
-    
-    if (!connected) {
-      console.error('[Client] All connection attempts failed');
-      showStatus('Connection failed');
-      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Failed to connect to server - please refresh', type: 'error' });
+      setupSocketHandlers(role);
+      
+    } else if (socket.connected) {
+      socket.emit('initSession', { role });
+    } else {
+      socket.connect();
+      socket.once('connect', () => {
+        socket.emit('initSession', { role });
+      });
     }
     
     // Set timeout: if no sessionCreated in 10s, show error
@@ -114,10 +86,16 @@
   }
 
   // Setup socket event handlers
-  function setupSocketHandlers() {
+  function setupSocketHandlers(role) {
     if (!socket) return;
     
-    console.info('[Client] Setting up socket event handlers');
+    console.info('[Client] Setting up socket event handlers for role:', role);
+    
+    socket.on('connect', () => {
+      console.info('[Client] Socket connected:', socket.id);
+      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to server', type: 'success' });
+      socket.emit('initSession', { role });
+    });
     
     socket.on('sessionCreated', (data) => {
       console.info('[Client] sessionCreated received:', data);
