@@ -20,6 +20,7 @@
         this.historyIndex = -1;
         this.buffer = '';
         this.cursor = 0;
+        this.tempLine = '';
         return { type: 'submit', line };
       }
       
@@ -27,7 +28,7 @@
         if (this.cursor > 0) {
           this.buffer = this.buffer.slice(0, this.cursor - 1) + this.buffer.slice(this.cursor);
           this.cursor--;
-          this.rerender(term);
+          return { type: 'render' };
         }
         return { type: 'noop' };
       }
@@ -35,7 +36,7 @@
       if (key === 'Delete' || (key === 'd' && ctrl)) {
         if (this.cursor < this.buffer.length) {
           this.buffer = this.buffer.slice(0, this.cursor) + this.buffer.slice(this.cursor + 1);
-          this.rerender(term);
+          return { type: 'render' };
         }
         return { type: 'noop' };
       }
@@ -43,7 +44,7 @@
       if (key === 'ArrowLeft') {
         if (this.cursor > 0) {
           this.cursor--;
-          this.rerender(term);
+          term.write('\x1b[D');
         }
         return { type: 'noop' };
       }
@@ -51,20 +52,26 @@
       if (key === 'ArrowRight') {
         if (this.cursor < this.buffer.length) {
           this.cursor++;
-          this.rerender(term);
+          term.write('\x1b[C');
         }
         return { type: 'noop' };
       }
       
       if (key === 'Home' || (key === 'a' && ctrl)) {
+        const moveLeft = this.cursor;
         this.cursor = 0;
-        this.rerender(term);
+        if (moveLeft > 0) {
+          term.write('\x1b[' + moveLeft + 'D');
+        }
         return { type: 'noop' };
       }
       
       if (key === 'End' || (key === 'e' && ctrl)) {
+        const moveRight = this.buffer.length - this.cursor;
         this.cursor = this.buffer.length;
-        this.rerender(term);
+        if (moveRight > 0) {
+          term.write('\x1b[' + moveRight + 'C');
+        }
         return { type: 'noop' };
       }
       
@@ -76,7 +83,7 @@
           this.historyIndex++;
           this.buffer = this.history[this.historyIndex];
           this.cursor = this.buffer.length;
-          this.rerender(term);
+          return { type: 'render' };
         }
         return { type: 'noop' };
       }
@@ -86,12 +93,12 @@
           this.historyIndex--;
           this.buffer = this.history[this.historyIndex];
           this.cursor = this.buffer.length;
-          this.rerender(term);
+          return { type: 'render' };
         } else if (this.historyIndex === 0) {
           this.historyIndex = -1;
           this.buffer = this.tempLine;
           this.cursor = this.buffer.length;
-          this.rerender(term);
+          return { type: 'render' };
         }
         return { type: 'noop' };
       }
@@ -104,17 +111,27 @@
       if (key.length === 1 && key >= ' ') {
         this.buffer = this.buffer.slice(0, this.cursor) + key + this.buffer.slice(this.cursor);
         this.cursor++;
-        this.rerender(term);
-        return { type: 'noop' };
+        // Don't print here - let caller handle it
+        return { type: 'print', char: key };
       }
       
       return { type: 'noop' };
     }
     
-    rerender(term) {
-      // Don't do anything here - just update buffer state
-      // The terminal will naturally show the cursor position
-      // This is a simplified approach for xterm.js
+    renderLine(term, promptText) {
+      // Clear line and rewrite prompt + buffer
+      term.write('\r');
+      term.write('\x1b[K');
+      term.write(promptText);
+      term.write(this.buffer);
+      
+      // Position cursor
+      if (this.cursor < this.buffer.length) {
+        const moveBack = this.buffer.length - this.cursor;
+        if (moveBack > 0) {
+          term.write('\x1b[' + moveBack + 'D');
+        }
+      }
     }
     
     getLine() {
@@ -151,4 +168,3 @@
   window.ReadlineSim = ReadlineSim;
   console.info('[Readline] Module loaded');
 })();
-

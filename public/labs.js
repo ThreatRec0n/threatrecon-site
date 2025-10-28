@@ -344,7 +344,7 @@
         const ctrl = ev.ctrlKey || ev.metaKey;
         const shift = ev.shiftKey;
         
-        // Handle Tab completion
+        // Handle Tab completion separately
         if (ev.key === 'Tab') {
           ev.preventDefault();
           const currentLine = readline.getLine();
@@ -370,7 +370,9 @@
               const prefixLen = parts[parts.length - 1].length;
               const completion = lcp.slice(prefixLen);
               readline.setLine(currentLine + completion);
-              readline.rerender(term);
+              const promptText = window.kali_interpreter?.getPrompt?.() || promptCached;
+              readline.renderLine(term, promptText);
+              tabCompleteState.activations = 0;
             } else if (tabCompleteState.activations >= 2) {
               // Second tab: list all completions
               term.writeln('');
@@ -389,12 +391,22 @@
           tabCompleteState.activations = 0;
         }
         
+        // Get result from readline handler
         const result = readline.handleKey(ev.key, ctrl, shift, false, term);
+        
+        // Prevent default for keys we're handling
+        if (result.type !== 'noop') {
+          ev.preventDefault();
+        }
         
         if (result.type === 'submit') {
           term.write('\r\n');
           await submitCommand(result.line);
           writePrompt();
+        } else if (result.type === 'render') {
+          // Rerender the line (e.g., after backspace or history)
+          const promptText = window.kali_interpreter?.getPrompt?.() || promptCached;
+          readline.renderLine(term, promptText);
         }
       });
       
