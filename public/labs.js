@@ -29,6 +29,8 @@
   let historyIndex = -1;
   let promptCached = '';
   let sessionTimeout = null;
+  let localSnapshot = null;
+  let localCwd = '/home/attacker';
 
   // Initialize on DOMContentLoaded
   document.addEventListener('DOMContentLoaded', () => {
@@ -166,9 +168,12 @@
             console.log('[labsClient] initSession emitted on socket.id:', connected.socket.id);
             
             // Listen for sessionCreated on this specific socket
-            connected.socket.once('sessionCreated', (data) => {
+            connected.socket.once('sessionCreated', async (data) => {
               console.log('[labsClient] sessionCreated received on socket.id', connected.socket.id, data);
               window.__TR_session = data;
+              
+              // Load local snapshot for file operations
+              await loadSnapshot();
               
               if (!window.__TR_termInitialized) {
                 initTerminal(data);
@@ -380,10 +385,88 @@
     term.write(`\x1b[1;32m${promptCached}\x1b[0m`);
   }
 
+  // Load local snapshot
+  async function loadSnapshot() {
+    if (localSnapshot) return localSnapshot;
+    try {
+      const response = await fetch('/kali_snapshot.json');
+      localSnapshot = await response.json();
+      console.info('[Client] Loaded local snapshot');
+      return localSnapshot;
+    } catch (e) {
+      console.error('[Client] Failed to load snapshot:', e);
+      return null;
+    }
+  }
+
+  // Local command handlers (for file system operations)
+  function handleLocalCommand(cmd, args) {
+    if (!localSnapshot) return null;
+    
+    const parts = cmd.trim().split(/\s+/).filter(Boolean);
+    const command = parts[0];
+    const arguments_ = parts.slice(1);
+    
+    switch (command) {
+      case 'ls':
+      case 'dir':
+        const path = arguments_[0] || localCwd;
+        const key = path === '/' ? '/' : path;
+        const files = localSnapshot.files[key];
+        if (!files) return `ls: cannot access '${path}': No such file or directory\n`;
+        if (Array.isArray(files)) {
+          return files.join('  ') + '\n';
+        } else {
+          return files.toString() + '\n';
+        }
+      
+      case 'pwd':
+        return localCwd + '\n';
+      
+      case 'cd':
+        const target = arguments_[0] || localSnapshot.home;
+        let newPath = target.startsWith('/') ? target : (localCwd.endsWith('/') ? localCwd + target : localCwd + '/' + target);
+        newPath = newPath.replace(/\/\.\//g, '/').replace(/\/+$/,'') || '/';
+        if (localSnapshot.files[newPath] || localSnapshot.files[newPath + '/'] || newPath === '/') {
+          localCwd = newPath;
+          return '';
+        } else {
+          return `bash: cd: ${target}: No such file or directory\n`;
+        }
+      
+      case 'cat':
+        return localSnapshot.files[arguments_[0]] ? localSnapshot.files[arguments_[0]] + '\n' : `cat: ${arguments_[0]}: No such file or directory\n`;
+      
+      case 'whoami':
+        return (localSnapshot.user || 'attacker') + '\n';
+      
+      case 'id':
+        return `uid=1000(attacker) gid=1000(attacker) groups=1000(attacker)\n`;
+      
+      case 'hostname':
+        return localSnapshot.hostname + '\n';
+      
+      default:
+        return null; // Let backend handle it
+    }
+  }
+
   function submitCommand(cmd) {
     if (!cmd) {
       writePrompt();
       return;
+    }
+    
+    // Try local command handler first
+    if (localSnapshot) {
+      const localResult = handleLocalCommand(cmd);
+      if (localResult !== null) {
+        if (term) {
+          term.write(localResult.replace(/\n/g, '\r\n'));
+          writePrompt();
+        }
+        return;
+      }
     }
     
     const s = window.__TR_socket;
@@ -395,7 +478,7 @@
       return;
     }
     
-    console.info('[Client] Sending command:', cmd);
+    console.info('[Client] Sending command to backend:', cmd);
     s.emit('playerCommand', { cmd });
   }
 
@@ -460,16 +543,19 @@
     document.getElementById('btn-playagain').classList.add('hidden');
     clearLog();
     
-    if (socket && socket.connected) {
-      socket.disconnect();
+    if (window.__TR_socket && window.__TR_socket.connected) {
+      window.__TR_socket.disconnect();
     }
-    socket = null;
-    session = null;
+    window.__TR_socket = null;
+    window.__TR_session = null;
     term = null;
     fitAddon = null;
     inputBuffer = '';
     history = [];
     historyIndex = -1;
+    localSnapshot = null;
+    localCwd = '/home/attacker';
+    window.__TR_termInitialized = false;
     
     showStatus('Ready');
   }

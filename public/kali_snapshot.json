@@ -1,0 +1,52 @@
+{
+  "hostname": "kali-labs",
+  "user": "attacker",
+  "home": "/home/attacker",
+  "cwd": "/home/attacker",
+  "ifconfig": [
+    {
+      "iface": "eth0",
+      "inet": "10.10.10.42",
+      "netmask": "255.255.255.0",
+      "mac": "02:42:0a:0a:0a:2a"
+    },
+    {
+      "iface": "lo",
+      "inet": "127.0.0.1",
+      "netmask": "255.0.0.0"
+    }
+  ],
+  "processes": [
+    {"pid": 1, "user": "root", "cmd": "init"},
+    {"pid": 102, "user": "root", "cmd": "sshd: /usr/sbin/sshd"},
+    {"pid": 201, "user": "attacker", "cmd": "bash"},
+    {"pid": 300, "user": "mariadb", "cmd": "mysqld"}
+  ],
+  "files": {
+    "/": ["bin", "boot", "dev", "etc", "home", "lib", "usr", "var"],
+    "/home": ["attacker"],
+    "/home/attacker": ["README.txt", "notes.txt", "tools", "loot"],
+    "/home/attacker/tools": ["nmap_scan_presets", "reports"],
+    "/home/attacker/loot": ["credentials.db"],
+    "/etc": ["hosts", "passwd", "issue"],
+    "/etc/hosts": "127.0.0.1 localhost\n10.10.10.1 gateway.local\n10.10.10.50 web.target.local\n",
+    "/etc/passwd": "root:x:0:0:root:/root:/bin/bash\nattacker:x:1000:1000:Attacker,,,:/home/attacker:/bin/bash\n",
+    "/home/attacker/README.txt": "ThreatRecon Labs - Simulated Environment\nThis is a training-only simulation.\nDo not store real credentials or sensitive data.\n",
+    "/home/attacker/notes.txt": "targets:\n - 10.10.10.50 (web server)\n - 10.10.10.60 (database)\n - 10.10.10.70 (file server)\n\nnotes:\n ssh fails on web server (22 blocked)\n http appears vulnerable to XXE\n database has weak passwords\n",
+    "/home/attacker/tools/nmap_scan_presets": "quick scan:\nnmap -T4 -F 10.10.10.50\n\nfull scan:\nnmap -sV -sC -p- 10.10.10.50\n\nstealth scan:\nnmap -sS -T2 10.10.10.50\n"
+  },
+  "nmap_presets": {
+    "quick": "Starting Nmap 7.80 ( https://nmap.org )\nNmap scan report for 10.10.10.50\nHost is up (0.012s latency).\nNot shown: 996 closed ports\nPORT     STATE SERVICE\n22/tcp   open  ssh\n80/tcp   open  http\n443/tcp  open  https\n3306/tcp open  mysql\nMAC Address: 02:42:0A:0A:0A:32\n\nNmap done: 1 IP address (1 host up) scanned in 0.12 seconds\n",
+    "full": "Starting Nmap 7.80 ( https://nmap.org )\nNmap scan report for 10.10.10.50\nHost is up (0.010s latency).\nPORT     STATE SERVICE     VERSION\n22/tcp   open  ssh         OpenSSH 7.9p1 Debian (protocol 2.0)\n80/tcp   open  http        Apache httpd 2.4.41 ((Ubuntu))\n443/tcp  open  ssl/http    Apache httpd 2.4.41 ((Ubuntu))\n3306/tcp open  mysql       MySQL 5.7.29\n8080/tcp open  http-proxy  nginx 1.16.1\n\nService detection performed. 4 services identified.\nNmap done: 1 IP address (1 host up) scanned in 3.52 seconds\n"
+  },
+  "ping_defaults": {
+    "host": "8.8.8.8",
+    "packets": 4,
+    "latency_ms": [12, 11, 13, 10]
+  },
+  "credentials": {
+    "admin": "password123",
+    "root": "root123",
+    "user": "password"
+  }
+}
