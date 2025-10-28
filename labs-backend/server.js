@@ -53,10 +53,10 @@ function pushTimeline(session, msg) {
 }
 
 io.on("connection", (socket) => {
-  console.log("[labs-backend] Connected:", socket.id);
+  console.log("[labs-backend] Connected:", socket.id, "namespace:", socket.nsp?.name, "path:/socket.io");
   
   socket.on("initSession", ({ role }) => {
-    console.log("[labs-backend] initSession", socket.id, role);
+    console.log("[labs-backend] initSession received for", socket.id, "role:", role);
 
     if (!role || !['attacker', 'defender'].includes(role)) {
       socket.emit('errorEvent', { msg: 'Invalid role' });
@@ -78,9 +78,10 @@ io.on("connection", (socket) => {
 
     sessions.set(socket.id, session);
     
-    console.log('[labs-backend] sessionCreated sending ->', socket.id, role);
+    console.log('[labs-backend] emitting sessionCreated to socket.id', socket.id, 'socket.nsp:', socket.nsp?.name);
+    console.log('[labs-backend] sessionCreated payload:', JSON.stringify(session));
     socket.emit('sessionCreated', session);
-    console.log('[labs-backend] sessionCreated sent successfully');
+    console.log('[labs-backend] sessionCreated SENT successfully to', socket.id);
 
     // AI heartbeat every 3.5s
     session.aiInterval = setInterval(() => {

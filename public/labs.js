@@ -110,6 +110,11 @@
             timeout: 5000
           });
           
+          // Log all events received
+          socket.onAny((event, payload) => {
+            console.log('[labsClient] onAny', event, payload);
+          });
+          
           const connected = await new Promise((resolve) => {
             let resolved = false;
             
@@ -119,6 +124,7 @@
             };
             
             const onConnect = () => {
+              console.log('[labsClient] socket.id (client-side after connect):', socket.id, socket);
               if (!resolved) {
                 resolved = true;
                 cleanup();
