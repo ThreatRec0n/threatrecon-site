@@ -51,7 +51,9 @@
     
     // Window resize handler
     window.addEventListener('resize', () => {
-      if (fitAddon) fitAddon.fit();
+      if (fitAddon && typeof fitAddon.fit === 'function') {
+        fitAddon.fit();
+      }
     });
     
     console.info('[Client] Event listeners attached');
@@ -278,6 +280,12 @@
     }
     
     try {
+      // Check if xterm.js is loaded
+      if (!window.Terminal) {
+        console.error('[Client] xterm.js not loaded');
+        return;
+      }
+      
       term = new window.Terminal({
         rows: 24,
         cols: 100,
@@ -290,10 +298,16 @@
         }
       });
       
-      fitAddon = new window.FitAddon.FitAddon();
-      term.loadAddon(fitAddon);
-      term.open(termEl);
-      fitAddon.fit();
+      // Check if FitAddon is loaded
+      if (window.FitAddon && typeof window.FitAddon.FitAddon === 'function') {
+        fitAddon = new window.FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(termEl);
+        fitAddon.fit();
+      } else {
+        console.warn('[Client] FitAddon not available, opening terminal without fit');
+        term.open(termEl);
+      }
       
       // Terminal input handling
       term.onKey(e => {
