@@ -24,7 +24,7 @@
   
   let term = null;
   let fitAddon = null;
-  let inputBuffer = '';
+  let readline = null;
   let history = [];
   let historyIndex = -1;
   let promptCached = '';
@@ -32,6 +32,7 @@
   let localSnapshot = null;
   let localCwd = '/home/kali';
   let pagerState = { active: false, content: [], page: 0 };
+  let tabCompleteState = { activations: 0 };
 
   // Initialize on DOMContentLoaded
   document.addEventListener('DOMContentLoaded', () => {
@@ -315,8 +316,11 @@
         term.open(termEl);
       }
       
-      // Terminal input handling
-      term.onKey(e => {
+      // Initialize readline
+      readline = new window.ReadlineSim();
+      
+      // Terminal input handling with readline
+      term.onKey(async (e) => {
         const session = window.__TR_session;
         if (session?.ended) return;
         
@@ -337,40 +341,60 @@
           return;
         }
         
-        if (ev.key === 'Enter') {
-          term.write('\r\n');
-          const cmd = inputBuffer.trim();
-          submitCommand(cmd);
-          if (cmd) {
-            history.unshift(cmd);
-            historyIndex = -1;
-          }
-          inputBuffer = '';
-        } else if (ev.key === 'Backspace') {
-          if (inputBuffer.length > 0) {
-            inputBuffer = inputBuffer.slice(0, -1);
-            term.write('\b \b');
-          }
-        } else if (ev.key === 'ArrowUp') {
-          if (history.length > 0) {
-            historyIndex = Math.min(historyIndex + 1, history.length - 1);
-            clearInputBuffer();
-            inputBuffer = history[historyIndex] || '';
-            term.write(inputBuffer);
-          }
-        } else if (ev.key === 'ArrowDown') {
-          if (historyIndex > 0) {
-            historyIndex--;
-            clearInputBuffer();
-            inputBuffer = history[historyIndex] || '';
-            term.write(inputBuffer);
+        const ctrl = ev.ctrlKey || ev.metaKey;
+        const shift = ev.shiftKey;
+        
+        // Handle Tab completion
+        if (ev.key === 'Tab') {
+          ev.preventDefault();
+          const currentLine = readline.getLine();
+          const parts = currentLine.split(' ');
+          const lastWord = parts[parts.length - 1];
+          
+          const completions = window.kali_interpreter && window.kali_interpreter.getCompletions
+            ? window.kali_interpreter.getCompletions(lastWord)
+            : [];
+          
+          if (completions.length > 0) {
+            tabCompleteState.activations++;
+            
+            if (tabCompleteState.activations === 1) {
+              // First tab: complete to longest common prefix
+              const lcp = completions[0];
+              for (let i = 1; i < completions.length; i++) {
+                let j = 0;
+                while (j < lcp.length && j < completions[i].length && lcp[j] === completions[i][j]) j++;
+                const newLcp = lcp.slice(0, j);
+                if (newLcp.length < j) break;
+              }
+              const prefixLen = parts[parts.length - 1].length;
+              const completion = lcp.slice(prefixLen);
+              readline.setLine(currentLine + completion);
+              readline.rerender(term);
+            } else if (tabCompleteState.activations >= 2) {
+              // Second tab: list all completions
+              term.writeln('');
+              term.writeln(completions.join('  '));
+              writePrompt();
+              tabCompleteState.activations = 0;
+            }
           } else {
-            clearInputBuffer();
-            inputBuffer = '';
+            tabCompleteState.activations = 0;
           }
-        } else if (e.key.length === 1) {
-          inputBuffer += e.key;
-          term.write(e.key);
+          return;
+        }
+        
+        // Reset tab completion state on any non-tab key
+        if (ev.key !== 'Tab') {
+          tabCompleteState.activations = 0;
+        }
+        
+        const result = readline.handleKey(ev.key, ctrl, shift, false, term);
+        
+        if (result.type === 'submit') {
+          term.write('\r\n');
+          await submitCommand(result.line);
+          writePrompt();
         }
       });
       
@@ -383,33 +407,39 @@
     }
   }
 
-  function clearInputBuffer() {
-    for (let i = 0; i < inputBuffer.length; i++) {
-      term.write('\b \b');
-    }
-  }
-
   function writePrompt() {
     const session = window.__TR_session;
     if (!session || !term) return;
     
-    // PS1-style prompt with Kali colors
-    const isRoot = session.isRoot || session.asRoot;
-    const user = isRoot ? 'root' : (session.user || 'kali');
-    const host = localSnapshot?.meta?.distro || 'kali';
-    const cwdRaw = session.cwd || localCwd || '/home/kali';
-    const cwd = cwdRaw === '/home/kali' ? '~' : cwdRaw.replace('/home/kali', '~');
+    // Use Kali interpreter prompt if available, otherwise fallback
+    let promptText;
+    if (window.kali_interpreter && window.kali_interpreter.getPrompt) {
+      promptText = window.kali_interpreter.getPrompt();
+    } else {
+      // Fallback prompt
+      const isRoot = session.isRoot || session.asRoot;
+      const user = isRoot ? 'root' : (session.user || 'kali');
+      const host = localSnapshot?.meta?.distro || 'kali';
+      const cwdRaw = session.cwd || localCwd || '/home/kali';
+      const cwd = cwdRaw === '/home/kali' ? '~' : cwdRaw.replace('/home/kali', '~');
+      
+      const BOLD = '\x1b[1m';
+      const GREEN = '\x1b[32m';
+      const RED = '\x1b[31m';
+      const CYAN = '\x1b[36m';
+      const YELLOW = '\x1b[33m';
+      const RESET = '\x1b[0m';
+      const symbol = isRoot ? '#' : '$';
+      promptText = `${BOLD}${RED}${user}${RESET}@${GREEN}${host}${RESET}:${CYAN}${cwd}${RESET}${YELLOW}${symbol}${RESET} `;
+    }
     
-    const BOLD = '\x1b[1m';
-    const GREEN = '\x1b[32m';
-    const RED = '\x1b[31m';
-    const CYAN = '\x1b[36m';
-    const YELLOW = '\x1b[33m';
-    const RESET = '\x1b[0m';
-    const symbol = isRoot ? '#' : '$';
+    promptCached = promptText;
+    term.write(promptText);
     
-    promptCached = `${BOLD}${RED}${user}${RESET}${BOLD}@${GREEN}${host}${RESET}:${CYAN}${cwd}${RESET}${YELLOW}${symbol}${RESET} `;
-    term.write(promptCached);
+    // Initialize readline buffer after writing prompt
+    if (readline) {
+      readline.setLine('');
+    }
   }
 
   // Load local snapshot and initialize Kali interpreter

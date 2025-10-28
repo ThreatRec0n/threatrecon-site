@@ -27,6 +27,7 @@
     "smoke": "node scripts/smoke-test.js",
     "kali:generate": "node scripts/generate_kali_snapshot.js",
     "kali:test": "node scripts/test_kali_handlers.js",
+    "test:ui": "node scripts/test_terminal_ui.js",
     "start": "cd src/backend && npm start"
   },
   "keywords": [

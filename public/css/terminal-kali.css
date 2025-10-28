@@ -1,62 +1,112 @@
-/* terminal-kali.css - High fidelity Kali terminal styling */
+/* terminal-kali.css - Kali Linux CLI styling */
+
 @font-face {
-  font-family: 'HackLocal';
-  src: local('Hack'), local('Fira Mono'), local('DejaVu Sans Mono'), local('Courier New');
+  font-family: 'KaliMono';
+  src: local('DejaVu Sans Mono'), local('Fira Mono'), local('Source Code Pro'), local('Monaco'), local('Consolas'), local('Courier New');
 }
 
+/* Terminal container */
+.kali-terminal-container {
+  background: #000000;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  padding: 0;
+  border: 1px solid #333;
+}
+
+/* xterm.js terminal styling */
 .xterm, .xterm .xterm-rows, .xterm .xterm-rows div {
-  font-family: "HackLocal", "Fira Mono", "DejaVu Sans Mono", monospace !important;
-  font-size: 15px !important;
-  line-height: 1.18 !important;
-  letter-spacing: 0.9px !important;
+  font-family: "KaliMono", "DejaVu Sans Mono", "Fira Mono", "Source Code Pro", monospace !important;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.5px !important;
 }
 
+/* Terminal background and text colors */
+.xterm .xterm-viewport,
 .xterm .xterm-rows {
-  padding: 8px 12px !important;
+  background: #000000 !important;
+  color: #00ff55 !important;
 }
 
-.xterm .xterm-viewport { 
-  overflow-y: auto !important; 
+/* Foreground/bright green for command output */
+.xterm .xterm-rows .xterm-row {
+  white-space: pre !important;
+  color: #00ff55 !important;
 }
 
-.xterm .xterm-rows .xterm-row { 
-  white-space: pre !important; 
+/* Cursor styling */
+.xterm .xterm-cursor {
+  background: #00ff55 !important;
+  color: #000000 !important;
+  animation: blink 1s infinite;
 }
 
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Selection */
+.xterm .xterm-selection {
+  background: rgba(0, 255, 255, 0.33);
+}
+
+/* Scrollbar */
+.xterm .xterm-viewport {
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Terminal window UI elements */
+.terminal-header {
+  background: #1f2937;
+  color: #e5e7eb;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Prompt colors - username red, host green, cwd cyan, symbol yellow/green */
+.prompt-user { color: #ff4b4b; font-weight: 700; }
+.prompt-host { color: #00c2ff; font-weight: 700; }
+.prompt-cwd { color: #5fb3ff; font-weight: 700; }
+.prompt-symbol-user { color: #00ff55; }
+.prompt-symbol-root { color: #ff4b4b; }
+
+/* Ensure proper spacing */
+.xterm .xterm-rows {
+  padding: 8px 12px;
+  letter-spacing: 0.5px;
+}
+
+/* Fix ligatures */
 .xterm .xterm-rows .xterm-col {
   font-variant-ligatures: none !important;
 }
 
-/* Black background, bright green/yellow prompt colors like default Kali-ish theme */
-.xterm .xterm-viewport, .xterm .xterm-rows {
-  background: #000 !important;
-  color: #cfdc39 !important;
+/* For the main terminal area - remove boxed look */
+#terminal {
+  background: #000000;
 }
-
-/* Terminal container styling */
-.kali-terminal-container {
-  background: #000;
-  border-radius: 6px;
-  box-shadow: 0 6px 0 rgba(0,0,0,0.35), inset 0 2px 0 rgba(255,255,255,0.02);
-  padding: 12px;
-}
-
-/* Prompt colors for Kali style */
-.kali-prompt .user { color: #8ae234; font-weight:700; }
-.kali-prompt .host { color: #ff5c57; font-weight:700; }
-.kali-prompt .cwd  { color: #5fb3ff; font-weight:700; }
-
-.xterm .xterm-viewport { scrollbar-color: rgba(255,255,255,0.16) transparent; }
-
-/* make scrollbar narrow and dark */
-.xterm .xterm-viewport::-webkit-scrollbar { 
-  width: 8px; 
-  height: 8px; 
-}
-
-.xterm .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.08);
-  border-radius: 4px;
-}
-
-.xterm .xterm-rows { letter-spacing: 0.95px; }

@@ -21,7 +21,52 @@
       const c = (cwdRaw === '/home/kali') ? '~' : cwdRaw.replace('/home/kali', '~');
       const s = this.runtime.asRoot ? '#' : '$';
       
-      return `${BOLD}${RED}${u}${RESET}${BOLD}@${GREEN}${h}${RESET}:${CYAN}${c}${RESET}${YELLOW}${s}${RESET} `;
+      return `${BOLD}${RED}${u}${RESET}@${GREEN}${h}${RESET}:${CYAN}${c}${RESET}${YELLOW}${s}${RESET} `;
+    },
+    
+    getCompletions(prefix) {
+      // Get completions for commands or files
+      if (!prefix || !this.runtime || !this.runtime.fs) return [];
+      
+      const pathParts = prefix.split('/');
+      const lastPart = pathParts[pathParts.length - 1];
+      const basePath = pathParts.slice(0, -1).join('/');
+      const searchDir = basePath || this.runtime.cwd || '/home/kali';
+      
+      const node = this.getFSNode(searchDir);
+      if (!node || node.type !== 'dir') return [];
+      
+      const children = node.children || [];
+      const matches = children.filter(name => name.startsWith(lastPart));
+      
+      return matches;
+    },
+    
+    getFSNodeWithCaseFallback(path) {
+      // Exact match first
+      let node = this.getFSNode(path);
+      if (node) return { node, actualPath: path };
+      
+      // Case-insensitive fallback (usability feature)
+      if (!this.runtime || !this.runtime.fs) return { node: null, actualPath: null };
+      
+      const pathParts = path.split('/');
+      const lastPart = pathParts[pathParts.length - 1];
+      const basePath = pathParts.slice(0, -1).join('/');
+      
+      const baseNode = this.getFSNode(basePath);
+      if (!baseNode || baseNode.type !== 'dir') return { node: null, actualPath: null };
+      
+      // Find case-insensitive match
+      const children = baseNode.children || [];
+      const match = children.find(name => name.toLowerCase() === lastPart.toLowerCase());
+      
+      if (match) {
+        const actualPath = (basePath || this.runtime.cwd) + '/' + match;
+        return { node: this.runtime.fs[actualPath], actualPath };
+      }
+      
+      return { node: null, actualPath: null };
     },
     
     // Initialize runtime from localStorage or snapshot
@@ -216,13 +261,19 @@
     
     cmd_cd(args, term) {
       const target = args[0] || '/home/kali';
+      if (target === '-') {
+        // Previous directory (not implemented, just go to home)
+        this.runtime.cwd = '/home/kali';
+        this.save();
+        return true;
+      }
+      
       // Expand ~
       const normalized = target.replace(/^~(\/|$)/, '/home/kali$1');
       
       // Build absolute path
       let newPath = normalized;
       if (!newPath.startsWith('/')) {
-        // Relative path
         const base = this.runtime.cwd || '/home/kali';
         newPath = base.endsWith('/') ? base + newPath : base + '/' + newPath;
       }
@@ -234,14 +285,34 @@
         if (p === '..' && stack.length > 0) stack.pop();
         else if (p !== '.') stack.push(p);
       }
-      newPath = '/' + stack.join('/');
+      const targetPath = '/' + stack.join('/');
       
-      const node = this.runtime.fs[newPath];
+      // Try exact match first
+      let node = this.runtime.fs[targetPath];
+      let actualPath = targetPath;
+      
+      // If not found, try case-insensitive fallback for last component
+      if (!node) {
+        const lastPart = parts[parts.length - 1];
+        const baseParts = parts.slice(0, -1);
+        const basePath = '/' + baseParts.join('/');
+        const baseNode = this.runtime.fs[basePath];
+        
+        if (baseNode && baseNode.type === 'dir') {
+          const match = baseNode.children.find(c => c.toLowerCase() === lastPart.toLowerCase());
+          if (match) {
+            actualPath = baseParts.length > 0 ? basePath + '/' + match : '/' + match;
+            node = this.runtime.fs[actualPath];
+          }
+        }
+      }
+      
       if (!node || node.type !== 'dir') {
         term.writeln(`bash: cd: ${target}: No such file or directory`);
         return true;
       }
-      this.runtime.cwd = newPath;
+      
+      this.runtime.cwd = actualPath;
       this.save();
       return true;
     },
