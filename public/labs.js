@@ -44,7 +44,7 @@
   });
 
   // Start role selection
-  function startRole(role) {
+  async function startRole(role) {
     console.info('[Client] startRole called:', role);
     
     // Hide role selection, show dashboard
@@ -55,26 +55,109 @@
     showStatus('Connecting...');
     pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Selected role: ${role}` });
     
-    console.info('[Client] Connecting to backend:', LABS_BACKEND_URL);
+    // Resilient socket connector
+    const candidates = [];
     
-    const socket = io(LABS_BACKEND_URL, {
-      path: '/socket.io',
-      transports: ['polling', 'websocket'],
-      timeout: 5000
-    });
+    // 1) Same-origin relative path
+    candidates.push({ label: 'same-origin /socket.io', url: `${location.protocol}//${location.host}`, path: '/socket.io' });
     
-    socket.on('connect', () => {
-      console.info('[Client] socket connected', socket.id);
-      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to session server', type: 'success' });
-      showStatus('Active');
-      socket.emit('initSession', { role });
-    });
+    // 2) Same-origin /api path (serverless pattern)
+    candidates.push({ label: 'same-origin /api/socket.io', url: `${location.protocol}//${location.host}`, path: '/api/socket.io' });
     
-    socket.on('connect_error', (err) => {
-      console.error('[Client] connect_error', err);
-      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Failed to connect to server - please refresh', type: 'error' });
+    // 3) Explicit backend URL if configured
+    if (LABS_BACKEND_URL && LABS_BACKEND_URL !== 'https://labs-api.threatrecon.io') {
+      candidates.push({ label: 'configured LABS_BACKEND_URL', url: LABS_BACKEND_URL.replace(/\/$/, ''), path: '/socket.io' });
+    }
+    
+    // Try to connect to first available endpoint
+    async function tryConnect() {
+      for (const c of candidates) {
+        console.info(`[Client] Trying backend: ${c.label}`);
+        pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Trying ${c.label}` });
+        
+        try {
+          const socket = io(c.url, {
+            path: c.path,
+            transports: ['polling'],
+            timeout: 5000
+          });
+          
+          const connected = await new Promise((resolve) => {
+            let resolved = false;
+            
+            const cleanup = () => {
+              socket.off('connect', onConnect);
+              socket.off('connect_error', onConnectError);
+            };
+            
+            const onConnect = () => {
+              if (!resolved) {
+                resolved = true;
+                cleanup();
+                resolve({ ok: true, socket });
+              }
+            };
+            
+            const onConnectError = (err) => {
+              if (!resolved) {
+                resolved = true;
+                cleanup();
+                resolve({ ok: false, err });
+              }
+            };
+            
+            socket.once('connect', onConnect);
+            socket.once('connect_error', onConnectError);
+            
+            setTimeout(() => {
+              if (!resolved) {
+                resolved = true;
+                cleanup();
+                try { socket.close(); } catch(e) {}
+                resolve({ ok: false, err: new Error('timeout') });
+              }
+            }, 6000);
+          });
+          
+          if (connected.ok) {
+            console.info(`[Client] Connected to ${c.label}`);
+            pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Connected to ${c.label}`, type: 'success' });
+            
+            // Set up event handlers
+            connected.socket.on('connect', () => {
+              showStatus('Active');
+              connected.socket.emit('initSession', { role });
+            });
+            
+            connected.socket.on('connect_error', (err) => {
+              console.error('[Client] connect_error', err);
+              pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connection error', type: 'error' });
+              showStatus('Connection failed');
+            });
+            
+            window.__TR_socket = connected.socket;
+            return connected.socket;
+          } else {
+            console.warn(`[Client] Failed ${c.label}:`, connected.err?.message);
+            pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Failed ${c.label}`, type: 'error' });
+            try { connected.socket.close(); } catch(e) {}
+          }
+        } catch (e) {
+          console.error(`[Client] Exception trying ${c.label}:`, e);
+          pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Exception: ${c.label}`, type: 'error' });
+        }
+      }
+      
+      return null;
+    }
+    
+    const socket = await tryConnect();
+    
+    if (!socket) {
       showStatus('Connection failed');
-    });
+      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'All connection attempts failed', type: 'error' });
+      return;
+    }
     
     socket.on('sessionCreated', data => {
       console.info('[Client] sessionCreated', data);
