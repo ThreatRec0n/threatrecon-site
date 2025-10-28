@@ -1,0 +1,13 @@
+{
+  "hostname": "kali",
+  "processList": [
+    { "pid": 1, "user": "root", "cmd": "/sbin/init", "cpu": 0.0, "mem": 0.1 },
+    { "pid": 123, "user": "root", "cmd": "sshd: /usr/sbin/sshd", "cpu": 0.1, "mem": 0.2 },
+    { "pid": 234, "user": "root", "cmd": "systemd", "cpu": 0.2, "mem": 1.5 },
+    { "pid": 345, "user": "kali", "cmd": "bash", "cpu": 0.0, "mem": 0.5 },
+    { "pid": 456, "user": "kali", "cmd": "xterm", "cpu": 2.3, "mem": 8.2 },
+    { "pid": 567, "user": "root", "cmd": "NetworkManager", "cpu": 0.5, "mem": 1.2 }
+  ],
+  "startTime": 1737991200000
+}
+

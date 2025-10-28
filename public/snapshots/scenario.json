@@ -1,0 +1,14 @@
+{
+  "targetIP": "10.0.10.5",
+  "targetHostname": "corp-target",
+  "openPorts": [
+    { "port": 22, "service": "ssh", "state": "open", "version": "OpenSSH 8.2p1" },
+    { "port": 80, "service": "http", "state": "open", "version": "Apache 2.4.41" },
+    { "port": 443, "service": "https", "state": "open", "version": "Apache 2.4.41" },
+    { "port": 3306, "service": "mysql", "state": "open", "version": "MySQL 8.0.27" },
+    { "port": 8080, "service": "http-proxy", "state": "open", "version": "nginx 1.18.0" }
+  ],
+  "discoveredCreds": [],
+  "defenderActions": []
+}
+
