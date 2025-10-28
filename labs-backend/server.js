@@ -1,50 +1,46 @@
-// ThreatRecon Labs Backend Service
-// Standalone Express + Socket.IO server for real-time game sessions
-// Deploy to Render/Fly.io/etc with persistent connections
-
-const express = require('express');
-const http = require('http');
-const cors = require('cors');
-const dayjs = require('dayjs');
-const { Server } = require('socket.io');
-const path = require('path');
+const express = require("express");
+const cors = require("cors");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
+const dayjs = require("dayjs");
 
 // Import game engine
 const runCommandInEngine = require('../engine/runCommandInEngine');
 
-// CONFIG
-const FRONTEND_ORIGIN = 'https://threatrecon.io';
-const PORT = process.env.PORT || 8080;
-
-// In-memory sessions
-const sessions = new Map();
-
 const app = express();
-app.use(cors({
-  origin: FRONTEND_ORIGIN,
-  credentials: true
-}));
+
+// --- allow the real site + local development ---
+const allowedOrigins = [
+  "https://threatrecon.io",
+  "https://www.threatrecon.io",
+  "http://localhost:8080",
+  "http://127.0.0.1:8080"
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin (like curl) or matching domains
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn("Blocked CORS for origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
-// Health endpoint for uptime checks
+// Health check
 app.get('/health', (req, res) => {
   res.json({ ok: true, ts: Date.now(), sessions: sessions.size });
 });
 
-const httpServer = http.createServer(app);
-
-const io = new Server(httpServer, {
-  path: '/socket.io',
-  transports: ['polling', 'websocket'],
-  cors: {
-    origin: FRONTEND_ORIGIN,
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
-});
-
-console.info('[labs-backend] Socket.IO initialized');
-console.info('[labs-backend] Frontend origin:', FRONTEND_ORIGIN);
+// In-memory sessions
+const sessions = new Map();
 
 // Helper: push timeline event
 function pushTimeline(session, msg) {
@@ -53,20 +49,34 @@ function pushTimeline(session, msg) {
   return ev;
 }
 
-io.on('connection', (socket) => {
-  console.info('[labs-backend] connection', socket.id);
+const httpServer = createServer(app);
 
+// --- socket.io with proper path ---
+const io = new Server(httpServer, {
+  path: "/socket.io",
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+  transports: ["polling", "websocket"],
+  pingTimeout: 60000,
+});
+
+io.on("connection", (socket) => {
+  console.log("[labs-backend] Connected:", socket.id);
+  
   socket.on('initSession', ({ role }) => {
     console.info('[labs-backend] initSession', socket.id, role);
-    
-    if (!role || !['attacker', 'defender'].includes(role)) {
+
+    if (!role || !['attacker','defender'].includes(role)) {
       socket.emit('errorEvent', { msg: 'Invalid role' });
       return;
     }
 
     const session = {
       id: socket.id,
-      role: role,
+      role,
       user: role === 'attacker' ? 'attacker' : 'defender',
       host: role === 'attacker' ? 'kali' : 'soc',
       cwd: '~',
@@ -78,18 +88,16 @@ io.on('connection', (socket) => {
     };
 
     sessions.set(socket.id, session);
-
     socket.emit('sessionCreated', session);
-    console.info('[labs-backend] sessionCreated', socket.id, role);
 
-    // Simple AI loop every 3.5s
+    // AI heartbeat every 3.5s
     session.aiInterval = setInterval(() => {
       if (session.ended) return;
-      
+
       const aiMsg = session.role === 'attacker'
         ? 'Defender tightened firewall rules'
-        : 'Attacker probed SMB shares on internal host';
-      
+        : 'Attacker probed internal SMB shares';
+
       const ev = pushTimeline(session, aiMsg);
 
       socket.emit('output', {
@@ -141,16 +149,11 @@ io.on('connection', (socket) => {
     if (result.endMatch) {
       session.ended = true;
       clearInterval(session.aiInterval);
-      
       socket.emit('matchEnded', {
         aar: result.aar,
         outcome: result.outcome
       });
-      
-      setTimeout(() => { 
-        sessions.delete(socket.id);
-        console.info('[labs-backend] cleaned up session', socket.id);
-      }, 5000);
+      setTimeout(() => { sessions.delete(socket.id); }, 5000);
     }
   });
 
@@ -164,7 +167,7 @@ io.on('connection', (socket) => {
   });
 });
 
+const PORT = process.env.PORT || 8080;
 httpServer.listen(PORT, () => {
-  console.log(`[labs-backend] listening on ${PORT}`);
+  console.log(`[labs-backend] Listening on port ${PORT}`);
 });
-
