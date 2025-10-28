@@ -17,8 +17,13 @@ const runCommandInEngine = require('./engine/runCommandInEngine');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*' }
+  cors: { origin: '*' },
+  path: '/socket.io',
+  transports: ['polling', 'websocket']
 });
+
+console.info('[Server] Socket.IO initialized on path:', io.opts.path || '/socket.io');
+console.info('[Server] Transports:', io.opts.transports || ['polling', 'websocket']);
 
 const PORT = process.env.PORT || 3001;
 

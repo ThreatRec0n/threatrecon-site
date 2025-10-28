@@ -44,7 +44,7 @@
   });
 
   // Start role selection
-  function startRole(role) {
+  async function startRole(role) {
     console.info('[Client] startRole called:', role);
     
     // Hide role selection, show dashboard
@@ -55,32 +55,52 @@
     showStatus('Connecting...');
     pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Selected role: ${role}` });
     
-    // Create or use existing socket
-    if (!socket) {
-      console.info('[Client] Creating socket connection...');
-      socket = io(window.location.origin, socketOpts);
+    // Try to connect with multiple path attempts
+    const candidatePaths = ['/socket.io', '/api/socket.io', '/labs/socket.io'];
+    let connected = false;
+    
+    for (const path of candidatePaths) {
+      console.info('[Client] Trying Socket.IO path:', path);
       
-      socket.on('connect', () => {
-        console.info('[Client] Socket connected:', socket.id);
-        pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to server', type: 'success' });
-        socket.emit('initSession', { role });
-      });
-      
-      socket.on('connect_error', (err) => {
-        console.error('[Client] Socket connect error:', err.message);
-        showStatus('Connection failed');
-        pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Connection error: ${err.message}`, type: 'error' });
-      });
-      
-      socket.on('disconnect', () => {
-        console.warn('[Client] Socket disconnected');
-        pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Disconnected from server', type: 'error' });
-      });
-      
-    } else if (socket.connected) {
-      socket.emit('initSession', { role });
-    } else {
-      socket.connect();
+      try {
+        // Create socket with explicit path
+        const testSocket = io(window.location.origin, {
+          ...socketOpts,
+          path: path
+        });
+        
+        // Try to connect
+        testSocket.on('connect', () => {
+          console.info('[Client] Connected on path:', path);
+          socket = testSocket;
+          connected = true;
+          
+          // Set up event handlers
+          setupSocketHandlers();
+          
+          pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to server', type: 'success' });
+          socket.emit('initSession', { role });
+        });
+        
+        testSocket.on('connect_error', (err) => {
+          console.warn('[Client] Failed on path:', path, err.message);
+          testSocket.close();
+        });
+        
+        // Wait for connection or timeout
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        if (connected) break;
+        
+      } catch (err) {
+        console.warn('[Client] Error trying path:', path, err);
+      }
+    }
+    
+    if (!connected) {
+      console.error('[Client] All connection attempts failed');
+      showStatus('Connection failed');
+      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Failed to connect to server - please refresh', type: 'error' });
     }
     
     // Set timeout: if no sessionCreated in 10s, show error
@@ -93,10 +113,11 @@
     }, 10000);
   }
 
-  // Socket event handlers
-  if (typeof io !== 'undefined') {
-    // Socket.IO is loaded via CDN
-    socket = io(window.location.origin, socketOpts);
+  // Setup socket event handlers
+  function setupSocketHandlers() {
+    if (!socket) return;
+    
+    console.info('[Client] Setting up socket event handlers');
     
     socket.on('sessionCreated', (data) => {
       console.info('[Client] sessionCreated received:', data);
@@ -152,6 +173,17 @@
     socket.on('connect', () => {
       console.info('[Client] Socket connected:', socket.id);
       pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to server', type: 'success' });
+    });
+    
+    socket.on('disconnect', () => {
+      console.warn('[Client] Socket disconnected');
+      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Disconnected from server', type: 'error' });
+    });
+    
+    socket.on('connect_error', (err) => {
+      console.error('[Client] Socket connect error:', err.message);
+      showStatus('Connection failed');
+      pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Connection error: ${err.message}`, type: 'error' });
     });
   }
 
