@@ -17,6 +17,8 @@ const allowedOrigins = [
   "http://localhost:3000"
 ];
 
+console.log('[labs-backend] CORS origins configured:', allowedOrigins);
+
 app.use(cors({
   origin: allowedOrigins,
   methods: ["GET", "POST"],

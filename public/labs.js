@@ -157,10 +157,24 @@
             console.info(`[Client] Connected to ${c.label}`);
             pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Connected to ${c.label}`, type: 'success' });
             
-            // Set up event handlers
-            connected.socket.on('connect', () => {
-              showStatus('Active');
-              connected.socket.emit('initSession', { role });
+            // Set up event handlers - emit initSession immediately after connection
+            console.log('[labsClient] socket connected, emitting initSession for role:', role);
+            showStatus('Active');
+            connected.socket.emit('initSession', { role });
+            console.log('[labsClient] initSession emitted on socket.id:', connected.socket.id);
+            
+            // Listen for sessionCreated on this specific socket
+            connected.socket.once('sessionCreated', (data) => {
+              console.log('[labsClient] sessionCreated received on socket.id', connected.socket.id, data);
+              window.__TR_session = data;
+              
+              if (!window.__TR_termInitialized) {
+                initTerminal(data);
+                window.__TR_termInitialized = true;
+              }
+              
+              writePrompt();
+              showStatus(`Connected as ${data.role}`);
             });
             
             connected.socket.on('connect_error', (err) => {
@@ -193,19 +207,8 @@
       return;
     }
     
-    socket.on('sessionCreated', data => {
-      console.info('[Client] sessionCreated', data);
-      window.__TR_session = data;
-      
-      if (!window.__TR_termInitialized) {
-        initTerminal(data);
-        window.__TR_termInitialized = true;
-      }
-      
-      writePrompt();
-      showStatus(`Connected as ${data.role}`);
-    });
-    
+    // Event handlers are already attached above in the connection success block
+    // Just attach remaining handlers here if needed
     socket.on('output', payload => {
       if (!term) return;
       
