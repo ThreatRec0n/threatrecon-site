@@ -22,7 +22,20 @@
           return { ok: true, out: [result] };
         },
 
-        cd: () => fs.cd(argv.slice(1)),
+        cd: () => {
+          const path = argv.slice(1);
+          const result = fs.cd(path);
+          if (result.ok) {
+            const newCwd = fs.pwd();
+            ctx.session.cwd = newCwd;
+            // Also update the kernel session if available
+            if (ctx.proc && ctx.proc.getSession) {
+              const session = ctx.proc.getSession();
+              session.cwd = newCwd;
+            }
+          }
+          return result;
+        },
 
         ls: () => {
           const result = fs.ls(argv.slice(1));

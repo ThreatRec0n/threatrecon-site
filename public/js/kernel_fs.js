@@ -5,10 +5,22 @@
   let fsTree = {};
   let cwd = '/home/kali';
   let prevDir = '/home/kali';
-  let session = { user: 'kali', isRoot: false };
+  let kernelSessionRef = null;
 
   function resolvePath(rawPath) {
-    if (!rawPath || rawPath.trim() === '') return { ok: false, message: 'Empty path' };
+    // Defensive guard: handle arrays and non-strings
+    if (Array.isArray(rawPath)) {
+      rawPath = rawPath[0] || '';
+    }
+    if (typeof rawPath !== 'string') {
+      rawPath = String(rawPath || '');
+    }
+    
+    rawPath = rawPath.trim();
+    
+    if (!rawPath || rawPath === '') {
+      return { ok: false, message: 'Empty path' };
+    }
     
     let path = rawPath;
     if (path === '~') path = '/home/kali';
@@ -56,7 +68,7 @@
   }
 
   function checkPerms(path, op) {
-    if (session.isRoot) return true;
+    if (kernelSessionRef && kernelSessionRef.isRoot) return true;
     if (path.startsWith('/root') || path.includes('/etc/shadow')) {
       return false;
     }
@@ -75,6 +87,10 @@
     },
 
     cd(path) {
+      // Handle array inputs from dispatcher
+      if (Array.isArray(path)) {
+        path = path[0];
+      }
       if (path === '-') {
         const temp = cwd;
         cwd = prevDir;
@@ -95,6 +111,12 @@
 
       prevDir = cwd;
       cwd = res.path;
+      
+      // Update kernel session if available
+      if (kernelSessionRef) {
+        kernelSessionRef.cwd = cwd;
+      }
+      
       return { ok: true, message: '' };
     },
 
@@ -309,7 +331,11 @@
     },
 
     setSession(s) {
-      session = s;
+      kernelSessionRef = s;
+    },
+    
+    getCwd() {
+      return cwd;
     }
   };
 

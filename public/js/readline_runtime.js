@@ -129,9 +129,12 @@
     async function submitCommand(line) {
       if (!dispatcher) return;
 
+      // Get session from kernel
+      const session = window.kernelProc ? window.kernelProc.getSession() : { user: 'kali', isRoot: false, cwd: '/home/kali' };
+      
       // Execute command
       const ctx = {
-        session: { user: 'kali', isRoot: false, cwd: term.buffer.active.cursorX },
+        session,
         readline: { getHistoryFormatted: () => history },
         term,
         fs: window.kernelFS,
