@@ -112,40 +112,9 @@
     }
     
     rerender(term) {
-      // Clear current line and re-render with cursor positioning
-      const currentCol = term.buffer.active.cursorX;
-      const currentRow = term.buffer.active.cursorY;
-      
-      // Move to start of line
-      term.write('\r');
-      
-      // Print the prompt (will be written by caller before calling readline)
-      // Then print the buffer
-      term.write(this.buffer);
-      
-      // Position cursor
-      const targetCol = term.buffer.active.cursorX;
-      const cursorCol = currentCol + this.cursor;
-      
-      // Calculate how many backspaces needed
-      const bsCount = term.buffer.active.cursorX - cursorCol;
-      if (bsCount > 0) {
-        term.write('\r');
-        const promptLen = term.buffer.active.cursorX;
-        term.write(this.buffer);
-        // Move cursor to correct position
-        while (term.buffer.active.cursorX < promptLen + this.cursor) {
-          term.write(' ');
-        }
-        term.write('\r');
-        term.write(new Array(promptLen + this.cursor).fill(' ').join(''));
-        term.write('\r');
-        term.write(new Array(promptLen).fill(' ').join(''));
-      } else {
-        for (let i = 0; i < bsCount; i++) {
-          term.write('\b');
-        }
-      }
+      // Don't do anything here - just update buffer state
+      // The terminal will naturally show the cursor position
+      // This is a simplified approach for xterm.js
     }
     
     getLine() {

@@ -25,19 +25,21 @@
     },
     
     getCompletions(prefix) {
-      // Get completions for commands or files
       if (!prefix || !this.runtime || !this.runtime.fs) return [];
       
       const pathParts = prefix.split('/');
       const lastPart = pathParts[pathParts.length - 1];
-      const basePath = pathParts.slice(0, -1).join('/');
-      const searchDir = basePath || this.runtime.cwd || '/home/kali';
       
-      const node = this.getFSNode(searchDir);
-      if (!node || node.type !== 'dir') return [];
+      // Resolve base path
+      const basePath = pathParts.slice(0, -1).join('/') || this.runtime.cwd || '/home/kali';
+      const res = this.resolvePath(basePath === this.runtime.cwd ? '.' : basePath);
       
-      const children = node.children || [];
-      const matches = children.filter(name => name.startsWith(lastPart));
+      if (!res.ok || res.node.type !== 'dir') return [];
+      
+      const children = res.node.children || [];
+      const matches = children.filter(name => 
+        name.toLowerCase().startsWith(lastPart.toLowerCase())
+      );
       
       return matches;
     },
