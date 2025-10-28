@@ -1,6 +1,6 @@
 const express = require("express");
+const http = require("http");
 const cors = require("cors");
-const { createServer } = require("http");
 const { Server } = require("socket.io");
 const dayjs = require("dayjs");
 
@@ -8,32 +8,39 @@ const dayjs = require("dayjs");
 const runCommandInEngine = require('../engine/runCommandInEngine');
 
 const app = express();
+const server = http.createServer(app);
 
-// --- allow the real site + local development ---
 const allowedOrigins = [
   "https://threatrecon.io",
   "https://www.threatrecon.io",
   "https://threatrecon-site.onrender.com",
-  "http://localhost:3000",
-  "http://localhost:8080"
+  "http://localhost:3000"
 ];
 
-app.use(
-  cors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
-  })
-);
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST"],
+  credentials: true
+}));
 
 app.use(express.json());
 
-// Health check endpoints
+app.get("/healthz", (req, res) => res.send("OK"));
+
 app.get('/health', (req, res) => {
   res.json({ ok: true, ts: Date.now(), sessions: sessions.size });
 });
 
-app.get("/healthz", (req, res) => res.send("OK"));
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  path: "/socket.io",
+  transports: ["polling", "websocket"],
+  pingTimeout: 60000
+});
 
 // In-memory sessions
 const sessions = new Map();
@@ -45,27 +52,13 @@ function pushTimeline(session, msg) {
   return ev;
 }
 
-const httpServer = createServer(app);
-
-// --- socket.io with proper path ---
-const io = new Server(httpServer, {
-  path: "/socket.io",
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-  transports: ["polling", "websocket"],
-  pingTimeout: 60000,
-});
-
 io.on("connection", (socket) => {
   console.log("[labs-backend] Connected:", socket.id);
   
-  socket.on('initSession', ({ role }) => {
-    console.info('[labs-backend] initSession', socket.id, role);
+  socket.on("initSession", ({ role }) => {
+    console.log("[labs-backend] initSession", socket.id, role);
 
-    if (!role || !['attacker','defender'].includes(role)) {
+    if (!role || !['attacker', 'defender'].includes(role)) {
       socket.emit('errorEvent', { msg: 'Invalid role' });
       return;
     }
@@ -84,6 +77,7 @@ io.on("connection", (socket) => {
     };
 
     sessions.set(socket.id, session);
+    
     console.log('[labs-backend] sessionCreated sending ->', socket.id, role);
     socket.emit('sessionCreated', session);
     console.log('[labs-backend] sessionCreated sent successfully');
@@ -156,7 +150,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on('disconnect', (reason) => {
-    console.info('[labs-backend] disconnect', socket.id, 'reason:', reason);
+    console.info('[labs-backend] disconnected', socket.id, 'reason:', reason);
     const session = sessions.get(socket.id);
     if (session) {
       if (session.aiInterval) clearInterval(session.aiInterval);
@@ -174,6 +168,6 @@ io.on('error', (err) => {
 });
 
 const PORT = process.env.PORT || 8080;
-httpServer.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`[labs-backend] Listening on port ${PORT}`);
 });
