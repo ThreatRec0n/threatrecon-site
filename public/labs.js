@@ -4,10 +4,10 @@
 (function() {
   'use strict';
   
-  // Socket configuration
-  const socketOpts = { transports: ['polling', 'websocket'], timeout: 5000 };
-  let socket = null;
-  let session = null;
+  // Backend URL - update this to your Render deployment URL
+  const LABS_BACKEND_URL = 'https://labs-api.threatrecon.io'; // TODO: Update after deploying to Render
+  // For local dev, use: 'http://localhost:8080'
+  
   let term = null;
   let fitAddon = null;
   let inputBuffer = '';
@@ -55,59 +55,41 @@
     showStatus('Connecting...');
     pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Selected role: ${role}` });
     
-    // Create socket with fixed path (no path guessing needed anymore)
-    if (!socket) {
-      console.info('[Client] Creating Socket.IO connection with path /socket.io');
-      socket = io(window.location.origin, {
-        path: '/socket.io',
-        transports: ['polling'],
-        timeout: 5000
-      });
-      
-      setupSocketHandlers(role);
-      
-    } else if (socket.connected) {
-      socket.emit('initSession', { role });
-    } else {
-      socket.connect();
-      socket.once('connect', () => {
-        socket.emit('initSession', { role });
-      });
-    }
+    console.info('[Client] Connecting to backend:', LABS_BACKEND_URL);
     
-    // Set timeout: if no sessionCreated in 10s, show error
-    sessionTimeout = setTimeout(() => {
-      if (!session) {
-        console.error('[Client] Timeout: no sessionCreated received');
-        showStatus('Connection timeout');
-        pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connection timeout - please refresh', type: 'error' });
-      }
-    }, 10000);
-  }
-
-  // Setup socket event handlers
-  function setupSocketHandlers(role) {
-    if (!socket) return;
-    
-    console.info('[Client] Setting up socket event handlers for role:', role);
+    const socket = io(LABS_BACKEND_URL, {
+      path: '/socket.io',
+      transports: ['polling', 'websocket'],
+      timeout: 5000
+    });
     
     socket.on('connect', () => {
-      console.info('[Client] Socket connected:', socket.id);
-      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to server', type: 'success' });
+      console.info('[Client] socket connected', socket.id);
+      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to session server', type: 'success' });
+      showStatus('Active');
       socket.emit('initSession', { role });
     });
     
-    socket.on('sessionCreated', (data) => {
-      console.info('[Client] sessionCreated received:', data);
-      if (sessionTimeout) clearTimeout(sessionTimeout);
-      
-      session = data;
-      initTerminal(data);
-      showStatus(`Connected as ${data.role}`);
-      writePrompt();
+    socket.on('connect_error', (err) => {
+      console.error('[Client] connect_error', err);
+      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Failed to connect to server - please refresh', type: 'error' });
+      showStatus('Connection failed');
     });
     
-    socket.on('output', (payload) => {
+    socket.on('sessionCreated', data => {
+      console.info('[Client] sessionCreated', data);
+      window.__TR_session = data;
+      
+      if (!window.__TR_termInitialized) {
+        initTerminal(data);
+        window.__TR_termInitialized = true;
+      }
+      
+      writePrompt();
+      showStatus(`Connected as ${data.role}`);
+    });
+    
+    socket.on('output', payload => {
       if (!term) return;
       
       if (payload.text) {
@@ -118,7 +100,7 @@
         pushTimeline(payload.appendTimeline);
       }
       
-      if (!session.ended && payload.showPrompt !== false) {
+      if (!window.__TR_session.ended && payload.showPrompt !== false) {
         if (payload.text && payload.text.endsWith('\n')) {
           term.write('\r\n');
           writePrompt();
@@ -126,43 +108,41 @@
       }
     });
     
-    socket.on('promptUpdate', (patch) => {
-      console.info('[Client] promptUpdate received:', patch);
-      if (!session) return;
-      session = Object.assign(session, patch);
-      term.write('\r\n');
-      writePrompt();
+    socket.on('promptUpdate', patch => {
+      console.info('[Client] promptUpdate', patch);
+      if (!window.__TR_session) return;
+      window.__TR_session = { ...window.__TR_session, ...patch };
+      if (term) {
+        term.write('\r\n');
+        writePrompt();
+      }
     });
     
     socket.on('matchEnded', ({ aar, outcome }) => {
-      console.info('[Client] matchEnded received:', outcome);
-      if (!session) return;
-      session.ended = true;
+      console.info('[Client] matchEnded', outcome);
+      if (window.__TR_session) window.__TR_session.ended = true;
       showAAR(aar, outcome);
+      showStatus('Simulation complete');
       document.getElementById('btn-playagain').classList.remove('hidden');
     });
     
     socket.on('errorEvent', (err) => {
-      console.error('[Client] Server error:', err);
-      showStatus(`Error: ${err.msg}`);
+      console.error('[Client] errorEvent', err);
       pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Error: ${err.msg}`, type: 'error' });
+      showStatus('Error');
     });
     
-    socket.on('connect', () => {
-      console.info('[Client] Socket connected:', socket.id);
-      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connected to server', type: 'success' });
-    });
+    // Save socket globally for submitCommand
+    window.__TR_socket = socket;
     
-    socket.on('disconnect', () => {
-      console.warn('[Client] Socket disconnected');
-      pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Disconnected from server', type: 'error' });
-    });
-    
-    socket.on('connect_error', (err) => {
-      console.error('[Client] Socket connect error:', err.message);
-      showStatus('Connection failed');
-      pushTimeline({ time: new Date().toLocaleTimeString(), msg: `Connection error: ${err.message}`, type: 'error' });
-    });
+    // Set timeout
+    sessionTimeout = setTimeout(() => {
+      if (!window.__TR_session) {
+        console.error('[Client] Timeout: no sessionCreated received');
+        showStatus('Connection timeout');
+        pushTimeline({ time: new Date().toLocaleTimeString(), msg: 'Connection timeout - please refresh', type: 'error' });
+      }
+    }, 10000);
   }
 
   // Initialize terminal
@@ -197,6 +177,7 @@
       
       // Terminal input handling
       term.onKey(e => {
+        const session = window.__TR_session;
         if (session?.ended) return;
         
         const ev = e.domEvent;
@@ -254,6 +235,7 @@
   }
 
   function writePrompt() {
+    const session = window.__TR_session;
     if (!session || !term) return;
     
     const symbol = session.isRoot ? '#' : '$';
@@ -270,14 +252,17 @@
       return;
     }
     
-    if (!socket || !socket.connected) {
-      term.write('\r\n\x1b[1;31m[disconnected]\x1b[0m\r\n');
-      writePrompt();
+    const s = window.__TR_socket;
+    if (!s || !s.connected) {
+      if (term) {
+        term.write('\r\n\x1b[1;31m[disconnected]\x1b[0m\r\n');
+        writePrompt();
+      }
       return;
     }
     
     console.info('[Client] Sending command:', cmd);
-    socket.emit('playerCommand', { cmd });
+    s.emit('playerCommand', { cmd });
   }
 
   function showStatus(text) {
