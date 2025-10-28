@@ -72,6 +72,9 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'labs.html'));
 });
 
+// Session store keyed by socket.id
+const sessions = new Map();
+
 // WebSocket handlers
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
@@ -81,11 +84,34 @@ io.on('connection', (socket) => {
   // New xterm.js compatible handlers
   socket.on('initSession', async ({ role }) => {
     try {
+      console.log('[Server] initSession received for role:', role);
+      
+      // Validate role
+      if (!role || !['attacker', 'defender'].includes(role)) {
+        socket.emit('errorEvent', { msg: 'Invalid role. Must be attacker or defender.' });
+        return;
+      }
+      
+      // Check if session already exists for this socket
+      if (sessions.has(socket.id)) {
+        socket.emit('errorEvent', { msg: 'Session already active for this connection.' });
+        return;
+      }
+      
+      // Create session
       const match = gameEngine.createMatch(role || 'attacker');
       currentMatch = match;
-      aiLogic.startAI(match);
+      sessions.set(socket.id, match);
       
-      socket.emit('sessionCreated', {
+      console.log('[Server] Session created:', match.id);
+      
+      // Start AI in background (defer slightly to let client attach)
+      setTimeout(() => {
+        aiLogic.startAI(match);
+      }, 100);
+      
+      // Emit sessionCreated immediately
+      const sessionData = {
         role: match.playerRole,
         user: match.playerRole === 'attacker' ? 'attacker' : 'defender',
         host: match.playerRole === 'attacker' ? 'kali' : 'SOC',
@@ -93,13 +119,16 @@ io.on('connection', (socket) => {
         isRoot: false,
         objectiveTitle: role === 'attacker' ? 'Exfiltrate data and maintain persistence' : 'Detect and contain intrusion',
         objectiveText: role === 'attacker' ? 'Gain access, pivot laterally, exfiltrate sensitive data without detection.' : 'Monitor logs, collect evidence, block threats while maintaining service uptime.'
-      });
+      };
+      
+      console.log('[Server] Emitting sessionCreated:', sessionData);
+      socket.emit('sessionCreated', sessionData);
       
       // Join the socket to this match
       socket.join(match.id);
     } catch (err) {
-      console.error('Init session error:', err);
-      socket.emit('error', { message: 'Failed to create session' });
+      console.error('[Server] Init session error:', err);
+      socket.emit('errorEvent', { msg: 'Failed to create session: ' + err.message, stack: err.stack });
     }
   });
   
@@ -115,13 +144,21 @@ io.on('connection', (socket) => {
   
   // New playerCommand handler for xterm.js
   socket.on('playerCommand', async ({ cmd }) => {
-    if (!currentMatch || currentMatch.status !== 'active') {
+    console.log('[Server] playerCommand received:', cmd);
+    
+    // Get current match from sessions store
+    const match = sessions.get(socket.id);
+    currentMatch = match;
+    
+    if (!match || match.status !== 'active') {
+      console.warn('[Server] No active match for socket:', socket.id);
+      socket.emit('errorEvent', { msg: 'No active session' });
       return;
     }
     
     try {
       // Use the command engine
-      const result = await runCommandInEngine(currentMatch, cmd);
+      const result = await runCommandInEngine(match, cmd);
       
       // Handle privilege escalation prompt updates
       if (/^\s*(sudo|su\s?-|su)\b/.test(cmd)) {
@@ -210,11 +247,15 @@ io.on('connection', (socket) => {
   });
   
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-    if (currentMatch) {
-      aiLogic.stopAI(currentMatch);
-      // Clean up the match from in-memory store
-      gameEngine.matches.delete(currentMatch.id);
+    console.log('[Server] Client disconnected:', socket.id);
+    
+    // Clean up session
+    const match = sessions.get(socket.id);
+    if (match) {
+      console.log('[Server] Stopping AI for session:', match.id);
+      aiLogic.stopAI(match);
+      sessions.delete(socket.id);
+      gameEngine.matches.delete(match.id);
     }
   });
 });
