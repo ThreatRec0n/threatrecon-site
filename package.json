@@ -67,6 +67,7 @@
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
     "cors": "^2.8.5",
+    "dayjs": "^1.11.18",
     "express": "^5.1.0",
     "pg": "^8.11.3",
     "serverless-http": "^4.0.0",

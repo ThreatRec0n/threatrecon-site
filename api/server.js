@@ -28,7 +28,8 @@ if (!cached) {
   app.use(express.json());
   
   // Static files from public/
-  const publicPath = path.join(__dirname, '..', 'dist', 'public');
+  // In Vercel, the built files are in dist/, so we serve from there
+  const publicPath = path.join(__dirname, '..', 'public');
   app.use(express.static(publicPath));
   
   // Create HTTP server
