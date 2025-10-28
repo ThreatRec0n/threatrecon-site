@@ -84,7 +84,9 @@ io.on("connection", (socket) => {
     };
 
     sessions.set(socket.id, session);
+    console.log('[labs-backend] sessionCreated sending ->', socket.id, role);
     socket.emit('sessionCreated', session);
+    console.log('[labs-backend] sessionCreated sent successfully');
 
     // AI heartbeat every 3.5s
     session.aiInterval = setInterval(() => {
