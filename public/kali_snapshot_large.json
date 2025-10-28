@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "distro": "kali",
+    "version": "2024.4-sim",
+    "date": "2025-10-28",
+    "default_user": "kali",
+    "default_root": "root"
+  },
+  "users": {
+    "kali": {"uid":1000,"gid":1000,"home":"/home/kali","shell":"/bin/bash"},
+    "root": {"uid":0,"gid":0,"home":"/root","shell":"/bin/bash"}
+  },
+  "env": {
+    "HOSTNAME": "kali",
+    "IP": "192.168.56.101",
+    "GATEWAY": "192.168.56.1"
+  },
+  "cwd": "/home/kali",
+  "fs": {
+    "/": {"type":"dir","children":["bin","boot","dev","etc","home","lib","proc","root","run","sbin","srv","tmp","usr","var"]},
+    "/home": {"type":"dir","children":["kali"]},
+    "/home/kali": {"type":"dir","children":["Desktop","Documents",".bashrc",".bash_history","tools","notes.txt"]},
+    "/home/kali/.bashrc": {"type":"file","content":"# ~/.bashrc (simulated)\nexport PS1='\\u@\\h:\\w\\$ '"},
+    "/home/kali/.bash_history": {"type":"file","content":"nmap -sV 10.0.0.0/24\nifconfig\nls -la\nssh user@10.0.0.22"},
+    "/home/kali/tools": {"type":"dir","children":["recon","exfil","reports"]},
+    "/home/kali/tools/recon": {"type":"dir","children":["recon_readme.txt","quick_scan.sh"]},
+    "/home/kali/tools/recon/recon_readme.txt": {"type":"file","content":"Recon toolset (simulated). Use nmap, nikto, dirb in backend mode."},
+    "/root": {"type":"dir","children":[".bashrc","README.root"]},
+    "/root/README.root": {"type":"file","content":"root account - simulation only. No real keys included."},
+    "/etc": {"type":"dir","children":["hosts","passwd","os-release","resolv.conf"]},
+    "/etc/hosts": {"type":"file","content":"127.0.0.1 localhost\n192.168.56.101 kali.local kali"},
+    "/etc/passwd": {"type":"file","content":"root:x:0:0:root:/root:/bin/bash\nkali:x:1000:1000:Kali User:/home/kali:/bin/bash"},
+    "/usr": {"type":"dir","children":["bin","share","sbin","local"]},
+    "/usr/bin": {"type":"dir","children":["nmap","netdiscover","metasploit","msfconsole","ssh","scp","curl","wget","ifconfig","ip","ping","tcpdump","airmon-ng","aircrack-ng","john","hydra","sqlmap","nikto","dirb","gobuster","bash","python3","perl","gcc","make","openssl","gpg","git","docker"]},
+    "/usr/share": {"type":"dir","children":["man_sim"]},
+    "/usr/share/man_sim": {"type":"dir","children":["nmap.1.txt","ssh.1.txt","ifconfig.8.txt","msfconsole.1.txt","sqlmap.1.txt","gobuster.1.txt"]},
+    "/usr/share/man_sim/nmap.1.txt": {"type":"file","content":"NMAP(1)                     Network Scanner                     NMAP(1)\n\nNAME\n    nmap - Network exploration tool and security / port scanner.\n\nSYNOPSIS\n    nmap [Scan Type(s)] [Options] {target specification}  \n\nDESCRIPTION\n    Nmap (\"Network Mapper\") is a security scanner used to discover hosts and services on a computer network.\n\nEXAMPLE\n    nmap -sV 192.168.1.0/24"},
+    "/usr/share/man_sim/ssh.1.txt": {"type":"file","content":"SSH(1)                        OpenSSH client                     SSH(1)\n\nNAME\n    ssh - OpenSSH SSH client (remote login program)\n\nSYNOPSIS\n    ssh [-l user] host\n\nDESCRIPTION\n    ssh connects and logs into the specified host, which must be running an ssh server.\n\nEXAMPLE\n    ssh root@10.0.0.50"},
+    "/usr/share/man_sim/ifconfig.8.txt": {"type":"file","content":"IFCONFIG(8)            Configure network interfaces         IFCONFIG(8)\n\nNAME\n    ifconfig - configure a network interface\n\nSYNOPSIS\n    ifconfig [interface] [address] netmask [mask]\n\nDESCRIPTION\n    ifconfig displays or configures network interface parameters."},
+    "/usr/share/man_sim/msfconsole.1.txt": {"type":"file","content":"MSFCONSOLE(1)              Metasploit Framework               MSFCONSOLE(1)\n\nNAME\n    msfconsole - Metasploit Framework console (simulated)\n\nDESCRIPTION\n    msfconsole is the most popular interface to the Metasploit Framework, providing an interactive console."},
+    "/tmp": {"type":"dir","children":[]}
+  }
+}

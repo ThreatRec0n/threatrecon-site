@@ -30,7 +30,8 @@
   let promptCached = '';
   let sessionTimeout = null;
   let localSnapshot = null;
-  let localCwd = '/home/attacker';
+  let localCwd = '/home/kali';
+  let pagerState = { active: false, content: [], page: 0 };
 
   // Initialize on DOMContentLoaded
   document.addEventListener('DOMContentLoaded', () => {
@@ -321,6 +322,21 @@
         
         const ev = e.domEvent;
         
+        // Handle pager mode
+        if (pagerState.active) {
+          if (ev.key === ' ') {
+            pagerState.page++;
+            term.write('\r\n');
+            showPagerPage();
+          } else if (ev.key === 'q' || ev.key === 'Q') {
+            pagerState.active = false;
+            term.write('\r\n');
+            writePrompt();
+          }
+          ev.preventDefault();
+          return;
+        }
+        
         if (ev.key === 'Enter') {
           term.write('\r\n');
           const cmd = inputBuffer.trim();
@@ -377,19 +393,30 @@
     const session = window.__TR_session;
     if (!session || !term) return;
     
-    const symbol = session.isRoot ? '#' : '$';
-    const usr = session.user || 'user';
-    const host = session.host || 'host';
-    const cwd = session.cwd || '~';
-    promptCached = `${usr}@${host}:${cwd}${symbol} `;
-    term.write(`\x1b[1;32m${promptCached}\x1b[0m`);
+    // PS1-style prompt with Kali colors
+    const isRoot = session.isRoot || session.asRoot;
+    const user = isRoot ? 'root' : (session.user || 'kali');
+    const host = localSnapshot?.meta?.distro || 'kali';
+    const cwdRaw = session.cwd || localCwd || '/home/kali';
+    const cwd = cwdRaw === '/home/kali' ? '~' : cwdRaw.replace('/home/kali', '~');
+    
+    const BOLD = '\x1b[1m';
+    const GREEN = '\x1b[32m';
+    const RED = '\x1b[31m';
+    const CYAN = '\x1b[36m';
+    const YELLOW = '\x1b[33m';
+    const RESET = '\x1b[0m';
+    const symbol = isRoot ? '#' : '$';
+    
+    promptCached = `${BOLD}${RED}${user}${RESET}${BOLD}@${GREEN}${host}${RESET}:${CYAN}${cwd}${RESET}${YELLOW}${symbol}${RESET} `;
+    term.write(promptCached);
   }
 
   // Load local snapshot
   async function loadSnapshot() {
     if (localSnapshot) return localSnapshot;
     try {
-      const response = await fetch('/kali_snapshot.json');
+      const response = await fetch('/kali_snapshot_large.json');
       localSnapshot = await response.json();
       console.info('[Client] Loaded local snapshot');
       return localSnapshot;
@@ -399,6 +426,29 @@
     }
   }
 
+  // Pager functions for man pages
+  function startPager(text) {
+    const lines = text.split('\n');
+    pagerState.active = true;
+    pagerState.content = lines;
+    pagerState.page = 0;
+    showPagerPage();
+  }
+  
+  function showPagerPage() {
+    const pageSize = 18;
+    const start = pagerState.page * pageSize;
+    const slice = pagerState.content.slice(start, start + pageSize);
+    slice.forEach(l => term.writeln(l));
+    const more = (start + pageSize) < pagerState.content.length;
+    if (more) {
+      term.write('\n--More-- (press Space to continue, q to quit) ');
+    } else {
+      pagerState.active = false;
+      writePrompt();
+    }
+  }
+  
   // Local command handlers (for file system operations)
   function handleLocalCommand(cmd, args) {
     if (!localSnapshot) return null;
@@ -407,27 +457,28 @@
     const command = parts[0];
     const arguments_ = parts.slice(1);
     
+    // Helper to get file/dir from snapshot
+    function getFSNode(path) {
+      return localSnapshot.fs && localSnapshot.fs[path];
+    }
+    
     switch (command) {
       case 'ls':
       case 'dir':
         const path = arguments_[0] || localCwd;
         const key = path === '/' ? '/' : path;
-        const files = localSnapshot.files[key];
-        if (!files) return `ls: cannot access '${path}': No such file or directory\n`;
-        if (Array.isArray(files)) {
-          return files.join('  ') + '\n';
-        } else {
-          return files.toString() + '\n';
-        }
+        const node = getFSNode(key);
+        if (!node || node.type !== 'dir') return `ls: cannot access '${path}': No such file or directory\n`;
+        return node.children.join('  ') + '\n';
       
       case 'pwd':
         return localCwd + '\n';
       
       case 'cd':
-        const target = arguments_[0] || localSnapshot.home;
+        const target = arguments_[0] || localSnapshot.users?.kali?.home || '/home/kali';
         let newPath = target.startsWith('/') ? target : (localCwd.endsWith('/') ? localCwd + target : localCwd + '/' + target);
         newPath = newPath.replace(/\/\.\//g, '/').replace(/\/+$/,'') || '/';
-        if (localSnapshot.files[newPath] || localSnapshot.files[newPath + '/'] || newPath === '/') {
+        if (getFSNode(newPath) || newPath === '/') {
           localCwd = newPath;
           return '';
         } else {
@@ -435,16 +486,35 @@
         }
       
       case 'cat':
-        return localSnapshot.files[arguments_[0]] ? localSnapshot.files[arguments_[0]] + '\n' : `cat: ${arguments_[0]}: No such file or directory\n`;
+        const catNode = getFSNode(arguments_[0]);
+        return catNode && catNode.content ? catNode.content + '\n' : `cat: ${arguments_[0]}: No such file or directory\n`;
       
       case 'whoami':
-        return (localSnapshot.user || 'attacker') + '\n';
+        return 'kali\n';
       
       case 'id':
-        return `uid=1000(attacker) gid=1000(attacker) groups=1000(attacker)\n`;
+        return 'uid=1000(kali) gid=1000(kali) groups=1000(kali)\n';
       
       case 'hostname':
-        return localSnapshot.hostname + '\n';
+        return localSnapshot.env?.HOSTNAME || 'kali\n';
+      
+      case 'man':
+        const manTarget = arguments_[0];
+        if (!manTarget) {
+          term.writeln('What manual page do you want?');
+          writePrompt();
+          return '';
+        }
+        const manPath = `/usr/share/man_sim/${manTarget}.1.txt`;
+        const manPathAlt = `/usr/share/man_sim/${manTarget}.8.txt`;
+        const manNode = getFSNode(manPath) || getFSNode(manPathAlt);
+        if (!manNode || !manNode.content) {
+          term.writeln(`No manual entry for ${manTarget}`);
+          writePrompt();
+          return '';
+        }
+        startPager(manNode.content);
+        return '';
       
       default:
         return null; // Let backend handle it
@@ -554,7 +624,8 @@
     history = [];
     historyIndex = -1;
     localSnapshot = null;
-    localCwd = '/home/attacker';
+    localCwd = '/home/kali';
+    pagerState = { active: false, content: [], page: 0 };
     window.__TR_termInitialized = false;
     
     showStatus('Ready');
