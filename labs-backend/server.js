@@ -13,7 +13,7 @@ const path = require('path');
 const runCommandInEngine = require('../engine/runCommandInEngine');
 
 // CONFIG
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://threatrecon.io';
+const FRONTEND_ORIGIN = 'https://threatrecon.io';
 const PORT = process.env.PORT || 8080;
 
 // In-memory sessions

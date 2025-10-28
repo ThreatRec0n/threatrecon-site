@@ -4,9 +4,13 @@
 (function() {
   'use strict';
   
-  // Backend URL - update this to your Render deployment URL
-  const LABS_BACKEND_URL = 'https://labs-api.threatrecon.io'; // TODO: Update after deploying to Render
-  // For local dev, use: 'http://localhost:8080'
+  // Final intended production backend URL.
+  // After deploying labs-backend to Render and setting the custom domain,
+  // this should resolve publicly.
+  const LABS_BACKEND_URL = 'https://labs-api.threatrecon.io';
+  
+  // For local testing, temporarily override in browser console:
+  // const LABS_BACKEND_URL = 'http://localhost:8080';
   
   let term = null;
   let fitAddon = null;
