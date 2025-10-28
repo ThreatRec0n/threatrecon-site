@@ -8,20 +8,40 @@
     runtime: null,
     
     getPrompt() {
-      const BOLD='\x1b[1m';
-      const RED='\x1b[31m';
-      const GREEN='\x1b[32m';
-      const CYAN='\x1b[36m';
-      const YELLOW='\x1b[33m';
-      const RESET='\x1b[0m';
+      const RED = '\x1b[38;5;203m'; // #ff4b4b
+      const CYAN = '\x1b[38;5;87m'; // #00c2ff
+      const YELLOW = '\x1b[33m'; // yellow
+      const GREEN = '\x1b[32m'; // green
+      const BOLD = '\x1b[1m';
+      const RESET = '\x1b[0m';
       
       const u = this.runtime.asRoot ? 'root' : (this.runtime.env.USER || 'kali');
       const h = this.runtime.env.HOSTNAME || 'kali';
       const cwdRaw = this.runtime.cwd || '/home/kali';
-      const c = (cwdRaw === '/home/kali') ? '~' : cwdRaw.replace('/home/kali', '~');
-      const s = this.runtime.asRoot ? '#' : '$';
       
-      return `${BOLD}${RED}${u}${RESET}@${GREEN}${h}${RESET}:${CYAN}${c}${RESET}${YELLOW}${s}${RESET} `;
+      // Format path
+      let pathPart = cwdRaw;
+      if (cwdRaw === '/home/kali') {
+        pathPart = '~';
+      } else if (cwdRaw.startsWith('/home/kali/')) {
+        pathPart = '~' + cwdRaw.slice('/home/kali'.length);
+      } else if (cwdRaw === '/root') {
+        pathPart = '/root';
+      }
+      
+      const symbol = this.runtime.asRoot ? '#' : '$';
+      
+      return `${BOLD}${RED}${u}${RESET}${BOLD}@${CYAN}${h}${RESET}:${YELLOW}${pathPart}${RESET} ${BOLD}${GREEN}${symbol}${RESET} `;
+    },
+    
+    writelnStyled(term, text, style) {
+      if (style === 'error') {
+        term.writeln(`\x1b[38;5;203m${text}\x1b[0m`);
+      } else if (style === 'success') {
+        term.writeln(`\x1b[32m${text}\x1b[0m`);
+      } else {
+        term.writeln(text);
+      }
     },
     
     getCompletions(prefix) {
@@ -201,7 +221,7 @@
       
       // Built-in commands
       const builtins = ['ls', 'cd', 'pwd', 'cat', 'touch', 'echo', 'rm', 'mv', 'cp', 'mkdir', 'rmdir', 
-                        'whoami', 'id', 'hostname', 'uname', 'clear', 'history',
+                        'whoami', 'id', 'hostname', 'uname', 'clear', 'history', 'exit',
                         'ifconfig', 'ip', 'ping', 'sudo', 'su', 'passwd', 'useradd',
                         'less', 'more', 'man', 'nano', 'ps', 'top', 'apt'];
       
@@ -228,6 +248,7 @@
           case 'uname': return this.cmd_uname(args, term);
           case 'clear': return this.cmd_clear(term);
           case 'history': return this.cmd_history(term);
+          case 'exit': return this.cmd_exit(args, term);
           case 'ifconfig': return window.kali_network.cmd_ifconfig(args, this.runtime, term);
           case 'ip': return window.kali_network.cmd_ip(args, this.runtime, term);
           case 'ping': return window.kali_network.cmd_ping(args, term);
@@ -305,12 +326,12 @@
       
       const res = this.resolvePath(target);
       if (!res.ok) {
-        term.writeln(`bash: cd: ${res.message || target}: No such file or directory`);
+        this.writelnStyled(term, `bash: cd: ${res.message || target}: No such file or directory`, 'error');
         return true;
       }
       
       if (res.node.type !== 'dir') {
-        term.writeln(`bash: cd: ${target}: Not a directory`);
+        this.writelnStyled(term, `bash: cd: ${target}: Not a directory`, 'error');
         return true;
       }
       
@@ -411,7 +432,9 @@
     },
     
     cmd_sudo(args, term) {
+      // Simulate sudo escalation
       term.writeln(`[sudo] password for ${this.runtime.env.USER || 'kali'}: password`);
+      term.writeln('(simulated - no password required)');
       this.runtime.asRoot = true;
       this.save();
       return true;
@@ -419,13 +442,28 @@
     
     cmd_su(args, term) {
       if (args[0] && args[0] !== 'root') {
-        term.writeln(`su: user ${args[0]} does not exist`);
+        this.writelnStyled(term, `su: user ${args[0]} does not exist`, 'error');
         return true;
       }
       this.runtime.asRoot = true;
       this.runtime.env.USER = 'root';
       this.runtime.cwd = '/root';
+      term.writeln('Switched to root user');
       this.save();
+      return true;
+    },
+    
+    cmd_exit(args, term) {
+      if (this.runtime.asRoot) {
+        // Exit root back to kali
+        this.runtime.asRoot = false;
+        this.runtime.env.USER = 'kali';
+        this.runtime.cwd = '/home/kali';
+        term.writeln('Exited root shell');
+        this.save();
+      } else {
+        term.writeln('Use logout or close terminal to exit');
+      }
       return true;
     },
     

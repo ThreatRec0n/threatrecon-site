@@ -124,23 +124,27 @@ addDir(snapshot, '/home', ['kali']);
 addDir(snapshot, '/root', ['.bashrc', '.bash_history']);
 addDir(snapshot, '/tmp', []);
 
-// Home directory
-addDir(snapshot, '/home/kali', ['Desktop', 'Documents', 'Downloads', 'Pictures', '.bashrc', '.bash_history', 'tools', 'notes.txt', 'README.txt']);
+// Home directory - Kali-standard structure
+addDir(snapshot, '/home/kali', ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Public', 'Templates', 'Videos', '.bashrc', '.profile', 'tools']);
 addFile(snapshot, '/home/kali/.bashrc', '# ~/.bashrc (simulated)\nexport PS1=\'\\u@\\h:\\w\\$ \'');
+addFile(snapshot, '/home/kali/.profile', '# ~/.profile (simulated)\n# Shell configuration\n');
 addFile(snapshot, '/home/kali/.bash_history', 'nmap -sV 10.0.0.0/24\nifconfig\nls -la\nssh user@10.0.0.22\nmsfconsole');
-addFile(snapshot, '/home/kali/README.txt', 'ThreatRecon Labs - Simulated Kali environment.\nThis is a training-only simulation.\nDo not store real credentials here.');
-addFile(snapshot, '/home/kali/notes.txt', 'targets:\n - 10.10.10.50 (web server)\n - 10.10.10.60 (database)\n - 10.10.10.70 (file server)\n\nnotes:\n ssh fails on web server (22 blocked)\n http appears vulnerable to XXE\n database has weak passwords\n');
 
-// Desktop directory with sample file
-addDir(snapshot, '/home/kali/Desktop', ['notes.txt']);
-addFile(snapshot, '/home/kali/Desktop/notes.txt', 'Desktop notes\nKeep important files here\n');
+// Desktop with realistic recon file
+addDir(snapshot, '/home/kali/Desktop', ['corp-recon-notes.txt']);
+addFile(snapshot, '/home/kali/Desktop/corp-recon-notes.txt', 'Corporate Recon Notes - ' + new Date().toISOString().split('T')[0] + '\n\nTarget: corp.target.com\nOpen ports: 80, 443, 8080\nTech stack: Apache 2.4, WordPress 5.9\n\nExploits:\n- XXE injection in /wp-upload\n- SQLi in login form\n- Credential dump possible\n');
 
-// Documents directory
+// Documents
 addDir(snapshot, '/home/kali/Documents', ['scan-results.txt']);
-addFile(snapshot, '/home/kali/Documents/scan-results.txt', 'Network scan results\n10.10.10.50 - Apache 2.4\n10.10.10.60 - MySQL 5.7\n');
+addFile(snapshot, '/home/kali/Documents/scan-results.txt', 'Nmap scan results\n10.10.10.50 - Apache 2.4\n10.10.10.60 - MySQL 5.7\n');
 
-// Downloads directory
+// Empty directories
 addDir(snapshot, '/home/kali/Downloads', []);
+addDir(snapshot, '/home/kali/Music', []);
+addDir(snapshot, '/home/kali/Pictures', []);
+addDir(snapshot, '/home/kali/Public', []);
+addDir(snapshot, '/home/kali/Templates', []);
+addDir(snapshot, '/home/kali/Videos', []);
 
 // Root files
 addDir(snapshot, '/home/kali/tools', ['recon', 'exfil', 'reports']);

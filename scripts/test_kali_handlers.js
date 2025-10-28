@@ -63,9 +63,9 @@ const tests = [
     expected: 'bash'  // Should contain common tools
   },
   {
-    name: 'cat README.txt',
-    cmd: 'cat /home/kali/README.txt',
-    expected: 'ThreatRecon'
+    name: 'cat Desktop/corp-recon-notes.txt',
+    cmd: 'cat /home/kali/Desktop/corp-recon-notes.txt',
+    expected: 'Corporate Recon Notes'
   },
   {
     name: 'cd /etc',
