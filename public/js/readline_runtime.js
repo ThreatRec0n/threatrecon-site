@@ -159,7 +159,8 @@
       renderLine,
       submitCommand,
       getBuffer: () => ({ buf: buffer, pos: cursor }),
-      setBuffer: (newBuf) => { buffer = newBuf; cursor = newBuf.length; }
+      setBuffer: (newBuf) => { buffer = newBuf; cursor = newBuf.length; },
+      getLine: () => buffer
     };
   }
 

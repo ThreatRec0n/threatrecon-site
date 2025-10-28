@@ -324,27 +324,76 @@
         term.element.tabIndex = term.element.tabIndex || 0;
       }
       
-      // Initialize readline
-      readline = new window.ReadlineSim();
+      // Load snapshots and initialize Phase 2 architecture
+      (async () => {
+        try {
+          console.info('[Client] Loading Phase 2 snapshots...');
+          
+          const [fsSnap, procSnap, netSnap, scenarioSnap] = await Promise.all([
+            fetch('/snapshots/fs.json').then(r => r.json()),
+            fetch('/snapshots/proc.json').then(r => r.json()),
+            fetch('/snapshots/net.json').then(r => r.json()),
+            fetch('/snapshots/scenario.json').then(r => r.json())
+          ]);
+          
+          // Initialize kernel modules
+          window.kernelFS.init(fsSnap);
+          window.kernelProc.init(procSnap, netSnap, scenarioSnap);
+          
+          // Create dispatcher
+          const session = window.kernelProc.getSession();
+          const dispatcher = window.createDispatcher({
+            fs: window.kernelFS,
+            proc: window.kernelProc,
+            scenario: scenarioSnap,
+            term,
+            getPrompt: () => {
+              const user = session.isRoot ? 'root' : 'kali';
+              const host = 'kali';
+              const cwd = session.cwd || '/home/kali';
+              const path = cwd === '/home/kali' ? '~' : cwd.replace('/home/kali', '~');
+              const symbol = session.isRoot ? '#' : '$';
+              
+              const RED = '\x1b[38;5;203m';
+              const CYAN = '\x1b[38;5;87m';
+              const YELLOW = '\x1b[33m';
+              const GREEN = '\x1b[32m';
+              const BOLD = '\x1b[1m';
+              const RESET = '\x1b[0m';
+              
+              return `${BOLD}${RED}${user}${RESET}${BOLD}@${CYAN}${host}${RESET}:${YELLOW}${path}${RESET} ${BOLD}${GREEN}${symbol}${RESET} `;
+            }
+          });
+          
+          // Create readline runtime
+          readline = window.createReadlineRuntime({ term, dispatcher, getPrompt: dispatcher.getPrompt });
+          
+          console.info('[Client] Phase 2 architecture initialized');
+          
+          // Write welcome banner
+          term.writeln('\x1b[1;36m[ThreatRecon Labs - Kali Emulator]\x1b[0m');
+          term.writeln(`Connected as \x1b[1;31mkali\x1b[0m`);
+          term.writeln('');
+          
+          // Write prompt
+          writePrompt();
+          
+        } catch (err) {
+          console.error('[Client] Failed to load Phase 2 snapshots:', err);
+          // Fallback to legacy system
+          readline = new window.ReadlineSim();
+        }
+      })();
       
-      // Terminal input handling with readline
+      // Terminal input handling with Phase 2 readline runtime
       term.onKey(async (e) => {
         const session = window.__TR_session;
         if (session?.ended) return;
         
         const ev = e.domEvent;
         
-        // Handle pager mode
-        if (pagerState.active) {
-          if (ev.key === ' ') {
-            pagerState.page++;
-            term.write('\r\n');
-            showPagerPage();
-          } else if (ev.key === 'q' || ev.key === 'Q') {
-            pagerState.active = false;
-            term.write('\r\n');
-            writePrompt();
-          }
+        // Wait for readline to be initialized
+        if (!readline) {
           ev.preventDefault();
           return;
         }
@@ -352,80 +401,40 @@
         const ctrl = ev.ctrlKey || ev.metaKey;
         const shift = ev.shiftKey;
         
-        // Handle Tab completion separately
-        if (ev.key === 'Tab') {
-          ev.preventDefault();
-          const currentLine = readline.getLine();
-          const parts = currentLine.split(' ');
-          const lastWord = parts[parts.length - 1];
-          
-          const completions = window.kali_interpreter && window.kali_interpreter.getCompletions
-            ? window.kali_interpreter.getCompletions(lastWord)
-            : [];
-          
-          if (completions.length > 0) {
-            tabCompleteState.activations++;
-            
-            if (tabCompleteState.activations === 1) {
-              // First tab: complete to longest common prefix
-              const lcp = completions[0];
-              for (let i = 1; i < completions.length; i++) {
-                let j = 0;
-                while (j < lcp.length && j < completions[i].length && lcp[j] === completions[i][j]) j++;
-                const newLcp = lcp.slice(0, j);
-                if (newLcp.length < j) break;
-              }
-              const prefixLen = parts[parts.length - 1].length;
-              const completion = lcp.slice(prefixLen);
-              readline.setLine(currentLine + completion);
-              const promptText = window.kali_interpreter?.getPrompt?.() || promptCached;
-              readline.renderLine(term, promptText);
-              tabCompleteState.activations = 0;
-            } else if (tabCompleteState.activations >= 2) {
-              // Second tab: list all completions
-              term.writeln('');
-              term.writeln(completions.join('  '));
-              writePrompt();
-              tabCompleteState.activations = 0;
-            }
-          } else {
-            tabCompleteState.activations = 0;
-          }
-          return;
-        }
+        // Handle key through readline runtime
+        const result = readline.handleKey(ev.key, ctrl, shift, false);
         
-        // Reset tab completion state on any non-tab key
-        if (ev.key !== 'Tab') {
-          tabCompleteState.activations = 0;
-        }
-        
-        // Get result from readline handler
-        const result = readline.handleKey(ev.key, ctrl, shift, false, term);
-        
-        // Prevent default for all handled keys (we're managing input via readline)
-        const shouldPreventDefault = result.type !== 'noop';
-        
-        if (shouldPreventDefault) {
+        // Prevent default for handled keys
+        if (result.type !== 'noop') {
           ev.preventDefault();
         }
         
         if (result.type === 'submit') {
           term.write('\r\n');
-          await submitCommand(result.line);
+          await readline.submitCommand(result.line);
           writePrompt();
         } else if (result.type === 'render') {
-          // Rerender the line (e.g., after backspace or history)
-          const promptText = window.kali_interpreter?.getPrompt?.() || promptCached;
+          // Get prompt from kernel session
+          const session = window.kernelProc.getSession();
+          const user = session.isRoot ? 'root' : 'kali';
+          const host = 'kali';
+          const cwd = session.cwd || '/home/kali';
+          const path = cwd === '/home/kali' ? '~' : cwd.replace('/home/kali', '~');
+          const symbol = session.isRoot ? '#' : '$';
+          
+          const RED = '\x1b[38;5;203m';
+          const CYAN = '\x1b[38;5;87m';
+          const YELLOW = '\x1b[33m';
+          const GREEN = '\x1b[32m';
+          const BOLD = '\x1b[1m';
+          const RESET = '\x1b[0m';
+          
+          const promptText = `${BOLD}${RED}${user}${RESET}${BOLD}@${CYAN}${host}${RESET}:${YELLOW}${path}${RESET} ${BOLD}${GREEN}${symbol}${RESET} `;
           readline.renderLine(term, promptText);
-        } else if (result.type === 'print') {
-          // Write the printable character
-          term.write(result.char);
+        } else if (result.type === 'backspace') {
+          // Backspace already handled by xterm via preventDefault above
         }
       });
-      
-      term.writeln('\x1b[1;36m[ThreatRecon Labs]\x1b[0m');
-      term.writeln(`Connected as \x1b[1;${data.role === 'attacker' ? '31' : '34'}m${data.role}\x1b[0m`);
-      term.writeln('');
       
     } catch (err) {
       console.error('[Client] Terminal init error:', err);
@@ -433,37 +442,37 @@
   }
 
   function writePrompt() {
-    const session = window.__TR_session;
-    if (!session || !term) return;
+    if (!term) return;
     
-    // Use Kali interpreter prompt if available, otherwise fallback
+    // Use Phase 2 kernel session if available
     let promptText;
-    if (window.kali_interpreter && window.kali_interpreter.getPrompt) {
-      promptText = window.kali_interpreter.getPrompt();
-    } else {
-      // Fallback prompt
-      const isRoot = session.isRoot || session.asRoot;
-      const user = isRoot ? 'root' : (session.user || 'kali');
-      const host = localSnapshot?.meta?.distro || 'kali';
-      const cwdRaw = session.cwd || localCwd || '/home/kali';
-      const cwd = cwdRaw === '/home/kali' ? '~' : cwdRaw.replace('/home/kali', '~');
+    if (window.kernelProc && window.kernelProc.getSession) {
+      const session = window.kernelProc.getSession();
+      const user = session.isRoot ? 'root' : 'kali';
+      const host = 'kali';
+      const cwd = session.cwd || '/home/kali';
+      const path = cwd === '/home/kali' ? '~' : cwd.replace('/home/kali', '~');
+      const symbol = session.isRoot ? '#' : '$';
       
-      const BOLD = '\x1b[1m';
-      const GREEN = '\x1b[32m';
-      const RED = '\x1b[31m';
-      const CYAN = '\x1b[36m';
+      const RED = '\x1b[38;5;203m';
+      const CYAN = '\x1b[38;5;87m';
       const YELLOW = '\x1b[33m';
+      const GREEN = '\x1b[32m';
+      const BOLD = '\x1b[1m';
       const RESET = '\x1b[0m';
-      const symbol = isRoot ? '#' : '$';
-      promptText = `${BOLD}${RED}${user}${RESET}@${GREEN}${host}${RESET}:${CYAN}${cwd}${RESET}${YELLOW}${symbol}${RESET} `;
+      
+      promptText = `${BOLD}${RED}${user}${RESET}${BOLD}@${CYAN}${host}${RESET}:${YELLOW}${path}${RESET} ${BOLD}${GREEN}${symbol}${RESET} `;
+    } else {
+      // Fallback to legacy system
+      promptText = promptCached || 'kali@kali:~$ ';
     }
     
     promptCached = promptText;
     term.write(promptText);
     
     // Initialize readline buffer after writing prompt
-    if (readline) {
-      readline.setLine('');
+    if (readline && readline.setBuffer) {
+      readline.setBuffer('');
     }
   }
 
