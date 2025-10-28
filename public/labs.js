@@ -4,13 +4,23 @@
 (function() {
   'use strict';
   
-  // Final intended production backend URL.
-  // After deploying labs-backend to Render and setting the custom domain,
-  // this should resolve publicly.
-  const LABS_BACKEND_URL = 'https://labs-api.threatrecon.io';
+  // Default production backend URL for Socket.IO
+  // This SHOULD match the custom domain you'll point at Render.
+  let LABS_BACKEND_URL = 'https://labs-api.threatrecon.io';
   
-  // For local testing, temporarily override in browser console:
-  // const LABS_BACKEND_URL = 'http://localhost:8080';
+  // Allows us to switch the backend target at runtime for testing.
+  // Example from console:
+  // window.overrideLabsBackend("http://localhost:8080")
+  window.overrideLabsBackend = function(newUrl) {
+    try {
+      if (newUrl && typeof newUrl === "string") {
+        LABS_BACKEND_URL = newUrl.replace(/\/$/, "");
+        console.warn("[LabsClient] LABS_BACKEND_URL overridden ->", LABS_BACKEND_URL);
+      }
+    } catch (e) {
+      console.error("overrideLabsBackend error:", e);
+    }
+  };
   
   let term = null;
   let fitAddon = null;
@@ -62,16 +72,30 @@
     // Resilient socket connector
     const candidates = [];
     
-    // 1) Same-origin relative path
-    candidates.push({ label: 'same-origin /socket.io', url: `${location.protocol}//${location.host}`, path: '/socket.io' });
-    
-    // 2) Same-origin /api path (serverless pattern)
-    candidates.push({ label: 'same-origin /api/socket.io', url: `${location.protocol}//${location.host}`, path: '/api/socket.io' });
-    
-    // 3) Explicit backend URL if configured
-    if (LABS_BACKEND_URL && LABS_BACKEND_URL !== 'https://labs-api.threatrecon.io') {
-      candidates.push({ label: 'configured LABS_BACKEND_URL', url: LABS_BACKEND_URL.replace(/\/$/, ''), path: '/socket.io' });
+    // 1) If LABS_BACKEND_URL is defined, try that first.
+    // This will typically be https://labs-api.threatrecon.io once DNS is live,
+    // OR a Render URL, OR localhost via overrideLabsBackend().
+    if (LABS_BACKEND_URL) {
+      candidates.push({
+        label: 'configured LABS_BACKEND_URL',
+        url: LABS_BACKEND_URL,
+        path: '/socket.io'
+      });
     }
+    
+    // 2) same-origin /socket.io
+    candidates.push({
+      label: 'same-origin /socket.io',
+      url: `${location.protocol}//${location.host}`,
+      path: '/socket.io'
+    });
+    
+    // 3) same-origin /api/socket.io
+    candidates.push({
+      label: 'same-origin /api/socket.io',
+      url: `${location.protocol}//${location.host}`,
+      path: '/api/socket.io'
+    });
     
     // Try to connect to first available endpoint
     async function tryConnect() {

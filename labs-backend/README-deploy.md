@@ -39,11 +39,9 @@ This service is the live-fire range controller. It:
 cd labs-backend
 npm install
 PORT=8080 npm start
-```
 
-Then in your browser console, manually override LABS_BACKEND_URL to:
-```javascript
-const LABS_BACKEND_URL = "http://localhost:8080";
-```
-and reload labs.html from file or from your prod site to confirm it connects.
+Then open DevTools Console on https://threatrecon.io/labs.html and run:
+window.overrideLabsBackend("http://localhost:8080");
+
+Then click "attacker" or "defender". You should see the terminal come alive.
 
