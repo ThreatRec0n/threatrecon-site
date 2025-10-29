@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { useDebounce, useAudioCue } from '../utils/hooks';
 
@@ -40,9 +40,8 @@ export default function Home() {
   const [networkLatency, setNetworkLatency] = useState(12);
   const [systemStatusActive, setSystemStatusActive] = useState(true);
   const progressIntervalRef = useRef(null);
-  const eventIntervalRef = useRef(null);
   const tickerRef = useRef(null);
-  const eventDebounceRef = useRef(null);
+  const eventSourceRef = useRef(null);
   const aiResponseTimeoutRef = useRef(null);
   const cpuIntervalRef = useRef(null);
   const networkIntervalRef = useRef(null);
@@ -50,90 +49,81 @@ export default function Home() {
   // Audio cue hook (throttled)
   const playEventSound = useAudioCue(100);
   
-  // Debounced event trigger
-  const debouncedEventTrigger = useDebounce(async () => {
+  // Process incoming event from SSE (useCallback to avoid dependency issues)
+  const processIncomingEvent = useCallback((event) => {
     if (!aiEventsEnabled || isPaused) return;
+    if (event.type === 'connected' || event.type === 'error') return;
     
-    try {
-      const response = await fetch('/api/events/trigger', { method: 'POST' });
-      const event = await response.json();
-      
-      // Play sound cue
-      playEventSound(800, 100);
-      
-      // Trigger glow animation
-      setSoundGlowActive(true);
-      setTimeout(() => setSoundGlowActive(false), 500);
-      
-      // Add to history (keep last 20)
-      setEventHistory(prev => {
-        const updated = [...prev, event].slice(-20);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('eventHistory_v1', JSON.stringify(updated));
-        }
-        return updated;
-      });
-      
-      setAiEvents(prev => [...prev, event]);
-      setTickerEvents(prev => [...prev, `${event.title} [${event.severity.toUpperCase()}]`]);
-      setCurrentEvent(event);
-      setShowEventModal(true);
-      
-      // Show toast notification
-      setToast({
-        id: event.id,
-        title: event.title,
-        severity: event.severity,
-      });
-      
-      // Auto-fade toast after 10 seconds
-      setTimeout(() => {
-        setToast(null);
-      }, 10000);
-      
-      // AI analyst auto-respond after 3-5 seconds
-      const aiResponseDelay = 3000 + Math.random() * 2000;
-      aiResponseTimeoutRef.current = setTimeout(() => {
-        const analysts = ['AI-Echo-1', 'AI-Echo-2'];
-        const analyst = analysts[Math.floor(Math.random() * analysts.length)];
-        const decisions = ['escalated', 'acknowledged', 'analyzing'];
-        const decision = decisions[Math.floor(Math.random() * decisions.length)];
-        
-        const message = {
-          id: `msg-${Date.now()}`,
-          analyst: analyst,
-          action: decision,
-          event: event.title,
-          timestamp: new Date().toISOString(),
-        };
-        
-        setAiAnalystMessages(prev => [...prev, message].slice(-10));
-        
-        // Update team score based on AI decision
-        let scoreChange = 0;
-        if (decision === 'escalated' && ['high', 'critical'].includes(event.severity)) {
-          scoreChange = +10;
-        } else if (decision === 'acknowledged') {
-          scoreChange = +10;
-        } else {
-          scoreChange = -10;
-        }
-        
-        setTeamScore(prev => {
-          const newScore = Math.max(0, prev + scoreChange);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('threatReconTeamScore_v1', newScore.toString());
-          }
-          return newScore;
-        });
-      }, aiResponseDelay);
-    } catch (error) {
-      // Error handled silently in production
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('Failed to trigger event:', error);
+    // Play sound cue
+    playEventSound(800, 100);
+    
+    // Trigger glow animation
+    setSoundGlowActive(true);
+    setTimeout(() => setSoundGlowActive(false), 500);
+    
+    // Add to history (keep last 20)
+    setEventHistory(prev => {
+      const updated = [...prev, event].slice(-20);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('eventHistory_v1', JSON.stringify(updated));
       }
-    }
-  }, 300);
+      return updated;
+    });
+    
+    setAiEvents(prev => [...prev, event]);
+    setTickerEvents(prev => [...prev, `${event.title} [${event.severity.toUpperCase()}]`]);
+    setCurrentEvent(event);
+    setShowEventModal(true);
+    
+    // Show toast notification
+    setToast({
+      id: event.id,
+      title: event.title,
+      severity: event.severity,
+    });
+    
+    // Auto-fade toast after 10 seconds
+    setTimeout(() => {
+      setToast(null);
+    }, 10000);
+    
+    // AI analyst auto-respond after 3-5 seconds
+    const aiResponseDelay = 3000 + Math.random() * 2000;
+    aiResponseTimeoutRef.current = setTimeout(() => {
+      const analysts = ['AI-Echo-1', 'AI-Echo-2'];
+      const analyst = analysts[Math.floor(Math.random() * analysts.length)];
+      const decisions = ['escalated', 'acknowledged', 'analyzing'];
+      const decision = decisions[Math.floor(Math.random() * decisions.length)];
+      
+      const message = {
+        id: `msg-${Date.now()}`,
+        analyst: analyst,
+        action: decision,
+        event: event.title,
+        timestamp: new Date().toISOString(),
+      };
+      
+      setAiAnalystMessages(prev => [...prev, message].slice(-10));
+      
+      // Update team score based on AI decision
+      let scoreChange = 0;
+      if (decision === 'escalated' && ['high', 'critical'].includes(event.severity)) {
+        scoreChange = +10;
+      } else if (decision === 'acknowledged') {
+        scoreChange = +10;
+      } else {
+        scoreChange = -10;
+      }
+      
+      setTeamScore(prev => {
+        const newScore = Math.max(0, prev + scoreChange);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('threatReconTeamScore_v1', newScore.toString());
+        }
+        return newScore;
+      });
+    }, aiResponseDelay);
+  }, [aiEventsEnabled, isPaused, playEventSound]);
 
   useEffect(() => {
     // Fade-in on page load
@@ -207,12 +197,36 @@ export default function Home() {
         });
       }, 100); // Update every 100ms (10 seconds total for 100%)
       
-      // Trigger AI events during active shift (every 15-25 seconds)
-      if (aiEventsEnabled) {
-        eventIntervalRef.current = setInterval(() => {
-          if (isPaused || !aiEventsEnabled) return;
-          debouncedEventTrigger();
-        }, 15000 + Math.random() * 10000); // Random 15-25 second intervals
+      // Connect to Server-Sent Events stream for real-time AI events
+      if (aiEventsEnabled && typeof window !== 'undefined') {
+        try {
+          const eventSource = new EventSource('/api/events/trigger');
+          eventSourceRef.current = eventSource;
+          
+          eventSource.onmessage = (e) => {
+            try {
+              const event = JSON.parse(e.data);
+              if (!isPaused && aiEventsEnabled) {
+                processIncomingEvent(event);
+              }
+            } catch (error) {
+              if (process.env.NODE_ENV === 'development') {
+                console.debug('Failed to parse SSE event:', error);
+              }
+            }
+          };
+          
+          eventSource.onerror = (error) => {
+            // Reconnect on error (EventSource handles this automatically)
+            if (process.env.NODE_ENV === 'development') {
+              console.debug('SSE connection error:', error);
+            }
+          };
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Failed to create EventSource:', error);
+          }
+        }
       }
       
       // CPU load simulation
@@ -236,14 +250,12 @@ export default function Home() {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
-      if (eventIntervalRef.current) {
-        clearInterval(eventIntervalRef.current);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
       if (aiResponseTimeoutRef.current) {
         clearTimeout(aiResponseTimeoutRef.current);
-      }
-      if (eventDebounceRef.current) {
-        clearTimeout(eventDebounceRef.current);
       }
       if (cpuIntervalRef.current) {
         clearInterval(cpuIntervalRef.current);
@@ -258,14 +270,12 @@ export default function Home() {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
-      if (eventIntervalRef.current) {
-        clearInterval(eventIntervalRef.current);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
       if (aiResponseTimeoutRef.current) {
         clearTimeout(aiResponseTimeoutRef.current);
-      }
-      if (eventDebounceRef.current) {
-        clearTimeout(eventDebounceRef.current);
       }
       if (cpuIntervalRef.current) {
         clearInterval(cpuIntervalRef.current);
@@ -274,7 +284,7 @@ export default function Home() {
         clearInterval(networkIntervalRef.current);
       }
     };
-  }, [shiftActive, isPaused, aiEventsEnabled, debouncedEventTrigger]);
+  }, [shiftActive, isPaused, aiEventsEnabled, processIncomingEvent]);
 
   const handleClockIn = async () => {
     setLoading(true);
