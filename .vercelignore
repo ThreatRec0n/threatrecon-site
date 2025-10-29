@@ -1,9 +1,6 @@
 node_modules
+labs-backend
 src
-api
-docker
-scenarios
-scripts
-src
-*.log
-.DS_Store
+Dockerfile
+docker-compose.yml
+README-backend.md
