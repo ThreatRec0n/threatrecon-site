@@ -1,176 +1,80 @@
-const express = require("express");
-const http = require("http");
-const cors = require("cors");
-const { Server } = require("socket.io");
-const dayjs = require("dayjs");
+// server.js - Main server entry point
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const config = require('./src/config');
+const logger = require('./src/logger');
+const apiRoutes = require('./src/api');
+const setupSocket = require('./src/socket');
 
-// Import game engine
-const runCommandInEngine = require('../engine/runCommandInEngine');
-
+// Create Express app
 const app = express();
-const server = http.createServer(app);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-const allowedOrigins = [
-  "https://threatrecon.io",
-  "https://www.threatrecon.io",
-  "https://threatrecon-site.onrender.com",
-  "http://localhost:3000"
-];
-
-console.log('[labs-backend] CORS origins configured:', allowedOrigins);
-
+// CORS configuration
 app.use(cors({
-  origin: allowedOrigins,
-  methods: ["GET", "POST"],
+  origin: config.frontendOrigin,
   credentials: true
 }));
 
-app.use(express.json());
-
-// In-memory sessions (needed by health endpoint)
-const sessions = new Map();
-
-app.get("/healthz", (req, res) => res.send("OK"));
-
-app.get('/health', (req, res) => {
-  res.json({ ok: true, ts: Date.now(), sessions: sessions.size });
+// Logging middleware
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.path}`);
+  next();
 });
 
+// API routes
+app.use('/api', apiRoutes);
+
+// Health check route (root)
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'threatrecon-labs-backend',
+    version: '1.0.0'
+  });
+});
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Setup Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
+    origin: config.frontendOrigin,
+    methods: ['GET', 'POST'],
     credentials: true
-  },
-  path: "/socket.io",
-  transports: ["polling", "websocket"],
-  pingTimeout: 60000
+  }
 });
 
-// Helper: push timeline event
-function pushTimeline(session, msg) {
-  const ev = { time: dayjs().format('HH:mm:ss'), msg };
-  session.timeline.unshift(ev);
-  return ev;
+// Initialize socket handlers
+const simulator = setupSocket(io);
+
+// Error handling
+app.use((err, req, res, next) => {
+  logger.error(`Error: ${err.message}`);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Only start server if run directly (not when imported for tests)
+if (require.main === module) {
+  const PORT = config.port;
+  server.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+    logger.info(`Environment: ${config.nodeEnv}`);
+    logger.info(`Frontend origin: ${config.frontendOrigin}`);
+  });
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      logger.info('Server closed');
+      process.exit(0);
+    });
+  });
 }
 
-io.on("connection", (socket) => {
-  console.log("[labs-backend] Connected:", socket.id, "namespace:", socket.nsp?.name, "path:/socket.io");
-  
-  socket.on("initSession", ({ role }) => {
-    console.log("[labs-backend] initSession received for", socket.id, "role:", role);
-
-    if (!role || !['attacker', 'defender'].includes(role)) {
-      socket.emit('errorEvent', { msg: 'Invalid role' });
-      return;
-    }
-
-    const session = {
-      id: socket.id,
-      role,
-      user: role === 'attacker' ? 'attacker' : 'defender',
-      host: role === 'attacker' ? 'kali' : 'soc',
-      cwd: '~',
-      isRoot: false,
-      startedAt: Date.now(),
-      ended: false,
-      detectionScore: 0,
-      timeline: []
-    };
-
-    sessions.set(socket.id, session);
-    
-    console.log('[labs-backend] emitting sessionCreated to socket.id', socket.id, 'socket.nsp:', socket.nsp?.name);
-    console.log('[labs-backend] sessionCreated payload:', JSON.stringify(session));
-    socket.emit('sessionCreated', session);
-    console.log('[labs-backend] sessionCreated SENT successfully to', socket.id);
-
-    // AI heartbeat every 3.5s
-    session.aiInterval = setInterval(() => {
-      if (session.ended) return;
-
-      const aiMsg = session.role === 'attacker'
-        ? 'Defender tightened firewall rules'
-        : 'Attacker probed internal SMB shares';
-
-      const ev = pushTimeline(session, aiMsg);
-
-      socket.emit('output', {
-        text: '',
-        appendTimeline: ev,
-        showPrompt: false
-      });
-    }, 3500);
-  });
-
-  socket.on('playerCommand', async ({ cmd }) => {
-    const session = sessions.get(socket.id);
-    if (!session || session.ended) {
-      socket.emit('output', {
-        text: '\x1b[1;31m[session closed]\x1b[0m\n',
-        showPrompt: false
-      });
-      return;
-    }
-
-    let result;
-    try {
-      result = await runCommandInEngine(session, cmd);
-    } catch (err) {
-      console.error('[labs-backend] command error', err);
-      result = {
-        text: '\x1b[1;31m[engine error]\x1b[0m\n',
-        appendTimeline: { time: dayjs().format('HH:mm:ss'), msg: 'Engine error on command' },
-        endMatch: false
-      };
-    }
-
-    socket.emit('output', {
-      text: result.text || '',
-      appendTimeline: result.appendTimeline || null,
-      showPrompt: !result.endMatch
-    });
-
-    if (result.promptPatch) {
-      Object.assign(session, result.promptPatch);
-      socket.emit('promptUpdate', {
-        user: session.user,
-        host: session.host,
-        cwd: session.cwd,
-        isRoot: session.isRoot
-      });
-    }
-
-    if (result.endMatch) {
-      session.ended = true;
-      clearInterval(session.aiInterval);
-      socket.emit('matchEnded', {
-        aar: result.aar,
-        outcome: result.outcome
-      });
-      setTimeout(() => { sessions.delete(socket.id); }, 5000);
-    }
-  });
-
-  socket.on('disconnect', (reason) => {
-    console.info('[labs-backend] disconnected', socket.id, 'reason:', reason);
-    const session = sessions.get(socket.id);
-    if (session) {
-      if (session.aiInterval) clearInterval(session.aiInterval);
-      sessions.delete(socket.id);
-    }
-  });
-  
-  socket.on('error', (err) => {
-    console.error('[labs-backend] socket error', socket.id, err);
-  });
-});
-
-io.on('error', (err) => {
-  console.error('[labs-backend] IO error:', err);
-});
-
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-  console.log(`[labs-backend] Listening on port ${PORT}`);
-});
+module.exports = { app, server, io, simulator };
