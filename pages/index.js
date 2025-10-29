@@ -5,32 +5,39 @@ import PacketDetail from '../components/PacketDetail';
 import ChallengeEngine from '../components/ChallengeEngine';
 import HelpModal from '../components/HelpModal';
 import { parsePcapFile } from '../lib/pcap-parser-browser';
-import { generateChallenge } from '../lib/synthetic-challenges';
-import { buildTcpStreams, getFiveTupleKey } from '../lib/stream-builder';
+import { usePacketStream } from '../lib/usePacketStream';
+import { buildTcpStreams } from '../lib/stream-builder';
 
 export default function Home() {
-  const [packets, setPackets] = useState([]);
   const [selectedPacketId, setSelectedPacketId] = useState(null);
   const [markedPacketIds, setMarkedPacketIds] = useState([]);
-  const [challenge, setChallenge] = useState(null);
-  const [level, setLevel] = useState('beginner');
-  const [score, setScore] = useState(0);
-  const [hintsUsed, setHintsUsed] = useState(0);
+  const [profileType, setProfileType] = useState('http-exfil');
+  const [difficulty, setDifficulty] = useState('beginner');
+  const [isStreaming, setIsStreaming] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [tcpStreams, setTcpStreams] = useState({});
+  
   const fileInputRef = useRef(null);
-  const [loading, setLoading] = useState(false);
-  const selectedPacket = packets.find(p => p.id === selectedPacketId);
+  const [score, setScore] = useState(0);
+  const [level, setLevel] = useState('beginner');
 
+  const { packets, isRunning, pause, resume, reset, evidencePacket } = usePacketStream(
+    profileType,
+    difficulty,
+    isStreaming
+  );
+
+  // Load saved progress
   useEffect(() => {
-    // Load saved progress
     if (typeof window !== 'undefined') {
       const profile = JSON.parse(localStorage.getItem('threatrecon_packet_hunt_profile') || '{}');
       if (profile.score !== undefined) {
         setScore(profile.score);
       }
       if (profile.level) {
-        setLevel(profile.level.toLowerCase());
+        const savedLevel = profile.level.toLowerCase();
+        setLevel(savedLevel);
+        setDifficulty(savedLevel);
       }
     }
   }, []);
@@ -48,7 +55,6 @@ export default function Home() {
     
     const profile = JSON.parse(localStorage.getItem('threatrecon_packet_hunt_profile') || '{}');
     
-    // Determine level
     let newLevel = 'beginner';
     if (newScore >= 2000) newLevel = 'advanced';
     else if (newScore >= 500) newLevel = 'intermediate';
@@ -65,52 +71,48 @@ export default function Home() {
       learned: correct ? ['Correctly identified evidence packet'] : ['Review packet structure', 'Check protocol layers'],
     });
     
-    // Keep last 100 entries
     profile.history = profile.history.slice(-100);
-    
     localStorage.setItem('threatrecon_packet_hunt_profile', JSON.stringify(profile));
     setLevel(newLevel);
+    setDifficulty(newLevel);
+  };
+
+  const handleStart = () => {
+    reset();
+    setMarkedPacketIds([]);
+    setSelectedPacketId(null);
+    setIsStreaming(true);
+    setTimeout(() => resume(), 100);
+  };
+
+  const handlePause = () => {
+    setIsStreaming(false);
+    pause();
+  };
+
+  const handleResume = () => {
+    setIsStreaming(true);
+    resume();
   };
 
   const handleUploadPcap = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    setLoading(true);
     try {
       const parsedPackets = await parsePcapFile(file);
-      setPackets(parsedPackets);
-      setChallenge(null);
-      setMarkedPacketIds([]);
-      setSelectedPacketId(null);
+      // Convert to our format if needed
+      setIsStreaming(false);
+      pause();
     } catch (error) {
-      // Fallback to synthetic challenge
-      const challengeData = generateChallenge(level);
-      setPackets(challengeData.packets);
-      setChallenge(challengeData);
-      alert('PCAP upload failed. Showing a challenge instead.');
+      alert('PCAP upload failed. Use Start Challenge instead.');
     } finally {
-      setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleStartChallenge = () => {
-    setLoading(true);
-    setTimeout(() => {
-      const challengeData = generateChallenge(level);
-      setPackets(challengeData.packets);
-      setChallenge(challengeData);
-      setMarkedPacketIds([]);
-      setSelectedPacketId(null);
-      setHintsUsed(0);
-      setLoading(false);
-    }, 300);
-  };
-
   const handleSelectPacket = (packetId) => {
     setSelectedPacketId(packetId);
-    // Scroll into view
     setTimeout(() => {
       const element = document.querySelector(`[data-packet-id="${packetId}"]`);
       if (element) {
@@ -129,15 +131,16 @@ export default function Home() {
   };
 
   const handleSubmitChallenge = (resultData) => {
-    const newScore = resultData.correct ? score + resultData.points : Math.max(0, score - 10);
+    const newScore = resultData.correct ? score + resultData.points : Math.max(0, score - 50);
     setScore(newScore);
-    saveProfile(newScore, resultData.correct, challenge.scenario.title, resultData.points);
-  };
-
-  const handleUseHint = () => {
-    if (hintsUsed < 3 && challenge) {
-      setHintsUsed(prev => prev + 1);
-    }
+    saveProfile(newScore, resultData.correct, resultData.scenarioTitle || profileType, resultData.points);
+    
+    // After debrief, offer new round
+    setTimeout(() => {
+      if (confirm('Start a new round?')) {
+        handleStart();
+      }
+    }, 3000);
   };
 
   // Keyboard shortcuts
@@ -158,19 +161,13 @@ export default function Home() {
         e.preventDefault();
         const currentIdx = packets.findIndex(p => p.id === selectedPacketId);
         if (currentIdx < packets.length - 1) {
-          const nextPacket = packets[currentIdx + 1];
-          if (nextPacket) {
-            handleSelectPacket(nextPacket.id);
-          }
+          handleSelectPacket(packets[currentIdx + 1]?.id);
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         const currentIdx = packets.findIndex(p => p.id === selectedPacketId);
         if (currentIdx > 0) {
-          const prevPacket = packets[currentIdx - 1];
-          if (prevPacket) {
-            handleSelectPacket(prevPacket.id);
-          }
+          handleSelectPacket(packets[currentIdx - 1]?.id);
         }
       }
     };
@@ -179,12 +176,13 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [packets, selectedPacketId]);
 
+  const selectedPacket = packets.find(p => p.id === selectedPacketId);
   const levelDisplay = level.charAt(0).toUpperCase() + level.slice(1);
 
   return (
     <>
       <Head>
-        <title>ThreatRecon Packet Hunt</title>
+        <title>ThreatRecon Packet Hunt v3.0</title>
         <meta name="description" content="Interactive Wireshark-style packet forensics learning game" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="theme-color" content="#00FF88" />
@@ -194,11 +192,43 @@ export default function Home() {
       <div className="min-h-screen bg-gray-950 text-gray-200 flex flex-col font-sans">
         {/* Fixed Top Bar */}
         <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-700 shadow-[0_10px_40px_rgba(0,0,0,0.8)] px-4 py-3">
-          <div className="max-w-[1800px] mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="text-terminal-green font-bold tracking-wider text-lg md:text-xl font-mono shadow-[0_0_10px_rgba(0,255,136,0.5)]">
+          <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-terminal-green font-bold tracking-wider text-base md:text-lg font-mono shadow-[0_0_10px_rgba(0,255,136,0.5)]">
               THREATRECON PACKET HUNT
             </div>
-            <div className="flex items-center gap-4 text-sm font-mono">
+            
+            <div className="flex items-center gap-3 text-xs font-mono flex-wrap">
+              <div className="flex items-center gap-2">
+                <label className="text-gray-400">Profile:</label>
+                <select
+                  value={profileType}
+                  onChange={(e) => setProfileType(e.target.value)}
+                  disabled={isStreaming}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[10px] text-terminal-green font-mono"
+                >
+                  <option value="http-exfil">HTTP Exfil</option>
+                  <option value="dns-exfil">DNS Exfil</option>
+                  <option value="lateral-movement">Lateral Movement</option>
+                  <option value="credential-theft">Credential Theft</option>
+                  <option value="beaconing">Beaconing/C2</option>
+                  <option value="mixed">Mixed Full Traffic</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-gray-400">Difficulty:</label>
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  disabled={isStreaming}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[10px] text-terminal-green font-mono"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+
               <div className="flex items-center gap-2">
                 <span className="text-gray-400">Level:</span>
                 <span className="text-terminal-green font-semibold">{levelDisplay}</span>
@@ -208,14 +238,32 @@ export default function Home() {
                 <span className="text-terminal-green font-bold">{score}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleStartChallenge}
-                disabled={loading}
-                className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg border border-red-400 shadow-[0_0_10px_rgba(220,38,38,0.6)] px-3 py-1.5 font-mono transition-all"
-              >
-                START CHALLENGE
-              </button>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {!isStreaming ? (
+                <button
+                  onClick={handleStart}
+                  className="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-lg border border-red-400 shadow-[0_0_10px_rgba(220,38,38,0.6)] px-3 py-1.5 font-mono transition-all"
+                >
+                  START
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handlePause}
+                    className="bg-yellow-600 hover:bg-yellow-500 text-white font-semibold text-xs rounded-lg border border-yellow-400 px-3 py-1.5 font-mono transition-all"
+                  >
+                    PAUSE
+                  </button>
+                  <button
+                    onClick={handleResume}
+                    className="bg-green-600 hover:bg-green-500 text-white font-semibold text-xs rounded-lg border border-green-400 px-3 py-1.5 font-mono transition-all"
+                  >
+                    RESUME
+                  </button>
+                </>
+              )}
+              
               <label className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg border border-blue-400 shadow-[0_0_10px_rgba(37,99,235,0.6)] px-3 py-1.5 font-mono cursor-pointer transition-all">
                 <input
                   ref={fileInputRef}
@@ -226,6 +274,7 @@ export default function Home() {
                 />
                 UPLOAD PCAP
               </label>
+              
               <button
                 onClick={() => setShowHelp(true)}
                 className="bg-gray-700 hover:bg-gray-600 text-white font-semibold text-xs rounded-lg border border-gray-600 px-3 py-1.5 font-mono transition-all"
@@ -237,9 +286,9 @@ export default function Home() {
         </header>
 
         {/* Main Content - 3 Column Layout */}
-        <main className="flex-1 pt-[90px] pb-4 px-2 md:px-4 lg:px-6 max-w-[1800px] w-full mx-auto">
+        <main className="flex-1 pt-[110px] pb-4 px-2 md:px-4 lg:px-6 max-w-[1800px] w-full mx-auto">
           {packets.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-[calc(100vh-110px)]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-[calc(100vh-120px)]">
               {/* Left: PacketList */}
               <div className="lg:col-span-4">
                 <PacketList
@@ -247,6 +296,7 @@ export default function Home() {
                   selectedPacketId={selectedPacketId}
                   onSelectPacket={handleSelectPacket}
                   markedPacketIds={markedPacketIds}
+                  isStreaming={isStreaming}
                 />
               </div>
 
@@ -257,49 +307,42 @@ export default function Home() {
                   onMarkAsEvidence={handleMarkAsEvidence}
                   markedPacketIds={markedPacketIds}
                   tcpStreams={tcpStreams}
+                  allPackets={packets}
                 />
               </div>
 
               {/* Right: Challenge Engine / Briefing */}
               <div className="lg:col-span-3">
                 <ChallengeEngine
-                  challenge={challenge}
+                  profileType={profileType}
+                  difficulty={difficulty}
                   markedPacketIds={markedPacketIds}
                   selectedPacketId={selectedPacketId}
+                  evidencePacket={evidencePacket}
                   onMarkPacket={handleMarkAsEvidence}
                   onSubmit={handleSubmitChallenge}
                   score={score}
                   level={level}
-                  hintsUsed={hintsUsed}
-                  onUseHint={handleUseHint}
+                  packets={packets}
                 />
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-[calc(100vh-110px)]">
+            <div className="flex items-center justify-center h-[calc(100vh-120px)]">
               <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-8 text-center card-glow max-w-2xl">
                 <div className="text-gray-400 text-lg font-mono mb-4">
-                  Welcome to ThreatRecon Packet Hunt
+                  Welcome to ThreatRecon Packet Hunt v3.0
                 </div>
                 <div className="text-gray-500 text-sm font-mono space-y-2 mb-6">
-                  <div>Start a challenge or upload a PCAP file to begin packet analysis.</div>
+                  <div>Select a training profile and difficulty, then click START to begin live packet capture simulation.</div>
                   <div>Use filters, inspect packets, mark evidence, and submit your findings.</div>
                 </div>
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={handleStartChallenge}
-                    disabled={loading}
-                    className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-semibold text-sm rounded-lg border border-red-400 shadow-[0_0_15px_rgba(220,38,38,0.6)] px-6 py-3 font-mono transition-all"
-                  >
-                    {loading ? 'LOADING...' : 'START CHALLENGE'}
-                  </button>
-                  <button
-                    onClick={() => setShowHelp(true)}
-                    className="bg-gray-700 hover:bg-gray-600 text-white font-semibold text-sm rounded-lg border border-gray-600 px-6 py-3 font-mono transition-all"
-                  >
-                    VIEW HELP
-                  </button>
-                </div>
+                <button
+                  onClick={handleStart}
+                  className="bg-red-600 hover:bg-red-500 text-white font-semibold text-sm rounded-lg border border-red-400 shadow-[0_0_15px_rgba(220,38,38,0.6)] px-6 py-3 font-mono transition-all"
+                >
+                  START CHALLENGE
+                </button>
               </div>
             </div>
           )}

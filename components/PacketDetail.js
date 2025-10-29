@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 
-export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds, tcpStreams }) {
+export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds, tcpStreams, allPackets = [] }) {
   const [activeTab, setActiveTab] = useState('summary');
 
   if (!packet) {
@@ -18,57 +18,130 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
   const stream = streamKey ? tcpStreams[streamKey] : null;
 
   // Render Summary Tab
-  const renderSummary = () => (
-    <div className="space-y-3">
-      {/* Protocol Stack */}
-      <div className="bg-gray-950 border border-gray-800 rounded p-3">
-        <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">Protocol Stack</div>
-        <div className="flex flex-col gap-1 text-[10px] font-mono">
-          {packet.layers?.eth && <div className="text-gray-300">→ Ethernet II</div>}
-          {packet.layers?.ip && <div className="text-gray-300">→ Internet Protocol Version 4</div>}
-          {packet.layers?.tcp && <div className="text-gray-300">→ Transmission Control Protocol</div>}
-          {packet.layers?.udp && <div className="text-gray-300">→ User Datagram Protocol</div>}
-          {packet.layers?.http && <div className="text-gray-300">→ Hypertext Transfer Protocol</div>}
-          {packet.layers?.dns && <div className="text-gray-300">→ Domain Name System</div>}
-        </div>
-      </div>
-
-      {/* Why This Packet Might Matter */}
-      {packet.evidence && (
-        <div className="bg-yellow-900/20 border-2 border-yellow-500 rounded p-3">
-          <div className="text-[10px] text-yellow-400 font-semibold mb-1 uppercase">⚠ Evidence Flagged</div>
-          <div className="text-[9px] font-mono text-gray-300">
-            Type: <span className="text-yellow-400">{packet.evidence.type}</span>
-            {packet.evidence.filename && <div>File: <span className="text-terminal-green">{packet.evidence.filename}</span></div>}
+  const renderSummary = () => {
+    const src = packet.layers?.tcp?.src || packet.layers?.udp?.src || packet.src || '-';
+    const dst = packet.layers?.tcp?.dst || packet.layers?.udp?.dst || packet.dst || '-';
+    const tcpFlags = packet.layers?.tcp?.flags;
+    const behaviorTags = [];
+    
+    if (packet.evidence) {
+      if (packet.teachable?.some(t => t.includes('Exfiltration') || t.includes('exfil'))) behaviorTags.push('POSSIBLE EXFIL');
+      if (packet.teachable?.some(t => t.includes('Credential') || t.includes('credential'))) behaviorTags.push('CREDENTIAL LEAK');
+      if (packet.teachable?.some(t => t.includes('Beacon') || t.includes('C2'))) behaviorTags.push('C2 BEACON');
+      if (packet.teachable?.some(t => t.includes('Lateral') || t.includes('SMB'))) behaviorTags.push('INTERNAL LATERAL MOVEMENT');
+    }
+    
+    // Extract suspicious indicators
+    const indicators = [];
+    const ascii = packet.payloadAscii?.toLowerCase() || '';
+    if (ascii.includes('authorization: basic') || ascii.includes('password') || ascii.includes('username')) {
+      indicators.push('Credentials detected in payload');
+    }
+    if (ascii.includes('content-disposition') && ascii.includes('filename')) {
+      const match = ascii.match(/filename=["']?([^"'\s]+)/);
+      if (match) indicators.push(`Filename: ${match[1]}`);
+    }
+    if (ascii.includes('base64') || /[A-Za-z0-9+\/]{50,}/.test(ascii)) {
+      indicators.push('Base64-encoded data detected');
+    }
+    
+    return (
+      <div className="space-y-3">
+        {/* Direction & Protocol */}
+        <div className="bg-gray-950 border border-gray-800 rounded p-3">
+          <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">Direction</div>
+          <div className="text-[10px] font-mono text-gray-300">
+            {src} → {dst}
+            {packet.layers?.tcp && (
+              <div className="mt-1">
+                Flags: <span className="text-yellow-400">{tcpFlags || 'N/A'}</span>
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
-        <div className="bg-gray-950 border border-gray-800 rounded p-2">
-          <div className="text-gray-500 mb-1">Packet ID</div>
-          <div className="text-terminal-green">{packet.id}</div>
-        </div>
-        <div className="bg-gray-950 border border-gray-800 rounded p-2">
-          <div className="text-gray-500 mb-1">Length</div>
-          <div className="text-gray-300">{packet.length} bytes</div>
-        </div>
-        <div className="bg-gray-950 border border-gray-800 rounded p-2">
-          <div className="text-gray-500 mb-1">Timestamp</div>
-          <div className="text-gray-300">
-            {typeof packet.ts === 'string' ? new Date(packet.ts).toLocaleString() : new Date(packet.ts).toLocaleString()}
+        {/* Protocol Stack */}
+        <div className="bg-gray-950 border border-gray-800 rounded p-3">
+          <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">Protocol Stack</div>
+          <div className="flex flex-col gap-1 text-[10px] font-mono">
+            {packet.layers?.eth && <div className="text-gray-300">→ Ethernet II</div>}
+            {packet.layers?.ip && <div className="text-gray-300">→ Internet Protocol Version 4</div>}
+            {packet.layers?.tcp && <div className="text-gray-300">→ Transmission Control Protocol</div>}
+            {packet.layers?.udp && <div className="text-gray-300">→ User Datagram Protocol</div>}
+            {packet.layers?.http && <div className="text-gray-300">→ Hypertext Transfer Protocol</div>}
+            {packet.layers?.dns && <div className="text-gray-300">→ Domain Name System</div>}
+            {packet.layers?.smb && <div className="text-gray-300">→ Server Message Block</div>}
+            {packet.layers?.smtp && <div className="text-gray-300">→ Simple Mail Transfer Protocol</div>}
           </div>
         </div>
-        {stream && (
-          <div className="bg-gray-950 border border-gray-800 rounded p-2">
-            <div className="text-gray-500 mb-1">Stream Packets</div>
-            <div className="text-gray-300">{stream.packets.length}</div>
+
+        {/* Behavior Tags */}
+        {behaviorTags.length > 0 && (
+          <div className="bg-red-900/20 border-2 border-red-500 rounded p-3">
+            <div className="text-[10px] text-red-400 font-semibold mb-1 uppercase">⚠ Behavior Classification</div>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {behaviorTags.map((tag, i) => (
+                <span key={i} className="bg-red-900/40 border border-red-500 rounded px-2 py-0.5 text-[9px] font-mono text-red-300">
+                  {tag}
+                </span>
+              ))}
+            </div>
           </div>
         )}
+
+        {/* Evidence Flag */}
+        {packet.evidence && (
+          <div className="bg-yellow-900/20 border-2 border-yellow-500 rounded p-3">
+            <div className="text-[10px] text-yellow-400 font-semibold mb-1 uppercase">⚠ Evidence Flagged</div>
+            {packet.explanation && (
+              <div className="text-[9px] font-mono text-gray-300 mt-1">{packet.explanation}</div>
+            )}
+            {packet.teachable && packet.teachable.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                {packet.teachable.map((t, i) => (
+                  <div key={i} className="text-[9px] font-mono text-yellow-300">• {t}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Suspicious Indicators */}
+        {indicators.length > 0 && (
+          <div className="bg-gray-950 border border-yellow-600 rounded p-3">
+            <div className="text-[10px] text-yellow-400 font-semibold mb-1 uppercase">Suspicious Indicators</div>
+            {indicators.map((ind, i) => (
+              <div key={i} className="text-[9px] font-mono text-gray-300">• {ind}</div>
+            ))}
+          </div>
+        )}
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
+          <div className="bg-gray-950 border border-gray-800 rounded p-2">
+            <div className="text-gray-500 mb-1">Packet ID</div>
+            <div className="text-terminal-green">{packet.id}</div>
+          </div>
+          <div className="bg-gray-950 border border-gray-800 rounded p-2">
+            <div className="text-gray-500 mb-1">Length</div>
+            <div className="text-gray-300">{packet.length} bytes</div>
+          </div>
+          <div className="bg-gray-950 border border-gray-800 rounded p-2">
+            <div className="text-gray-500 mb-1">Timestamp</div>
+            <div className="text-gray-300">
+              {typeof packet.ts === 'string' ? new Date(packet.ts).toLocaleString() : new Date(packet.ts).toLocaleString()}
+            </div>
+          </div>
+          {stream && (
+            <div className="bg-gray-950 border border-gray-800 rounded p-2">
+              <div className="text-gray-500 mb-1">Stream Packets</div>
+              <div className="text-gray-300">{stream.packets.length}</div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Render Headers Tab (Tree-style)
   const renderHeaders = () => (
@@ -133,6 +206,8 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
             <div>Method: <span className="text-yellow-400">{packet.layers.http.method}</span></div>
             <div>URL: <span className="text-terminal-green">{packet.layers.http.url}</span></div>
             {packet.layers.http.host && <div>Host: <span className="text-terminal-green">{packet.layers.http.host}</span></div>}
+            {packet.layers.http.contentType && <div>Content-Type: <span className="text-gray-400">{packet.layers.http.contentType}</span></div>}
+            {packet.layers.http.authorization && <div>Authorization: <span className="text-yellow-400 text-[9px] truncate">{packet.layers.http.authorization.substring(0, 60)}...</span></div>}
             {packet.layers.http.userAgent && <div>User-Agent: <span className="text-gray-400 text-[9px]">{packet.layers.http.userAgent}</span></div>}
             {packet.layers.http.summary && (
               <div className="mt-2 p-1 bg-gray-900 rounded text-gray-400 break-all text-[9px]">
@@ -150,6 +225,28 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
           <div className="ml-3 space-y-0.5 text-gray-300">
             <div>Query: <span className="text-terminal-green">{packet.layers.dns.query}</span></div>
             {packet.layers.dns.summary && <div className="text-gray-400 text-[9px]">{packet.layers.dns.summary}</div>}
+          </div>
+        </div>
+      )}
+
+      {/* SMB */}
+      {packet.layers?.smb && (
+        <div className="bg-gray-950 border border-purple-600 rounded p-2">
+          <div className="text-purple-400 font-semibold mb-1">Server Message Block</div>
+          <div className="ml-3 space-y-0.5 text-gray-300">
+            <div>Command: <span className="text-purple-400">{packet.layers.smb.command}</span></div>
+            {packet.layers.smb.filename && <div>Filename: <span className="text-terminal-green">{packet.layers.smb.filename}</span></div>}
+            {packet.layers.smb.summary && <div className="text-gray-400 text-[9px]">{packet.layers.smb.summary}</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Missing higher-level protocol message */}
+      {!packet.layers?.http && !packet.layers?.dns && !packet.layers?.smb && (packet.layers?.tcp || packet.layers?.udp) && (
+        <div className="bg-gray-950 border border-gray-700 rounded p-2">
+          <div className="text-gray-400 font-semibold mb-1">Application Layer</div>
+          <div className="ml-3 text-gray-500 text-[9px]">
+            No higher-level protocol decoded. Payload length: {packet.length - (packet.layers?.tcp ? 54 : packet.layers?.udp ? 42 : 0)} bytes.
           </div>
         </div>
       )}
@@ -213,52 +310,112 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
 
   // Render Stream Tab
   const renderStream = () => {
-    if (!stream) {
+    // TCP Stream
+    if (stream && packet.layers?.tcp) {
+      const streamText = stream.fullAscii || '';
+      const streamLength = streamText.length;
+      const maxLength = 8192;
+
+      // Analyze stream
+      const findings = [];
+      if (streamText.toLowerCase().includes('password') || streamText.toLowerCase().includes('username')) {
+        findings.push('Potential credential leak detected');
+      }
+      if (streamText.includes('multipart/form-data') || streamText.includes('Content-Disposition')) {
+        findings.push('File transfer detected');
+      }
+      if (streamText.length > 1000) {
+        findings.push('Large data transfer');
+      }
+
       return (
-        <div className="text-center py-8 text-gray-500 text-xs font-mono">
-          {packet.layers?.tcp || packet.layers?.udp 
-            ? 'Stream reconstruction not available for this packet' 
-            : 'Not a TCP/UDP packet'}
+        <div className="space-y-3">
+          <div className="bg-terminal-green/10 border border-terminal-green rounded p-2">
+            <div className="text-[10px] text-terminal-green font-semibold mb-1">Follow Stream (TCP)</div>
+            <div className="text-[9px] font-mono text-gray-300">
+              Reconstructed conversation from {stream.packets.length} packets in this flow.
+            </div>
+          </div>
+          {findings.length > 0 && (
+            <div className="bg-yellow-900/20 border border-yellow-500 rounded p-2">
+              <div className="text-[10px] text-yellow-400 font-semibold mb-1">Stream Analysis</div>
+              {findings.map((f, i) => (
+                <div key={i} className="text-[9px] font-mono text-gray-300">• {f}</div>
+              ))}
+            </div>
+          )}
+          <div className="bg-gray-950 border border-gray-800 rounded p-3">
+            <div className="text-[10px] text-gray-400 font-mono mb-2">
+              Stream: {stream.packets.length} packets, {streamLength > maxLength ? `${maxLength}+` : streamLength} bytes
+            </div>
+            <div className="font-mono text-[10px] bg-black/60 border border-gray-800 rounded p-3 max-h-[500px] overflow-y-auto whitespace-pre-wrap break-all text-gray-300">
+              {streamLength > maxLength 
+                ? streamText.substring(0, maxLength) + '\n\n[... stream truncated ...]'
+                : streamText || '[No readable text in stream]'}
+            </div>
+          </div>
         </div>
       );
     }
-
-    const streamText = stream.fullAscii || '';
-    const streamLength = streamText.length;
-    const maxLength = 8192;
-
-    // Analyze stream
-    const findings = [];
-    if (streamText.toLowerCase().includes('password') || streamText.toLowerCase().includes('username')) {
-      findings.push('Potential credential leak detected');
-    }
-    if (streamText.includes('multipart/form-data') || streamText.includes('Content-Disposition')) {
-      findings.push('File transfer detected');
-    }
-    if (streamText.length > 1000) {
-      findings.push('Large data transfer');
-    }
-
-    return (
-      <div className="space-y-3">
-        {findings.length > 0 && (
-          <div className="bg-yellow-900/20 border border-yellow-500 rounded p-2">
-            <div className="text-[10px] text-yellow-400 font-semibold mb-1">Stream Analysis</div>
-            {findings.map((f, i) => (
-              <div key={i} className="text-[9px] font-mono text-gray-300">• {f}</div>
+    
+    // UDP DNS aggregated queries
+    if (packet.layers?.udp && packet.layers?.dns) {
+      // Find other DNS packets from same source in recent packets
+      const dnsPackets = allPackets?.filter(p => 
+        p.layers?.udp && p.layers?.dns && 
+        p.layers.ip?.srcIp === packet.layers.ip?.srcIp &&
+        Math.abs(p.ts - packet.ts) < 10000
+      ) || [];
+      
+      return (
+        <div className="space-y-3">
+          <div className="bg-blue-900/20 border border-blue-500 rounded p-2">
+            <div className="text-[10px] text-blue-400 font-semibold mb-1">DNS Query Aggregation</div>
+            <div className="text-[9px] font-mono text-gray-300">
+              Found {dnsPackets.length} DNS queries from {packet.layers.ip?.srcIp} in the last 10 seconds.
+            </div>
+          </div>
+          <div className="bg-gray-950 border border-gray-800 rounded p-3 max-h-[500px] overflow-y-auto">
+            {dnsPackets.map((p, i) => (
+              <div key={i} className="text-[10px] font-mono text-gray-300 py-1 border-b border-gray-800">
+                {new Date(p.ts).toLocaleTimeString()} - {p.layers.dns.query || 'DNS query'}
+              </div>
             ))}
           </div>
-        )}
-        <div className="bg-gray-950 border border-gray-800 rounded p-3">
-          <div className="text-[10px] text-gray-400 font-mono mb-2">
-            Stream: {stream.packets.length} packets, {streamLength > maxLength ? `${maxLength}+` : streamLength} bytes
-          </div>
-          <div className="font-mono text-[10px] bg-black/60 border border-gray-800 rounded p-3 max-h-[500px] overflow-y-auto whitespace-pre-wrap break-all text-gray-300">
-            {streamLength > maxLength 
-              ? streamText.substring(0, maxLength) + '\n\n[... stream truncated ...]'
-              : streamText || '[No readable text in stream]'}
+        </div>
+      );
+    }
+    
+    // RTP/VoIP
+    if (packet.proto === 'RTP' || packet.layers?.rtp) {
+      return (
+        <div className="bg-purple-900/20 border border-purple-500 rounded p-3 text-center">
+          <div className="text-[10px] text-purple-400 font-semibold mb-2">Continuous RTP media stream detected</div>
+          <div className="text-[9px] font-mono text-gray-300">
+            Likely voice media. Audio exfil scenarios often hide voice or meeting audio here.
           </div>
         </div>
+      );
+    }
+    
+    // ICMP / scan traffic
+    if (packet.layers?.icmp || packet.proto === 'ICMP') {
+      return (
+        <div className="bg-gray-950 border border-gray-700 rounded p-3 text-center">
+          <div className="text-[10px] text-gray-400 font-semibold mb-2">No higher-level payload</div>
+          <div className="text-[9px] font-mono text-gray-300">
+            Behavior resembles recon or scanning, not data exfiltration. ICMP is typically used for network discovery.
+          </div>
+        </div>
+      );
+    }
+    
+    // No stream available but explain why
+    return (
+      <div className="text-center py-8 text-gray-500 text-xs font-mono">
+        {packet.layers?.tcp || packet.layers?.udp 
+          ? 'Stream reconstruction requires multiple packets from the same 5-tuple. This packet may be part of a larger flow.' 
+          : 'Not a TCP/UDP packet. Stream analysis applies to connection-oriented protocols.'}
       </div>
     );
   };

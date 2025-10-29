@@ -1,10 +1,41 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 
-export default function PacketList({ packets, selectedPacketId, onSelectPacket, markedPacketIds }) {
+export default function PacketList({ packets, selectedPacketId, onSelectPacket, markedPacketIds, isStreaming }) {
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState('no');
   const [sortDir, setSortDir] = useState('asc');
   const filterInputRef = useRef(null);
+  const listRef = useRef(null);
+  const userScrolledRef = useRef(false);
+  const lastPacketCountRef = useRef(0);
+
+  // Auto-scroll to newest packet when streaming (unless user scrolled up)
+  useEffect(() => {
+    if (isStreaming && packets.length > lastPacketCountRef.current && !userScrolledRef.current) {
+      setTimeout(() => {
+        if (listRef.current) {
+          listRef.current.scrollTop = listRef.current.scrollHeight;
+        }
+      }, 50);
+      lastPacketCountRef.current = packets.length;
+    }
+  }, [packets.length, isStreaming]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (listRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = listRef.current;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        userScrolledRef.current = !isNearBottom;
+      }
+    };
+    
+    const listEl = listRef.current;
+    if (listEl) {
+      listEl.addEventListener('scroll', handleScroll);
+      return () => listEl.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
 
   // Filter packets with BPF-like syntax
   const filtered = useMemo(() => {
@@ -209,7 +240,7 @@ export default function PacketList({ packets, selectedPacketId, onSelectPacket, 
       </div>
 
       {/* Packet List */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={listRef} className="flex-1 overflow-y-auto">
         {sorted.length === 0 ? (
           <div className="text-center py-8 text-gray-500 text-xs font-mono">
             No packets match filter
