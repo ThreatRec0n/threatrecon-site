@@ -24,6 +24,8 @@ Open `index.html` in a web browser. No installation or build process required.
 
 ## 🎯 How to Play
 
+**Now deployed to https://threatrecon.io**
+
 1. **Firewall Lockdown** - Configure firewall rules under 10-second time pressure
 2. **Live Threat Pursuit** - Watch packet logs in real-time as attacks unfold
 3. **SOC Triage** - Investigate using tools, gather intel, and take containment actions
