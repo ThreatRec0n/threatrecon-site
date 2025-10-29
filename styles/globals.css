@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 60 FPS optimization */
+@layer utilities {
+  .animate-sound-glow,
+  .animate-pulse-glow,
+  .animate-ticker-scroll {
+    will-change: transform, opacity, box-shadow;
+  }
+  
+  .fade-in {
+    will-change: opacity, transform;
+  }
+  
+  /* GPU acceleration for smooth animations */
+  .card-glow,
+  .title-banner {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+}
+
 @layer base {
   body {
     @apply bg-gray-950 text-gray-200 font-sans;
