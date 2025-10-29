@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-200 font-sans;
+  }
+}
+
+@layer utilities {
+  .pulse-glow {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .text-terminal {
+    @apply text-terminal-green font-mono;
+  }
+  
+  .card-glow {
+    @apply shadow-xl border border-gray-700 rounded-xl;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(16, 185, 129, 0.1);
+  }
+}
+
