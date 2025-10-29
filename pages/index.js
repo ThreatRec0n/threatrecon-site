@@ -3,6 +3,8 @@ import Head from 'next/head';
 import PacketList from '../components/PacketList';
 import PacketDetail from '../components/PacketDetail';
 import ChallengeEngine from '../components/ChallengeEngine';
+import ScenarioPicker from '../components/ScenarioPicker';
+import { createRound } from '../lib/round-engine';
 import HelpModal from '../components/HelpModal';
 import { parsePcapFile } from '../lib/pcap-parser-browser';
 import { usePacketStream } from '../lib/usePacketStream';
@@ -11,21 +13,20 @@ import { buildTcpStreams } from '../lib/stream-builder';
 export default function Home() {
   const [selectedPacketId, setSelectedPacketId] = useState(null);
   const [markedPacketIds, setMarkedPacketIds] = useState([]);
-  const [profileType, setProfileType] = useState('http-exfil');
+  const [scenarioId, setScenarioId] = useState('mixed');
   const [difficulty, setDifficulty] = useState('beginner');
+  const [packetCount, setPacketCount] = useState(35);
   const [isStreaming, setIsStreaming] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [tcpStreams, setTcpStreams] = useState({});
+  const [roundPackets, setRoundPackets] = useState([]);
+  const [groundTruth, setGroundTruth] = useState({ ids: [], reason: '', rubric: [] });
   
   const fileInputRef = useRef(null);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState('beginner');
 
-  const { packets, isRunning, pause, resume, reset, evidencePacket } = usePacketStream(
-    profileType,
-    difficulty,
-    isStreaming
-  );
+  const packets = roundPackets;
 
   // Load saved progress
   useEffect(() => {
@@ -77,23 +78,17 @@ export default function Home() {
     setDifficulty(newLevel);
   };
 
-  const handleStart = () => {
-    reset();
+  const handleNewRound = async () => {
     setMarkedPacketIds([]);
     setSelectedPacketId(null);
-    setIsStreaming(true);
-    setTimeout(() => resume(), 100);
-  };
-
-  const handlePause = () => {
+    const { packets: newPkts, groundTruth: gt, hints } = await createRound({ scenarioId, difficulty, packetCountRange: [packetCount, packetCount] });
+    setRoundPackets(newPkts);
+    setGroundTruth(gt);
     setIsStreaming(false);
-    pause();
   };
 
-  const handleResume = () => {
-    setIsStreaming(true);
-    resume();
-  };
+  const handlePause = () => { setIsStreaming(false); };
+  const handleResume = () => { setIsStreaming(false); };
 
   const handleUploadPcap = async (event) => {
     const file = event.target.files[0];
@@ -103,7 +98,6 @@ export default function Home() {
       const parsedPackets = await parsePcapFile(file);
       // Convert to our format if needed
       setIsStreaming(false);
-      pause();
     } catch (error) {
       alert('PCAP upload failed. Use Start Challenge instead.');
     } finally {
@@ -199,37 +193,6 @@ export default function Home() {
             
             <div className="flex items-center gap-3 text-xs font-mono flex-wrap">
               <div className="flex items-center gap-2">
-                <label className="text-gray-400">Profile:</label>
-                <select
-                  value={profileType}
-                  onChange={(e) => setProfileType(e.target.value)}
-                  disabled={isStreaming}
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[10px] text-terminal-green font-mono"
-                >
-                  <option value="http-exfil">HTTP Exfil</option>
-                  <option value="dns-exfil">DNS Exfil</option>
-                  <option value="lateral-movement">Lateral Movement</option>
-                  <option value="credential-theft">Credential Theft</option>
-                  <option value="beaconing">Beaconing/C2</option>
-                  <option value="mixed">Mixed Full Traffic</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label className="text-gray-400">Difficulty:</label>
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value)}
-                  disabled={isStreaming}
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[10px] text-terminal-green font-mono"
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
                 <span className="text-gray-400">Level:</span>
                 <span className="text-terminal-green font-semibold">{levelDisplay}</span>
               </div>
@@ -240,28 +203,29 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {!isStreaming ? (
+              {!isStreaming && packets.length === 0 ? (
                 <button
-                  onClick={handleStart}
+                  onClick={handleNewRound}
                   className="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-lg border border-red-400 shadow-[0_0_10px_rgba(220,38,38,0.6)] px-3 py-1.5 font-mono transition-all"
                 >
-                  START
+                  NEW ROUND
                 </button>
-              ) : (
+              ) : isStreaming ? (
                 <>
                   <button
                     onClick={handlePause}
                     className="bg-yellow-600 hover:bg-yellow-500 text-white font-semibold text-xs rounded-lg border border-yellow-400 px-3 py-1.5 font-mono transition-all"
                   >
-                    PAUSE
-                  </button>
-                  <button
-                    onClick={handleResume}
-                    className="bg-green-600 hover:bg-green-500 text-white font-semibold text-xs rounded-lg border border-green-400 px-3 py-1.5 font-mono transition-all"
-                  >
-                    RESUME
+                    PAUSE CAPTURE
                   </button>
                 </>
+              ) : (
+                <button
+                  onClick={handleResume}
+                  className="bg-green-600 hover:bg-green-500 text-white font-semibold text-xs rounded-lg border border-green-400 px-3 py-1.5 font-mono transition-all"
+                >
+                  RESUME
+                </button>
               )}
               
               <label className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg border border-blue-400 shadow-[0_0_10px_rgba(37,99,235,0.6)] px-3 py-1.5 font-mono cursor-pointer transition-all">
@@ -287,6 +251,22 @@ export default function Home() {
 
         {/* Main Content - 3 Column Layout */}
         <main className="flex-1 pt-[110px] pb-4 px-2 md:px-4 lg:px-6 max-w-[1800px] w-full mx-auto">
+          {/* Scenario Picker */}
+          <div className="mb-3">
+            <ScenarioPicker
+              scenarioId={scenarioId}
+              difficulty={difficulty}
+              packetCount={packetCount}
+              isDisabled={false}
+              onChange={(c)=>{
+                if (c.scenarioId) setScenarioId(c.scenarioId);
+                if (c.difficulty) setDifficulty(c.difficulty);
+                if (typeof c.packetCount === 'number') setPacketCount(c.packetCount);
+              }}
+              onNewRound={handleNewRound}
+            />
+          </div>
+
           {packets.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-[calc(100vh-120px)]">
               {/* Left: PacketList */}
@@ -296,7 +276,8 @@ export default function Home() {
                   selectedPacketId={selectedPacketId}
                   onSelectPacket={handleSelectPacket}
                   markedPacketIds={markedPacketIds}
-                  isStreaming={isStreaming}
+                  isStreaming={false}
+                  onToggleSelect={(id)=> setMarkedPacketIds(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id])}
                 />
               </div>
 
@@ -314,15 +295,14 @@ export default function Home() {
               {/* Right: Challenge Engine / Briefing */}
               <div className="lg:col-span-3">
                 <ChallengeEngine
-                  profileType={profileType}
+                  scenarioId={scenarioId}
                   difficulty={difficulty}
                   markedPacketIds={markedPacketIds}
                   selectedPacketId={selectedPacketId}
-                  evidencePacket={evidencePacket}
                   onMarkPacket={handleMarkAsEvidence}
-                  onSubmit={handleSubmitChallenge}
+                  onValidated={(res)=> handleSubmitChallenge({ correct: res.correct, points: res.scoreDelta, scenarioTitle: scenarioId })}
                   score={score}
-                  level={level}
+                  groundTruth={groundTruth}
                   packets={packets}
                 />
               </div>
@@ -331,17 +311,17 @@ export default function Home() {
             <div className="flex items-center justify-center h-[calc(100vh-120px)]">
               <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-8 text-center card-glow max-w-2xl">
                 <div className="text-gray-400 text-lg font-mono mb-4">
-                  Welcome to ThreatRecon Packet Hunt v3.0
+                  Welcome to ThreatRecon Packet Hunt (Round Mode)
                 </div>
                 <div className="text-gray-500 text-sm font-mono space-y-2 mb-6">
-                  <div>Select a training profile and difficulty, then click START to begin live packet capture simulation.</div>
+                  <div>Select a scenario and difficulty, then click NEW ROUND to generate a small realistic capture.</div>
                   <div>Use filters, inspect packets, mark evidence, and submit your findings.</div>
                 </div>
                 <button
-                  onClick={handleStart}
+                  onClick={handleNewRound}
                   className="bg-red-600 hover:bg-red-500 text-white font-semibold text-sm rounded-lg border border-red-400 shadow-[0_0_15px_rgba(220,38,38,0.6)] px-6 py-3 font-mono transition-all"
                 >
-                  START CHALLENGE
+                  NEW ROUND
                 </button>
               </div>
             </div>

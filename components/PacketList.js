@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 
-export default function PacketList({ packets, selectedPacketId, onSelectPacket, markedPacketIds, isStreaming }) {
+export default function PacketList({ packets, selectedPacketId, onSelectPacket, markedPacketIds = [], isStreaming, onToggleSelect }) {
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState('no');
   const [sortDir, setSortDir] = useState('asc');
@@ -182,7 +182,20 @@ export default function PacketList({ packets, selectedPacketId, onSelectPacket, 
           <span className="h-2 w-2 rounded-full bg-blue-400 shadow-neon-blue"></span>
           Packet List
         </span>
-        <span className="text-[9px] text-terminal-green font-mono">{sorted.length} / {packets.length}</span>
+        <div className="flex items-center gap-3">
+          {isStreaming ? (
+            <span className="text-[9px] text-green-400 font-mono flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse"></span>
+              CAPTURE: RUNNING
+            </span>
+          ) : (
+            <span className="text-[9px] text-yellow-400 font-mono flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-yellow-400"></span>
+              CAPTURE: PAUSED
+            </span>
+          )}
+          <span className="text-[9px] text-terminal-green font-mono">{sorted.length} / {packets.length}</span>
+        </div>
       </div>
       
       {/* Filter Bar */}
@@ -217,7 +230,8 @@ export default function PacketList({ packets, selectedPacketId, onSelectPacket, 
       </div>
 
       {/* Table Header */}
-      <div className="grid grid-cols-[40px_80px_120px_120px_70px_60px_1fr] gap-2 text-[9px] font-mono text-gray-400 px-4 py-2 border-b border-gray-800 bg-gray-900/50">
+      <div className="grid grid-cols-[24px_40px_80px_120px_120px_70px_60px_1fr] gap-2 text-[9px] font-mono text-gray-400 px-4 py-2 border-b border-gray-800 bg-gray-900/50">
+        <div></div>
         <div className="cursor-pointer hover:text-terminal-green flex items-center gap-1" onClick={() => handleSort('no')}>
           No. <SortIcon column="no" />
         </div>
@@ -263,22 +277,20 @@ export default function PacketList({ packets, selectedPacketId, onSelectPacket, 
                 key={pkt.id}
                 data-packet-id={pkt.id}
                 onClick={() => onSelectPacket(pkt.id)}
-                className={`grid grid-cols-[40px_80px_120px_120px_70px_60px_1fr] gap-2 px-4 py-1.5 text-[10px] font-mono cursor-pointer transition-all hover:bg-gray-800/50 ${
-                  isSelected 
-                    ? 'bg-terminal-green/20 border-l-2 border-terminal-green' 
-                    : ''
-                } ${isMarked ? 'border-l-2 border-yellow-500 bg-yellow-900/10' : ''} ${pkt.evidence ? 'border-l-2 border-red-500' : ''}`}
+                className={`grid grid-cols-[24px_40px_80px_120px_120px_70px_60px_1fr] gap-2 px-4 py-1.5 text-[10px] font-mono cursor-pointer transition-all hover:bg-gray-800/50 ${
+                  isSelected ? 'bg-terminal-green/10' : ''
+                } ${isMarked ? 'border-l border-yellow-500' : ''}`}
               >
+                <div className="flex items-center"><input type="checkbox" checked={isMarked} onChange={(e)=>{ e.stopPropagation(); onToggleSelect && onToggleSelect(pkt.id); }} /></div>
                 <div className="text-gray-500">{packetNo}</div>
                 <div className="text-gray-400">{timeStr}</div>
                 <div className="text-blue-400 truncate" title={src}>{src}</div>
                 <div className="text-purple-400 truncate" title={dst}>{dst}</div>
-                <div className="text-terminal-green">{pkt.proto || '-'}</div>
+                <div className="text-terminal-green">{pkt.protocol || pkt.proto || '-'}</div>
                 <div className="text-gray-400">{pkt.length || '-'}</div>
-                <div className="text-gray-300 truncate" title={pkt.summary}>
-                  {pkt.summary || 'Packet'}
+                <div className="text-gray-300 truncate" title={pkt.info || pkt.summary}>
+                  {pkt.info || pkt.summary || 'Packet'}
                   {isMarked && <span className="ml-1 text-yellow-400">✓</span>}
-                  {pkt.evidence && <span className="ml-1 text-red-400">⚠</span>}
                 </div>
               </div>
             );

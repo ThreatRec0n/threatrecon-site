@@ -48,6 +48,7 @@ export default function HelpModal({ isOpen, onClose }) {
                 <div>contains "password"</div>
               </div>
               <p className="mt-2"><strong>Why it matters:</strong> Credentials sent in plaintext HTTP (not HTTPS) can be intercepted by anyone on the network. Always use encrypted channels for authentication.</p>
+              <p className="mt-2"><strong>🔍 Analyst Tip:</strong> Credential theft often shows as Authorization headers (HTTP) or AUTH commands (SMTP/IMAP). You are allowed to call that out in an IR report as proof.</p>
             </div>
           </section>
 
@@ -69,6 +70,7 @@ export default function HelpModal({ isOpen, onClose }) {
                 <div>• DNS queries with base64-looking subdomains</div>
               </div>
               <p className="mt-2">Use the <strong>Stream</strong> tab to reconstruct full HTTP conversations and see complete file transfer sequences.</p>
+              <p className="mt-2"><strong>🔍 Analyst Tip:</strong> Exfil over HTTP POST usually has a body that looks like a file upload or contains internal filenames (payroll, client_export.csv, etc).</p>
             </div>
           </section>
 
@@ -90,6 +92,7 @@ export default function HelpModal({ isOpen, onClose }) {
                 <div>3. Look for patterns: packet at 10:00:01, 10:01:01, 10:02:01 = 60-second beacon</div>
               </div>
               <p className="mt-2">Timing analysis is critical. Legitimate applications don't make perfectly timed requests every N seconds.</p>
+              <p className="mt-2"><strong>🔍 Analyst Tip:</strong> Beaconing / C2 is small but periodic. The timing matters more than the payload.</p>
             </div>
           </section>
 
@@ -107,6 +110,7 @@ export default function HelpModal({ isOpen, onClose }) {
               </ul>
               <p className="mt-2"><strong>Filter:</strong> <code>port==445</code> or <code>proto==SMB</code></p>
               <p className="mt-2">The challenge is distinguishing normal file access from malicious lateral movement. Look for access to files/servers the compromised host shouldn't normally access.</p>
+              <p className="mt-2"><strong>🔍 Analyst Tip:</strong> SMB lateral movement: internal-to-internal file access on 445/tcp that doesn't match normal workstation behavior can indicate staging of data for later exfil.</p>
             </div>
           </section>
 
@@ -129,6 +133,7 @@ export default function HelpModal({ isOpen, onClose }) {
                 <div>• Queries that don't resolve to real domains</div>
               </div>
               <p className="mt-2">Filter: <code>proto==DNS</code> and look for queries with suspiciously long or random subdomains.</p>
+              <p className="mt-2"><strong>🔍 Analyst Tip:</strong> DNS tunneling often hides data in long subdomains. A normal DNS query is short (hostnames, brands). Tunneling looks like encoded junk or base64 chunks.</p>
             </div>
           </section>
 
@@ -149,6 +154,20 @@ export default function HelpModal({ isOpen, onClose }) {
                 <div>Packet 2-10: File data chunks</div>
               </div>
               <p className="mt-2">The Stream tab shows you the complete transaction, making it easier to identify exfil patterns, credential leaks, and protocol abuse.</p>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-terminal-green font-semibold mb-3 text-base">ICMP Scanning / Reconnaissance</h3>
+            <div className="text-[12px] space-y-2 leading-relaxed">
+              <p>ICMP (Internet Control Message Protocol) is often used for network discovery and scanning.</p>
+              <p><strong>Attack patterns:</strong></p>
+              <ul className="list-disc list-inside ml-4 space-y-1">
+                <li>Repeated ping requests to incrementing IP addresses</li>
+                <li>ICMP echo requests to hosts that don't normally receive pings</li>
+                <li>Patterns that indicate automated scanning scripts</li>
+              </ul>
+              <p className="mt-2"><strong>🔍 Analyst Tip:</strong> ICMP scan/recon: repeated pings to incrementing IPs, often before exploitation.</p>
             </div>
           </section>
 

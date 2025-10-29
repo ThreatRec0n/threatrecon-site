@@ -1,20 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import SubmissionModal from './SubmissionModal';
+import { validateSubmission } from '../lib/round-engine';
 
 export default function ChallengeEngine({ 
-  profileType,
+  scenarioId,
   difficulty,
   markedPacketIds, 
   selectedPacketId,
-  evidencePacket,
   onMarkPacket, 
-  onSubmit, 
-  score, 
-  level,
+  onValidated,
+  score,
+  groundTruth,
   packets,
+  hints = [],
 }) {
   const [showResult, setShowResult] = useState(false);
-  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [result, setResult] = useState(null);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -30,13 +29,17 @@ export default function ChallengeEngine({
     }
   }, [isPaused, showResult, packets.length]);
 
-  // Get profile-specific briefing
+  // IR-style neutral brief
   const getBriefing = () => {
     const profiles = {
       'http-exfil': {
-        incident: 'Unusual outbound HTTP traffic detected. Large file transfers to external IPs may indicate data exfiltration.',
-        objective: 'Identify the packet that proves confidential data was exfiltrated via HTTP POST.',
-        indicators: ['Suspicious filename in Content-Disposition', 'External IP destination', 'HTTP POST with multipart/form-data'],
+        incident: 'Unusual outbound traffic was detected from host 192.168.1.140. You have been asked to review recent traffic and identify potential data theft.',
+        objective: 'Identify the single packet that best proves sensitive data was exfiltrated.',
+        indicators: [
+          'Source host appears to be an internal workstation.',
+          'Traffic may involve large payloads leaving to an external IP.',
+          'Suspicious filenames in HTTP POST requests may indicate file transfers.',
+        ],
         hints: [
           'Filter HTTP traffic: proto==HTTP',
           'Look for POST requests to unusual external IPs',
@@ -44,9 +47,13 @@ export default function ChallengeEngine({
         ],
       },
       'dns-exfil': {
-        incident: 'Abnormal DNS query patterns detected. Unusually long domain names may contain encoded data.',
-        objective: 'Identify the DNS query packet containing base64-encoded exfiltration data.',
-        indicators: ['Abnormally long domain names', 'Base64-like subdomain patterns', 'High DNS query volume'],
+        incident: 'Anomalous DNS query patterns were observed from internal host. High-volume or unusually long queries may indicate data tunneling.',
+        objective: 'Identify the DNS query packet containing encoded exfiltration data.',
+        indicators: [
+          'Source host appears to be an internal workstation.',
+          'DNS queries may appear high-entropy or randomly generated.',
+          'Abnormally long domain names may contain encoded payloads.',
+        ],
         hints: [
           'Filter DNS traffic: proto==DNS',
           'Look for queries with very long subdomain names',
@@ -54,9 +61,13 @@ export default function ChallengeEngine({
         ],
       },
       'credential-theft': {
-        incident: 'Plaintext credential transmission detected. Authentication attempts may be visible in traffic.',
-        objective: 'Identify the packet containing username and password in plaintext.',
-        indicators: ['HTTP Authorization headers', 'SMTP AUTH commands', 'Login form submissions'],
+        incident: 'Suspicious authentication traffic detected. Plaintext credential transmission may be visible in protocol headers or payloads.',
+        objective: 'Identify the packet containing username and password in cleartext.',
+        indicators: [
+          'Source host appears to be an internal workstation.',
+          'HTTP or SMTP traffic may contain authentication attempts.',
+          'Base64-encoded credentials may appear in Authorization headers.',
+        ],
         hints: [
           'Filter HTTP traffic: proto==HTTP',
           'Look for POST requests to /login endpoints',
@@ -64,19 +75,27 @@ export default function ChallengeEngine({
         ],
       },
       'beaconing': {
-        incident: 'Periodic outbound connections detected. Consistent timing may indicate C2 beaconing.',
+        incident: 'Periodic outbound connections were detected from an internal host. Consistent timing patterns may indicate automated C2 communication.',
         objective: 'Identify the periodic beacon packet to a C2 server.',
-        indicators: ['Regular time intervals', 'Small payloads', 'External IP communication'],
+        indicators: [
+          'Source host appears to be an internal workstation.',
+          'Traffic shows regular time intervals to the same external destination.',
+          'Small payload sizes with consistent patterns.',
+        ],
         hints: [
           'Filter TCP traffic: proto==TCP',
           'Look for repeated connections to the same external IP',
-          'Check timing - beacons typically occur every 60 seconds',
+          'Check timing - beacons typically occur every 30-60 seconds',
         ],
       },
       'lateral-movement': {
-        incident: 'Unusual internal file access detected. SMB file copies between internal hosts may indicate lateral movement.',
+        incident: 'Unusual internal file access detected between hosts. SMB file operations between internal hosts may indicate lateral movement.',
         objective: 'Identify the SMB packet showing unauthorized file access between internal hosts.',
-        indicators: ['SMB file copy commands', 'Internal-to-internal traffic', 'Sensitive filenames'],
+        indicators: [
+          'Traffic is between internal IP ranges (10.x, 172.x, 192.168.x).',
+          'SMB file operations may show copy or write commands.',
+          'Sensitive filenames may appear in protocol data.',
+        ],
         hints: [
           'Filter SMB traffic: port==445',
           'Look for file copy operations between internal IPs',
@@ -84,9 +103,13 @@ export default function ChallengeEngine({
         ],
       },
       'mixed': {
-        incident: 'Mixed network traffic detected. Analyze all protocols to identify malicious activity.',
+        incident: 'Mixed network traffic was captured during an investigation. Analyze all protocols to identify malicious activity.',
         objective: 'Identify the evidence packet across multiple protocol types.',
-        indicators: ['Multiple protocols present', 'Unusual behavior patterns', 'Suspicious indicators in any protocol'],
+        indicators: [
+          'Multiple protocols are present in the capture.',
+          'Unusual behavior patterns may span different protocol layers.',
+          'Suspicious indicators can appear in any protocol type.',
+        ],
         hints: [
           'Use multiple filters across protocols',
           'Look for anomalies in any protocol layer',
@@ -94,54 +117,70 @@ export default function ChallengeEngine({
         ],
       },
     };
-    return profiles[profileType] || profiles['mixed'];
+    return profiles['mixed'];
   };
 
   const briefing = getBriefing();
 
-  const handleOpenSubmission = () => {
+  const handleSubmit = () => {
     if (markedPacketIds.length === 0) {
       alert('Please mark at least one packet as evidence before submitting.');
       return;
     }
-    setShowSubmissionModal(true);
+    const res = validateSubmission(markedPacketIds, groundTruth, { difficulty, hintsUsed });
+    setResult(res);
+    setShowResult(true);
+    setIsPaused(true);
+    onValidated && onValidated(res);
   };
 
   const handleSubmissionSubmit = (submissionData) => {
     const correctPacketId = evidencePacket?.id;
     const isCorrect = submissionData.selectedPacketId === correctPacketId;
     
-    // Score calculation
+    // Scoring logic
     const baseScores = { beginner: 100, intermediate: 200, advanced: 400 };
     const base = baseScores[difficulty] || 100;
-    const hintPenalty = hintsUsed * 10;
-    let points = isCorrect ? Math.max(0, base - hintPenalty) : -50;
     
-    // Technique bonus
-    const correctTechnique = evidencePacket?.teachable?.[0]?.toLowerCase() || '';
-    if (isCorrect && (
-      (submissionData.technique === 'data-exfiltration' && correctTechnique.includes('exfil')) ||
-      (submissionData.technique === 'credential-theft' && correctTechnique.includes('credential')) ||
-      (submissionData.technique === 'beaconing' && correctTechnique.includes('beacon')) ||
-      (submissionData.technique === 'lateral-movement' && correctTechnique.includes('lateral'))
-    )) {
-      points += 50;
-    }
+    let scoreDelta = isCorrect ? base : -50;
     
-    // Reasoning bonus (check if explanation mentions teachable keywords)
-    if (isCorrect && evidencePacket?.teachable) {
-      const explanationLower = submissionData.explanation.toLowerCase();
-      const keywordMatches = evidencePacket.teachable.filter(t => 
-        explanationLower.includes(t.toLowerCase())
-      ).length;
-      if (keywordMatches > 0) {
-        points += keywordMatches * 5;
+    // Technique bonus (+50 if correct category matches)
+    if (isCorrect && evidencePacket) {
+      const packetTags = (evidencePacket.teachable || []).map(t => t.toLowerCase()).join(' ');
+      const techniqueMap = {
+        'data-exfiltration': ['exfil', 'exfiltration'],
+        'credential-theft': ['credential', 'password', 'username', 'auth'],
+        'beaconing': ['beacon', 'c2', 'command'],
+        'lateral-movement': ['lateral', 'smb', 'move'],
+        'dns-tunneling': ['dns', 'tunnel'],
+        'recon': ['recon', 'scan'],
+      };
+      
+      const selectedTechnique = techniqueMap[submissionData.technique] || [];
+      const matches = selectedTechnique.some(tag => packetTags.includes(tag));
+      if (matches) {
+        scoreDelta += 50;
       }
     }
+    
+    // Reasoning bonus (+50 if explanation contains teachable keywords)
+    if (isCorrect && evidencePacket?.teachable) {
+      const explanationLower = submissionData.explanation.toLowerCase();
+      const keywordMatches = evidencePacket.teachable.some(t => 
+        explanationLower.includes(t.toLowerCase())
+      );
+      if (keywordMatches) {
+        scoreDelta += 50;
+      }
+    }
+    
+    // Hint penalty
+    const hintPenalty = hintsUsed * 10;
+    scoreDelta = Math.max(isCorrect ? scoreDelta - hintPenalty : scoreDelta, isCorrect ? 0 : -50);
 
     const resultData = {
       correct: isCorrect,
-      points,
+      points: scoreDelta,
       explanation: evidencePacket?.explanation || 'Evidence packet analysis',
       expectedPacketId: correctPacketId,
       markedPackets: markedPacketIds,
@@ -166,7 +205,7 @@ export default function ChallengeEngine({
         technique: submissionData.technique,
         explanation: submissionData.explanation,
         result: isCorrect ? 'correct' : 'wrong',
-        scoreChange: points,
+        scoreChange: scoreDelta,
       });
       localStorage.setItem('threatrecon_challenge_transcripts', JSON.stringify(transcripts.slice(-50)));
     }
@@ -178,7 +217,6 @@ export default function ChallengeEngine({
     setElapsedTime(0);
     setHintsUsed(0);
     setIsPaused(false);
-    // Reset will be handled by parent
   };
 
   // Format time
@@ -207,7 +245,7 @@ export default function ChallengeEngine({
             <>
               {/* Incident Summary */}
               <section className="mb-4">
-                <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">Incident Summary</div>
+                <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">INCIDENT SUMMARY</div>
                 <div className="text-[10px] font-mono text-gray-300 leading-relaxed bg-gray-950 border border-gray-800 rounded p-3">
                   {briefing.incident}
                 </div>
@@ -215,7 +253,7 @@ export default function ChallengeEngine({
 
               {/* Objective */}
               <section className="mb-4">
-                <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">Objective</div>
+                <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">OBJECTIVE</div>
                 <div className="text-[10px] font-mono text-gray-300 bg-gray-950 border border-gray-800 rounded p-3">
                   {briefing.objective}
                 </div>
@@ -223,7 +261,7 @@ export default function ChallengeEngine({
 
               {/* Key Indicators */}
               <section className="mb-4">
-                <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">Key Indicators</div>
+                <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">KEY INDICATORS</div>
                 <ul className="text-[10px] font-mono text-gray-300 bg-gray-950 border border-gray-800 rounded p-3 space-y-1">
                   {briefing.indicators.map((ind, i) => (
                     <li key={i} className="flex items-start">
@@ -242,7 +280,7 @@ export default function ChallengeEngine({
 
               {/* Actions */}
               <section className="mb-4">
-                <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">Actions</div>
+                <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">ACTIONS</div>
                 <div className="space-y-2">
                   <button
                     onClick={() => selectedPacketId && onMarkPacket(selectedPacketId)}
@@ -252,7 +290,7 @@ export default function ChallengeEngine({
                     Mark Selected Packet as Evidence
                   </button>
                   <button
-                    onClick={handleOpenSubmission}
+                    onClick={handleSubmit}
                     disabled={markedPacketIds.length === 0}
                     className="w-full bg-green-600/20 hover:bg-green-600/30 disabled:opacity-30 disabled:cursor-not-allowed border border-green-500 text-green-300 rounded-lg py-2 text-[10px] font-semibold font-mono transition-all"
                   >
@@ -264,19 +302,19 @@ export default function ChallengeEngine({
               {/* Hints */}
               <section className="mb-4">
                 <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">
-                  Hints Remaining: {3 - hintsUsed} of 3
+                  Hints Remaining: {(hints.length - hintsUsed)} of {hints.length}
                 </div>
                 {hintsUsed > 0 && (
                   <div className="bg-blue-900/20 border border-blue-500/50 rounded p-2 mb-2 text-[9px] font-mono text-blue-300">
-                    {briefing.hints[hintsUsed - 1]}
+                    {hints[hintsUsed - 1]}
                   </div>
                 )}
                 <button
-                  onClick={() => setHintsUsed(prev => Math.min(prev + 1, 3))}
-                  disabled={hintsUsed >= 3}
+                  onClick={() => setHintsUsed(prev => Math.min(prev + 1, hints.length))}
+                  disabled={hintsUsed >= hints.length}
                   className="w-full bg-blue-600/20 hover:bg-blue-600/30 disabled:opacity-30 disabled:cursor-not-allowed border border-blue-500 text-blue-300 rounded-lg py-1.5 text-[9px] font-mono transition-all"
                 >
-                  {hintsUsed < 3 ? `Reveal Hint ${hintsUsed + 1}` : 'All Hints Used'}
+                  {hintsUsed < hints.length ? `Reveal Hint ${hintsUsed + 1}` : 'All Hints Used'}
                 </button>
               </section>
 
@@ -302,44 +340,27 @@ export default function ChallengeEngine({
                   <div className={`text-center text-[11px] font-mono mb-3 ${
                     result.correct ? 'text-green-300' : 'text-red-300'
                   }`}>
-                    Score: {result.points > 0 ? '+' : ''}{result.points} points
+                    Score: {result.scoreDelta > 0 ? '+' : ''}{result.scoreDelta} points
                   </div>
                 </div>
               </section>
 
-              {/* Deep Explanation */}
+              {/* Debrief */}
               <section className="mb-4">
                 <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">
-                  Here's why this packet was the smoking gun:
+                  Result
                 </div>
                 <div className="text-[10px] font-mono text-gray-300 leading-relaxed bg-gray-950 border border-gray-800 rounded p-3">
-                  {result.explanation}
+                  {result.feedback}
                 </div>
-                {result.teachable && result.teachable.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {result.teachable.map((t, i) => (
-                      <div key={i} className="text-[9px] font-mono text-yellow-300">• {t}</div>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              {/* What You Should've Looked For */}
-              {!result.correct && result.teachable && (
-                <section className="mb-4">
-                  <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">
-                    What You Should've Looked For
-                  </div>
-                  <ul className="text-[10px] font-mono text-gray-300 bg-gray-950 border border-gray-800 rounded p-3 space-y-1">
-                    {result.teachable.map((item, i) => (
-                      <li key={i} className="flex items-start">
-                        <span className="text-yellow-400 mr-2">•</span>
-                        <span>{item}</span>
-                      </li>
+                {result.rubric && result.rubric.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {result.rubric.map((t, i) => (
+                      <li key={i} className="text-[9px] font-mono text-yellow-300">• {t}</li>
                     ))}
                   </ul>
-                </section>
-              )}
+                )}
+              </section>
 
               {/* Next Round Button */}
               <button
@@ -361,13 +382,7 @@ export default function ChallengeEngine({
         </div>
       </div>
 
-      {/* Submission Modal */}
-      <SubmissionModal
-        isOpen={showSubmissionModal}
-        onClose={() => setShowSubmissionModal(false)}
-        markedPackets={markedPacketsData}
-        onSubmit={handleSubmissionSubmit}
-      />
+      {/* No modal in round mode */}
     </>
   );
 }
