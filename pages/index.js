@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 
 export default function Home() {
@@ -18,8 +18,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [review, setReview] = useState(null);
   const [showReview, setShowReview] = useState(false);
+  const [shiftActive, setShiftActive] = useState(false);
+  const [shiftProgress, setShiftProgress] = useState(0);
+  const [motionBlur, setMotionBlur] = useState(false);
+  const [fadeIn, setFadeIn] = useState(false);
+  const progressIntervalRef = useRef(null);
 
   useEffect(() => {
+    // Fade-in on page load
+    setFadeIn(true);
+    
     // Load profile from localStorage if available
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('threatReconProfile_v2');
@@ -33,11 +41,42 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    // Progress bar animation during active shift
+    if (shiftActive) {
+      progressIntervalRef.current = setInterval(() => {
+        setShiftProgress(prev => {
+          if (prev >= 100) {
+            return 0;
+          }
+          return prev + 1;
+        });
+      }, 100); // Update every 100ms (10 seconds total for 100%)
+    } else {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+      setShiftProgress(0);
+    }
+
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, [shiftActive]);
+
   const handleClockIn = async () => {
     setLoading(true);
+    setMotionBlur(true);
+    setShiftActive(true);
+    
     try {
       const response = await fetch('/api/session/start', { method: 'POST' });
       const sessionData = await response.json();
+      
+      // Brief delay for motion blur effect
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Update profile from API response
       setProfile(prev => ({
@@ -66,8 +105,13 @@ export default function Home() {
           ...sessionData,
         }));
       }
+      
+      // Remove motion blur
+      setTimeout(() => setMotionBlur(false), 200);
     } catch (error) {
       console.error('Failed to start session:', error);
+      setMotionBlur(false);
+      setShiftActive(false);
     } finally {
       setLoading(false);
     }
@@ -75,8 +119,10 @@ export default function Home() {
 
   const handleEndShift = async () => {
     setLoading(true);
+    setShiftActive(false);
+    
     try {
-      const actions = ['Isolate Host', 'Block IP']; // Mock actions
+      const actions = ['Isolate Host', 'Block IP'];
       
       const response = await fetch('/api/session/end', {
         method: 'POST',
@@ -110,7 +156,7 @@ export default function Home() {
         return newProfile;
       });
       
-      // Show review modal
+      // Show review modal with fade-in
       setReview(apiData);
       setShowReview(true);
     } catch (error) {
@@ -125,21 +171,34 @@ export default function Home() {
     setReview(null);
   };
 
+  const beginNewShift = () => {
+    closeReview();
+    setShiftProgress(0);
+  };
+
   return (
     <>
       <Head>
-        <title>ThreatRecon.io SOC Simulator</title>
+        <title>ThreatRecon SOC Simulator</title>
+        <meta name="description" content="An interactive cybersecurity operations simulation dashboard." />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#00FF88" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-gray-950 text-gray-200 flex flex-col font-sans">
+      <div className={`min-h-screen bg-gray-950 text-gray-200 flex flex-col font-sans ${fadeIn ? 'fade-in' : 'opacity-0'}`}>
         {/* Persistent Header */}
         <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-700 shadow-[0_10px_40px_rgba(0,0,0,0.8)] px-4 py-2 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div className="text-blue-400 font-semibold tracking-wide text-sm md:text-base">THREATRECON.IO</div>
           <div className="flex items-center gap-3 text-[10px] md:text-xs">
             <span className="text-gray-400">Rank:</span>
-            <span className="text-yellow-400 font-bold">{profile.rank}</span>
+            <span className={`text-yellow-400 font-bold transition-all duration-300 ${motionBlur ? 'motion-blur' : ''}`}>
+              {profile.rank}
+            </span>
             <span className="text-gray-400">XP:</span>
-            <span className="text-terminal-green font-mono">{profile.xp}</span>
+            <span className={`text-terminal-green font-mono transition-all duration-300 ${motionBlur ? 'motion-blur' : ''}`}>
+              {profile.xp}
+            </span>
             <span className="hidden md:inline text-gray-400">Tier:</span>
             <span className="hidden md:inline text-orange-400">{profile.difficultyTier}</span>
           </div>
@@ -152,11 +211,31 @@ export default function Home() {
           </div>
         </header>
 
-        <main className="flex-1 pt-[70px] pb-10 px-4 md:px-8 max-w-[1400px] w-full mx-auto">
+        <main className="flex-1 pt-[70px] pb-10 px-4 md:px-6 lg:px-8 max-w-[1400px] w-full mx-auto">
+          {/* Title Banner */}
+          <div className="title-banner fade-in mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-terminal-green font-mono tracking-wider">
+              THREATRECON SOC SIMULATOR
+            </h1>
+          </div>
+
+          {/* Progress Bar (shown during active shift) */}
+          {shiftActive && (
+            <div className="mb-6 fade-in">
+              <div className="text-xs text-gray-400 font-mono mb-2">SHIFT PROGRESS</div>
+              <div className="progress-bar-container">
+                <div 
+                  className="progress-bar-fill"
+                  style={{ width: `${shiftProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Dashboard Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* My Career Card */}
-            <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] card-glow">
+            <div className={`bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] card-glow fade-in ${motionBlur ? 'motion-blur' : ''}`}>
               <div className="text-xs uppercase tracking-wide text-gray-400 mb-2 flex items-center justify-between">
                 <span className="flex items-center gap-2 text-gray-200 font-semibold text-sm">
                   <span className="h-2 w-2 rounded-full bg-blue-400 shadow-neon-blue"></span>
@@ -167,15 +246,15 @@ export default function Home() {
               <div className="flex-1 space-y-2 text-[11px] md:text-xs font-mono text-gray-300">
                 <div className="flex justify-between">
                   <span>Rank</span>
-                  <span className="text-blue-400 font-bold">{profile.rank}</span>
+                  <span className="text-blue-400 font-bold transition-all duration-300">{profile.rank}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>XP</span>
-                  <span className="text-terminal-green">{profile.xp}</span>
+                  <span className="text-terminal-green transition-all duration-300">{profile.xp}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Incidents</span>
-                  <span className="text-purple-400">{profile.incidentsHandled}</span>
+                  <span className="text-purple-400 transition-all duration-300">{profile.incidentsHandled}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Avg Time</span>
@@ -189,7 +268,7 @@ export default function Home() {
             </div>
 
             {/* Global Threat Map Card */}
-            <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] card-glow">
+            <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] card-glow fade-in">
               <div className="text-xs uppercase tracking-wide text-gray-400 mb-2 flex items-center justify-between">
                 <span className="flex items-center gap-2 text-gray-200 font-semibold text-sm">
                   <span className="h-2 w-2 rounded-full bg-red-400 shadow-neon-red pulse-glow"></span>
@@ -206,13 +285,13 @@ export default function Home() {
                   [APAC] credential attacks observed
                 </div>
                 <div className="absolute bottom-2 right-2 text-[10px] text-red-400 animate-pulse">
-                  <span>{activeIncidents} ACTIVE INCIDENTS</span>
+                  <span className="transition-all duration-300">{activeIncidents} ACTIVE INCIDENTS</span>
                 </div>
               </div>
             </div>
 
             {/* Threat Intel Feed Card */}
-            <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] md:col-span-2 card-glow">
+            <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] md:col-span-2 card-glow fade-in">
               <div className="text-xs uppercase tracking-wide text-gray-400 mb-2 flex items-center justify-between">
                 <span className="flex items-center gap-2 text-gray-200 font-semibold text-sm">
                   <span className="h-2 w-2 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.8)] pulse-glow"></span>
@@ -222,7 +301,7 @@ export default function Home() {
               <div className="flex-1 bg-gray-950 border border-gray-700/70 rounded-lg p-2 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-y-hidden text-[11px] leading-relaxed font-mono text-terminal-green space-y-2">
                   {intelFeed.map((item, idx) => (
-                    <div key={idx} className="bg-red-900/20 border-l-4 border-red-500 p-2">
+                    <div key={idx} className="bg-red-900/20 border-l-4 border-red-500 p-2 fade-in" style={{ animationDelay: `${idx * 100}ms` }}>
                       {item}
                     </div>
                   ))}
@@ -231,19 +310,19 @@ export default function Home() {
             </div>
 
             {/* Shift Control Card */}
-            <div className="bg-gray-900/80 border-2 border-red-500 rounded-xl shadow-xl p-4 flex flex-col md:col-span-2 card-glow">
+            <div className="bg-gray-900/80 border-2 border-red-500 rounded-xl shadow-xl p-4 flex flex-col md:col-span-2 card-glow fade-in">
               <button
                 onClick={handleClockIn}
-                disabled={loading}
-                className="w-full mt-auto bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-lg border border-red-400 shadow-[0_0_15px_rgba(220,38,38,0.6)] py-3 font-mono tracking-wide transition-all"
+                disabled={loading || shiftActive}
+                className="w-full mt-auto bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-lg border border-red-400 shadow-[0_0_15px_rgba(220,38,38,0.6)] py-3 font-mono tracking-wide transition-all duration-300 hover:scale-105"
               >
-                {loading ? 'STARTING...' : 'CLOCK IN FOR SHIFT'}
+                {loading ? 'STARTING...' : shiftActive ? 'SHIFT ACTIVE' : 'CLOCK IN FOR SHIFT'}
               </button>
               {profile.incidentsHandled > 0 && (
                 <button
                   onClick={handleEndShift}
-                  disabled={loading}
-                  className="w-full mt-3 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-lg border border-green-400 shadow-[0_0_15px_rgba(16,185,129,0.6)] py-3 font-mono tracking-wide transition-all"
+                  disabled={loading || !shiftActive}
+                  className="w-full mt-3 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-lg border border-green-400 shadow-[0_0_15px_rgba(16,185,129,0.6)] py-3 font-mono tracking-wide transition-all duration-300 hover:scale-105"
                 >
                   {loading ? 'ENDING...' : 'DISMISS / END SHIFT'}
                 </button>
@@ -251,13 +330,13 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Review Modal */}
+          {/* Review Modal with fade-in */}
           {showReview && review && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-              <div className="w-full max-w-md bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-4 flex flex-col gap-4 text-gray-200 font-mono text-[11px]">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 fade-in">
+              <div className="w-full max-w-md bg-gray-900 border-2 border-neon-green rounded-xl shadow-2xl p-4 flex flex-col gap-4 text-gray-200 font-mono text-[11px] glow-green">
                 <div className="text-center">
                   <div className="text-terminal-green font-bold text-sm tracking-wide">SHIFT COMPLETE</div>
-                  <div className="text-3xl font-extrabold text-terminal-green drop-shadow-[0_0_6px_rgba(16,185,129,0.6)]">
+                  <div className="text-3xl font-extrabold text-terminal-green drop-shadow-[0_0_6px_rgba(0,255,136,0.8)]">
                     {review.grade}
                   </div>
                 </div>
@@ -276,10 +355,16 @@ export default function Home() {
                   </div>
                 )}
                 <button
-                  onClick={closeReview}
-                  className="w-full bg-blue-700/40 border border-blue-500/60 text-blue-200 rounded-lg py-2 text-[11px] font-semibold hover:bg-blue-600/40 transition-all"
+                  onClick={beginNewShift}
+                  className="w-full bg-neon-green/20 hover:bg-neon-green/30 border border-neon-green text-terminal-green rounded-lg py-2 text-[11px] font-semibold transition-all duration-300 hover:scale-105 glow-green"
                 >
-                  DISMISS / END SHIFT
+                  BEGIN NEW SHIFT
+                </button>
+                <button
+                  onClick={closeReview}
+                  className="w-full bg-blue-700/40 border border-blue-500/60 text-blue-200 rounded-lg py-2 text-[11px] font-semibold hover:bg-blue-600/40 transition-all duration-300"
+                >
+                  DISMISS
                 </button>
               </div>
             </div>

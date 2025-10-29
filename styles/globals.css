@@ -10,7 +10,7 @@
 
 @layer utilities {
   .pulse-glow {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    @apply animate-pulse-glow;
   }
   
   .text-terminal {
@@ -19,7 +19,51 @@
   
   .card-glow {
     @apply shadow-xl border border-gray-700 rounded-xl;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(16, 185, 129, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 255, 136, 0.1);
+  }
+  
+  .glow-green {
+    @apply shadow-neon-green;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+  }
+  
+  .fade-in {
+    @apply animate-fade-in;
+    animation-duration: 500ms;
+    transition: opacity 500ms ease-out, transform 500ms ease-out;
+  }
+  
+  .pulse {
+    @apply animate-pulse;
+    animation-duration: 2s;
+  }
+  
+  .motion-blur {
+    filter: blur(2px);
+    transition: filter 300ms ease-out;
+  }
+  
+  .motion-blur.active {
+    filter: blur(0);
   }
 }
 
+@layer components {
+  .title-banner {
+    @apply text-center py-4 mb-6 border-2 border-neon-green rounded-lg bg-gray-900/50;
+    @apply glow-green pulse-glow;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.6), inset 0 0 20px rgba(0, 255, 136, 0.1);
+  }
+  
+  .progress-bar-container {
+    @apply w-full h-2 bg-gray-800 rounded-full overflow-hidden;
+    @apply border border-gray-700;
+  }
+  
+  .progress-bar-fill {
+    @apply h-full bg-gradient-to-r from-neon-green to-terminal-green;
+    @apply animate-progress-fill;
+    transition: width 0.3s ease-out;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+  }
+}
