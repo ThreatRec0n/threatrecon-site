@@ -1,7 +1,7 @@
 {
   "name": "threatrecon-site",
-  "version": "1.1.2-rc",
-  "description": "ThreatRecon.io SOC Simulator - Full Incident Lifecycle Training Platform",
+  "version": "2.0.0",
+  "description": "ThreatRecon Packet Hunt - Interactive Wireshark-style packet forensics learning game",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
