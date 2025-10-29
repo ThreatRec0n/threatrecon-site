@@ -8,6 +8,7 @@ module.exports = {
   logLevel: process.env.LOG_LEVEL || 'info',
   sessionTimeout: parseInt(process.env.SESSION_TIMEOUT || '3600000', 10),
   simTargetIP: process.env.SIM_TARGET_IP || '10.0.10.5',
-  simTargetHost: process.env.SIM_TARGET_HOST || 'corp-target'
+  simTargetHost: process.env.SIM_TARGET_HOST || 'corp-target',
+  redisUrl: process.env.REDIS_URL
 };
 

@@ -8,6 +8,27 @@ const logger = require('./src/logger');
 const apiRoutes = require('./src/api');
 const setupSocket = require('./src/socket');
 
+// Redis adapter for horizontal scaling (optional if REDIS_URL not provided)
+let pubClient, subClient;
+if (config.redisUrl) {
+  logger.info('Initializing Redis adapter...');
+  try {
+    const redis = require('redis');
+    const { createAdapter } = require('@socket.io/redis-adapter');
+    
+    pubClient = redis.createClient({ url: config.redisUrl });
+    subClient = pubClient.duplicate();
+    
+    (async () => {
+      await pubClient.connect();
+      await subClient.connect();
+      logger.info('Redis connected successfully');
+    })();
+  } catch (error) {
+    logger.warn('Redis not available:', error.message);
+  }
+}
+
 // Create Express app
 const app = express();
 app.use(express.json());
@@ -46,8 +67,16 @@ const io = new Server(server, {
     origin: config.frontendOrigin,
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  transports: ['websocket', 'polling']
 });
+
+// Attach Redis adapter if available
+if (pubClient && subClient) {
+  const { createAdapter } = require('@socket.io/redis-adapter');
+  io.adapter(createAdapter(pubClient, subClient));
+  logger.info('Socket.IO Redis adapter attached');
+}
 
 // Initialize socket handlers
 const simulator = setupSocket(io);
