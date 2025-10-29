@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
+import { useDebounce, useAudioCue } from '../utils/hooks';
 
 export default function Home() {
   const [profile, setProfile] = useState({
@@ -34,40 +35,105 @@ export default function Home() {
   const [teamScore, setTeamScore] = useState(1000);
   const [aiAnalystMessages, setAiAnalystMessages] = useState([]);
   const [soundGlowActive, setSoundGlowActive] = useState(false);
+  const [aiEventsEnabled, setAiEventsEnabled] = useState(true);
+  const [cpuLoad, setCpuLoad] = useState(45);
+  const [networkLatency, setNetworkLatency] = useState(12);
+  const [systemStatusActive, setSystemStatusActive] = useState(true);
   const progressIntervalRef = useRef(null);
   const eventIntervalRef = useRef(null);
   const tickerRef = useRef(null);
   const eventDebounceRef = useRef(null);
   const aiResponseTimeoutRef = useRef(null);
+  const cpuIntervalRef = useRef(null);
+  const networkIntervalRef = useRef(null);
 
-  // Sound cue function
-  const playEventSound = () => {
-    if (typeof window !== 'undefined') {
-      try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+  // Audio cue hook (throttled)
+  const playEventSound = useAudioCue(100);
+  
+  // Debounced event trigger
+  const debouncedEventTrigger = useDebounce(async () => {
+    if (!aiEventsEnabled || isPaused) return;
+    
+    try {
+      const response = await fetch('/api/events/trigger', { method: 'POST' });
+      const event = await response.json();
+      
+      // Play sound cue
+      playEventSound(800, 100);
+      
+      // Trigger glow animation
+      setSoundGlowActive(true);
+      setTimeout(() => setSoundGlowActive(false), 500);
+      
+      // Add to history (keep last 20)
+      setEventHistory(prev => {
+        const updated = [...prev, event].slice(-20);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('eventHistory_v1', JSON.stringify(updated));
+        }
+        return updated;
+      });
+      
+      setAiEvents(prev => [...prev, event]);
+      setTickerEvents(prev => [...prev, `${event.title} [${event.severity.toUpperCase()}]`]);
+      setCurrentEvent(event);
+      setShowEventModal(true);
+      
+      // Show toast notification
+      setToast({
+        id: event.id,
+        title: event.title,
+        severity: event.severity,
+      });
+      
+      // Auto-fade toast after 10 seconds
+      setTimeout(() => {
+        setToast(null);
+      }, 10000);
+      
+      // AI analyst auto-respond after 3-5 seconds
+      const aiResponseDelay = 3000 + Math.random() * 2000;
+      aiResponseTimeoutRef.current = setTimeout(() => {
+        const analysts = ['AI-Echo-1', 'AI-Echo-2'];
+        const analyst = analysts[Math.floor(Math.random() * analysts.length)];
+        const decisions = ['escalated', 'acknowledged', 'analyzing'];
+        const decision = decisions[Math.floor(Math.random() * decisions.length)];
         
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        const message = {
+          id: `msg-${Date.now()}`,
+          analyst: analyst,
+          action: decision,
+          event: event.title,
+          timestamp: new Date().toISOString(),
+        };
         
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        setAiAnalystMessages(prev => [...prev, message].slice(-10));
         
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.1);
+        // Update team score based on AI decision
+        let scoreChange = 0;
+        if (decision === 'escalated' && ['high', 'critical'].includes(event.severity)) {
+          scoreChange = +10;
+        } else if (decision === 'acknowledged') {
+          scoreChange = +10;
+        } else {
+          scoreChange = -10;
+        }
         
-        // Trigger glow animation
-        setSoundGlowActive(true);
-        setTimeout(() => setSoundGlowActive(false), 500);
-      } catch (e) {
-        // Fallback if audio context unavailable
-        console.log('Audio context unavailable');
+        setTeamScore(prev => {
+          const newScore = Math.max(0, prev + scoreChange);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('threatReconTeamScore_v1', newScore.toString());
+          }
+          return newScore;
+        });
+      }, aiResponseDelay);
+    } catch (error) {
+      // Error handled silently in production
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('Failed to trigger event:', error);
       }
     }
-  };
+  }, 300);
 
   useEffect(() => {
     // Fade-in on page load
@@ -80,7 +146,9 @@ export default function Home() {
         try {
           setProfile(JSON.parse(saved));
         } catch (e) {
-          console.error('Failed to load profile:', e);
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Failed to load profile:', e);
+          }
         }
       }
       
@@ -94,7 +162,9 @@ export default function Home() {
             setTeamScore(score);
           }
         } catch (e) {
-          console.error('Failed to load score:', e);
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Failed to load score:', e);
+          }
         }
       }
       
@@ -105,8 +175,22 @@ export default function Home() {
           const history = JSON.parse(savedHistory);
           setEventHistory(history.slice(-20)); // Keep last 20
         } catch (e) {
-          console.error('Failed to load event history:', e);
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Failed to load event history:', e);
+          }
         }
+      }
+      
+      // Load feature toggle state
+      const savedToggle = localStorage.getItem('aiEventsEnabled_v1');
+      if (savedToggle !== null) {
+        setAiEventsEnabled(savedToggle === 'true');
+      }
+      
+      // Load system status toggle
+      const savedSystemStatus = localStorage.getItem('systemStatusEnabled_v1');
+      if (savedSystemStatus !== null) {
+        setSystemStatusActive(savedSystemStatus === 'true');
       }
     }
   }, []);
@@ -124,89 +208,30 @@ export default function Home() {
       }, 100); // Update every 100ms (10 seconds total for 100%)
       
       // Trigger AI events during active shift (every 15-25 seconds)
-      eventIntervalRef.current = setInterval(async () => {
-        if (isPaused) return;
-        
-        // Debounce to prevent overlap
-        if (eventDebounceRef.current) {
-          clearTimeout(eventDebounceRef.current);
-        }
-        
-        eventDebounceRef.current = setTimeout(async () => {
-          try {
-            const response = await fetch('/api/events/trigger', { method: 'POST' });
-            const event = await response.json();
-            
-            // Play sound cue
-            playEventSound();
-            
-            // Add to history (keep last 20)
-            setEventHistory(prev => {
-              const updated = [...prev, event].slice(-20);
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('eventHistory_v1', JSON.stringify(updated));
-              }
-              return updated;
-            });
-            
-            setAiEvents(prev => [...prev, event]);
-            setTickerEvents(prev => [...prev, `${event.title} [${event.severity.toUpperCase()}]`]);
-            setCurrentEvent(event);
-            setShowEventModal(true);
-            
-            // Show toast notification
-            setToast({
-              id: event.id,
-              title: event.title,
-              severity: event.severity,
-            });
-            
-            // Auto-fade toast after 10 seconds
-            setTimeout(() => {
-              setToast(null);
-            }, 10000);
-            
-            // AI analyst auto-respond after 3-5 seconds
-            const aiResponseDelay = 3000 + Math.random() * 2000;
-            aiResponseTimeoutRef.current = setTimeout(() => {
-              const analysts = ['AI-Echo-1', 'AI-Echo-2'];
-              const analyst = analysts[Math.floor(Math.random() * analysts.length)];
-              const decisions = ['escalated', 'acknowledged', 'analyzing'];
-              const decision = decisions[Math.floor(Math.random() * decisions.length)];
-              
-              const message = {
-                id: `msg-${Date.now()}`,
-                analyst: analyst,
-                action: decision,
-                event: event.title,
-                timestamp: new Date().toISOString(),
-              };
-              
-              setAiAnalystMessages(prev => [...prev, message].slice(-10));
-              
-              // Update team score based on AI decision
-              let scoreChange = 0;
-              if (decision === 'escalated' && ['high', 'critical'].includes(event.severity)) {
-                scoreChange = +10;
-              } else if (decision === 'acknowledged') {
-                scoreChange = +10;
-              } else {
-                scoreChange = -10;
-              }
-              
-              setTeamScore(prev => {
-                const newScore = Math.max(0, prev + scoreChange);
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem('threatReconTeamScore_v1', newScore.toString());
-                }
-                return newScore;
-              });
-            }, aiResponseDelay);
-          } catch (error) {
-            console.error('Failed to trigger event:', error);
-          }
-        }, 300); // 300ms debounce
-      }, 15000 + Math.random() * 10000); // Random 15-25 second intervals
+      if (aiEventsEnabled) {
+        eventIntervalRef.current = setInterval(() => {
+          if (isPaused || !aiEventsEnabled) return;
+          debouncedEventTrigger();
+        }, 15000 + Math.random() * 10000); // Random 15-25 second intervals
+      }
+      
+      // CPU load simulation
+      cpuIntervalRef.current = setInterval(() => {
+        setCpuLoad(prev => {
+          const variation = (Math.random() - 0.5) * 10;
+          const newLoad = Math.max(40, Math.min(90, prev + variation));
+          return Math.round(newLoad);
+        });
+      }, 2000);
+      
+      // Network latency simulation
+      networkIntervalRef.current = setInterval(() => {
+        setNetworkLatency(prev => {
+          const variation = (Math.random() - 0.5) * 5;
+          const newLatency = Math.max(5, Math.min(50, prev + variation));
+          return Math.round(newLatency);
+        });
+      }, 3000);
     } else {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
@@ -219,6 +244,12 @@ export default function Home() {
       }
       if (eventDebounceRef.current) {
         clearTimeout(eventDebounceRef.current);
+      }
+      if (cpuIntervalRef.current) {
+        clearInterval(cpuIntervalRef.current);
+      }
+      if (networkIntervalRef.current) {
+        clearInterval(networkIntervalRef.current);
       }
       setShiftProgress(0);
     }
@@ -236,8 +267,14 @@ export default function Home() {
       if (eventDebounceRef.current) {
         clearTimeout(eventDebounceRef.current);
       }
+      if (cpuIntervalRef.current) {
+        clearInterval(cpuIntervalRef.current);
+      }
+      if (networkIntervalRef.current) {
+        clearInterval(networkIntervalRef.current);
+      }
     };
-  }, [shiftActive, isPaused]);
+  }, [shiftActive, isPaused, aiEventsEnabled, debouncedEventTrigger]);
 
   const handleClockIn = async () => {
     setLoading(true);
@@ -279,10 +316,12 @@ export default function Home() {
         }));
       }
       
-      // Remove motion blur
+        // Remove motion blur
       setTimeout(() => setMotionBlur(false), 200);
     } catch (error) {
-      console.error('Failed to start session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('Failed to start session:', error);
+      }
       setMotionBlur(false);
       setShiftActive(false);
     } finally {
@@ -333,7 +372,9 @@ export default function Home() {
       setReview(apiData);
       setShowReview(true);
     } catch (error) {
-      console.error('Failed to end session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('Failed to end session:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -400,6 +441,20 @@ export default function Home() {
     return true;
   });
 
+  const handleToggleAiEvents = (enabled) => {
+    setAiEventsEnabled(enabled);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aiEventsEnabled_v1', enabled.toString());
+    }
+  };
+
+  const handleToggleSystemStatus = (enabled) => {
+    setSystemStatusActive(enabled);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('systemStatusEnabled_v1', enabled.toString());
+    }
+  };
+
   return (
     <>
       <Head>
@@ -426,7 +481,19 @@ export default function Home() {
             <span className="hidden md:inline text-gray-400">Tier:</span>
             <span className="hidden md:inline text-orange-400">{profile.difficultyTier}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Feature Toggle */}
+            <button
+              onClick={() => handleToggleAiEvents(!aiEventsEnabled)}
+              className={`px-2 py-1 rounded text-[9px] font-mono transition-all ${
+                aiEventsEnabled 
+                  ? 'bg-terminal-green/20 border border-terminal-green text-terminal-green' 
+                  : 'bg-gray-700 border border-gray-600 text-gray-400'
+              }`}
+              title={aiEventsEnabled ? 'AI Events ON' : 'AI Events OFF'}
+            >
+              AI {aiEventsEnabled ? 'ON' : 'OFF'}
+            </button>
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-terminal-green opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-terminal-green pulse-glow"></span>
@@ -457,6 +524,52 @@ export default function Home() {
               THREATRECON SOC SIMULATOR
             </h1>
           </div>
+
+          {/* System Status Widget */}
+          {systemStatusActive && (
+            <div className="mb-4 bg-gray-900/80 border border-gray-700 rounded-lg p-3 card-glow fade-in">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs uppercase tracking-wide text-gray-400 font-mono">System Status</span>
+                <button
+                  onClick={() => handleToggleSystemStatus(false)}
+                  className="text-[9px] text-gray-500 hover:text-gray-300"
+                  title="Hide System Status"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[10px] font-mono">
+                <div className="bg-gray-800/40 rounded p-2">
+                  <div className="text-gray-400 mb-1">Active Events</div>
+                  <div className="text-terminal-green font-bold text-sm">{aiEvents.length}</div>
+                </div>
+                <div className="bg-gray-800/40 rounded p-2">
+                  <div className="text-gray-400 mb-1">CPU Load</div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-gray-900 rounded overflow-hidden border border-gray-700">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          cpuLoad > 75 ? 'bg-red-500' : cpuLoad > 50 ? 'bg-yellow-500' : 'bg-terminal-green'
+                        }`}
+                        style={{ width: `${cpuLoad}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-bold ${cpuLoad > 75 ? 'text-red-400' : cpuLoad > 50 ? 'text-yellow-400' : 'text-terminal-green'}`}>
+                      {cpuLoad}%
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-gray-800/40 rounded p-2">
+                  <div className="text-gray-400 mb-1">Network Latency</div>
+                  <div className={`text-xs font-bold ${
+                    networkLatency > 30 ? 'text-yellow-400' : 'text-terminal-green'
+                  }`}>
+                    {networkLatency}ms
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Real-time Score Display */}
           <div className="mb-4 text-center">
