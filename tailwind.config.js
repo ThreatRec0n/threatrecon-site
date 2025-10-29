@@ -17,6 +17,12 @@ module.exports = {
           red: '#FF5555',
           blue: '#00BFFF',
         },
+        severity: {
+          low: '#3B82F6',
+          medium: '#F59E0B',
+          high: '#EF4444',
+          critical: '#DC2626',
+        },
       },
       boxShadow: {
         'neon-green': '0 0 10px rgba(0, 255, 136, 0.8), 0 0 20px rgba(0, 255, 136, 0.4)',
@@ -42,11 +48,26 @@ module.exports = {
           '0%': { width: '0%' },
           '100%': { width: '100%' },
         },
+        slideInToast: {
+          '0%': { transform: 'translateX(100%)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        pulseAlert: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.8', transform: 'scale(1.05)' },
+        },
+        tickerScroll: {
+          '0%': { transform: 'translateX(100%)' },
+          '100%': { transform: 'translateX(-100%)' },
+        },
       },
       animation: {
         'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'fade-in': 'fadeIn 0.5s ease-out',
         'progress-fill': 'progressFill 2s ease-in-out',
+        'slide-in-toast': 'slideInToast 0.3s ease-out',
+        'pulse-alert': 'pulseAlert 2s ease-in-out infinite',
+        'ticker-scroll': 'tickerScroll 20s linear infinite',
       },
       transitionDuration: {
         '400': '400ms',

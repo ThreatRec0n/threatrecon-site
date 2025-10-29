@@ -22,7 +22,15 @@ export default function Home() {
   const [shiftProgress, setShiftProgress] = useState(0);
   const [motionBlur, setMotionBlur] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const [realTimeScore, setRealTimeScore] = useState(1000);
+  const [aiEvents, setAiEvents] = useState([]);
+  const [currentEvent, setCurrentEvent] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [tickerEvents, setTickerEvents] = useState([]);
   const progressIntervalRef = useRef(null);
+  const eventIntervalRef = useRef(null);
+  const tickerRef = useRef(null);
 
   useEffect(() => {
     // Fade-in on page load
@@ -52,9 +60,39 @@ export default function Home() {
           return prev + 1;
         });
       }, 100); // Update every 100ms (10 seconds total for 100%)
+      
+      // Trigger AI events during active shift (every 15-25 seconds)
+      eventIntervalRef.current = setInterval(async () => {
+        try {
+          const response = await fetch('/api/events/trigger', { method: 'POST' });
+          const event = await response.json();
+          
+          setAiEvents(prev => [...prev, event]);
+          setTickerEvents(prev => [...prev, `${event.title} [${event.severity.toUpperCase()}]`]);
+          setCurrentEvent(event);
+          setShowEventModal(true);
+          
+          // Show toast notification
+          setToast({
+            id: event.id,
+            title: event.title,
+            severity: event.severity,
+          });
+          
+          // Auto-fade toast after 10 seconds
+          setTimeout(() => {
+            setToast(null);
+          }, 10000);
+        } catch (error) {
+          console.error('Failed to trigger event:', error);
+        }
+      }, 15000 + Math.random() * 10000); // Random 15-25 second intervals
     } else {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
+      }
+      if (eventIntervalRef.current) {
+        clearInterval(eventIntervalRef.current);
       }
       setShiftProgress(0);
     }
@@ -62,6 +100,9 @@ export default function Home() {
     return () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
+      }
+      if (eventIntervalRef.current) {
+        clearInterval(eventIntervalRef.current);
       }
     };
   }, [shiftActive]);
@@ -174,6 +215,44 @@ export default function Home() {
   const beginNewShift = () => {
     closeReview();
     setShiftProgress(0);
+    setAiEvents([]);
+    setTickerEvents([]);
+    setRealTimeScore(1000);
+  };
+
+  const handleEventDecision = (decision) => {
+    // Store decision in localStorage
+    if (typeof window !== 'undefined' && currentEvent) {
+      const decisions = JSON.parse(localStorage.getItem('eventDecisions_v1') || '[]');
+      decisions.push({
+        eventId: currentEvent.id,
+        decision: decision,
+        timestamp: new Date().toISOString(),
+        event: currentEvent,
+      });
+      localStorage.setItem('eventDecisions_v1', JSON.stringify(decisions));
+      
+      // Update real-time score based on decision
+      let scoreChange = 0;
+      if (decision === 'Acknowledge' && currentEvent.severity === 'critical') {
+        scoreChange = +50;
+      } else if (decision === 'Escalate' && ['high', 'critical'].includes(currentEvent.severity)) {
+        scoreChange = +30;
+      } else if (decision === 'Ignore' && currentEvent.severity === 'critical') {
+        scoreChange = -50;
+      } else if (decision === 'Ignore' && currentEvent.severity === 'high') {
+        scoreChange = -30;
+      } else if (decision === 'Acknowledge') {
+        scoreChange = +20;
+      } else if (decision === 'Escalate') {
+        scoreChange = +10;
+      }
+      
+      setRealTimeScore(prev => Math.max(0, prev + scoreChange));
+    }
+    
+    setShowEventModal(false);
+    setCurrentEvent(null);
   };
 
   return (
@@ -212,11 +291,36 @@ export default function Home() {
         </header>
 
         <main className="flex-1 pt-[70px] pb-10 px-4 md:px-6 lg:px-8 max-w-[1400px] w-full mx-auto">
+          {/* Neon Ticker for Events */}
+          {tickerEvents.length > 0 && (
+            <div className="mb-4 overflow-hidden bg-gray-900 border border-neon-green rounded-lg h-8 flex items-center relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-transparent to-gray-900 z-10 pointer-events-none"></div>
+              <div 
+                ref={tickerRef}
+                className="flex items-center space-x-8 animate-ticker-scroll whitespace-nowrap text-terminal-green font-mono text-xs"
+              >
+                {tickerEvents.map((text, idx) => (
+                  <span key={idx} className="px-4">{text} •</span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Title Banner */}
           <div className="title-banner fade-in mb-6">
             <h1 className="text-2xl md:text-3xl font-bold text-terminal-green font-mono tracking-wider">
               THREATRECON SOC SIMULATOR
             </h1>
+          </div>
+
+          {/* Real-time Score Display */}
+          <div className="mb-4 text-center">
+            <div className="inline-block bg-gray-900/80 border border-gray-700 rounded-lg px-4 py-2">
+              <span className="text-xs text-gray-400 font-mono">Real-time Score: </span>
+              <span className={`text-lg font-bold font-mono ${realTimeScore >= 1000 ? 'text-terminal-green' : realTimeScore >= 500 ? 'text-yellow-400' : 'text-red-400'}`}>
+                {realTimeScore}
+              </span>
+            </div>
           </div>
 
           {/* Progress Bar (shown during active shift) */}
@@ -233,7 +337,41 @@ export default function Home() {
           )}
 
           {/* Dashboard Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+            {/* Multiplayer Placeholder Sidebar */}
+            <div className="lg:col-span-1 lg:row-span-3 bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 card-glow fade-in order-3 lg:order-1">
+              <div className="text-xs uppercase tracking-wide text-gray-400 mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-gray-200 font-semibold text-sm">
+                  <span className="h-2 w-2 rounded-full bg-blue-400 shadow-neon-blue pulse-alert"></span>
+                  Active Analysts
+                </span>
+              </div>
+              <div className="space-y-3">
+                <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-mono text-terminal-green">AI-Echo-1</span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-terminal-green opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-terminal-green"></span>
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-mono">Investigating phishing campaign</div>
+                </div>
+                <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-mono text-terminal-green">AI-Echo-2</span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-terminal-green opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-terminal-green"></span>
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-mono">Monitoring C2 traffic</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Grid (2 columns on desktop) */}
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 order-1 lg:order-2">
             {/* My Career Card */}
             <div className={`bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] card-glow fade-in ${motionBlur ? 'motion-blur' : ''}`}>
               <div className="text-xs uppercase tracking-wide text-gray-400 mb-2 flex items-center justify-between">
@@ -309,6 +447,43 @@ export default function Home() {
               </div>
             </div>
 
+            {/* AI Analyst Feed Card */}
+            <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] md:col-span-2 card-glow fade-in">
+              <div className="text-xs uppercase tracking-wide text-gray-400 mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-gray-200 font-semibold text-sm">
+                  <span className="h-2 w-2 rounded-full bg-purple-400 shadow-[0_0_10px_rgba(147,51,234,0.8)] pulse-alert"></span>
+                  AI Analyst Feed
+                </span>
+              </div>
+              <div className="flex-1 bg-gray-950 border border-gray-700/70 rounded-lg p-2 overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-y-auto text-[11px] leading-relaxed font-mono text-gray-300 space-y-2 max-h-[200px]">
+                  {aiEvents.length === 0 ? (
+                    <div className="text-gray-500 italic text-center py-4">No events yet. Start a shift to begin receiving AI analyst alerts.</div>
+                  ) : (
+                    aiEvents.map((event, idx) => {
+                      const severityClasses = {
+                        critical: 'bg-red-900/20 border-l-4 border-red-500 text-severity-critical',
+                        high: 'bg-orange-900/20 border-l-4 border-orange-500 text-severity-high',
+                        medium: 'bg-yellow-900/20 border-l-4 border-yellow-500 text-severity-medium',
+                        low: 'bg-blue-900/20 border-l-4 border-blue-500 text-severity-low',
+                      };
+                      const className = severityClasses[event.severity] || severityClasses.medium;
+                      
+                      return (
+                        <div key={event.id || idx} className={`${className} p-2 fade-in`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold">{event.title}</span>
+                            <span className="text-[9px] text-gray-500">{event.severity.toUpperCase()}</span>
+                          </div>
+                          <div className="text-[10px] text-gray-400">{event.description}</div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Shift Control Card */}
             <div className="bg-gray-900/80 border-2 border-red-500 rounded-xl shadow-xl p-4 flex flex-col md:col-span-2 card-glow fade-in">
               <button
@@ -328,7 +503,115 @@ export default function Home() {
                 </button>
               )}
             </div>
+            </div>
           </section>
+
+          {/* Toast Notification */}
+          {toast && (
+            <div className="fixed bottom-4 right-4 z-[250] animate-slide-in-toast">
+              <div className={`bg-gray-900 border-2 rounded-lg shadow-2xl p-4 min-w-[300px] max-w-md ${
+                toast.severity === 'critical' ? 'border-severity-critical' :
+                toast.severity === 'high' ? 'border-severity-high' :
+                'border-severity-medium'
+              }`}>
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <div className={`font-bold text-sm font-mono ${
+                      toast.severity === 'critical' ? 'text-severity-critical' :
+                      toast.severity === 'high' ? 'text-severity-high' :
+                      toast.severity === 'medium' ? 'text-severity-medium' :
+                      'text-severity-low'
+                    }`}>
+                      {toast.title}
+                    </div>
+                    <div className="text-xs text-gray-400 font-mono mt-1">Incoming Event</div>
+                  </div>
+                  <button
+                    onClick={() => setToast(null)}
+                    className="text-gray-500 hover:text-gray-300"
+                  >
+                    ×
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    if (currentEvent) {
+                      setShowEventModal(true);
+                      setToast(null);
+                    }
+                  }}
+                  className="w-full mt-2 bg-neon-green/20 hover:bg-neon-green/30 border border-neon-green text-terminal-green rounded py-2 text-xs font-semibold font-mono transition-all duration-300"
+                >
+                  RESPOND
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Event Decision Modal */}
+          {showEventModal && currentEvent && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[220] flex items-center justify-center p-4 fade-in">
+              <div className="w-full max-w-lg bg-gray-900 border-2 border-neon-green rounded-xl shadow-2xl p-4 flex flex-col gap-4 text-gray-200 font-mono glow-green">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className={`text-lg font-bold mb-2 ${
+                      currentEvent.severity === 'critical' ? 'text-severity-critical' :
+                      currentEvent.severity === 'high' ? 'text-severity-high' :
+                      currentEvent.severity === 'medium' ? 'text-severity-medium' :
+                      'text-severity-low'
+                    }`}>
+                      {currentEvent.title}
+                    </div>
+                    <div className="text-xs text-gray-400 mb-1">
+                      Severity: <span className={`font-semibold ${
+                        currentEvent.severity === 'critical' ? 'text-severity-critical' :
+                        currentEvent.severity === 'high' ? 'text-severity-high' :
+                        currentEvent.severity === 'medium' ? 'text-severity-medium' :
+                        'text-severity-low'
+                      }`}>{currentEvent.severity.toUpperCase()}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowEventModal(false);
+                      setCurrentEvent(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-300 text-xl"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-3 text-[11px] text-gray-300 leading-relaxed">
+                  {currentEvent.description}
+                </div>
+                {currentEvent.mitigationHint && (
+                  <div className="bg-blue-900/20 border-l-4 border-blue-500 p-3 text-[10px] text-gray-300 italic">
+                    <strong>Hint:</strong> {currentEvent.mitigationHint}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEventDecision('Acknowledge')}
+                    className="flex-1 bg-green-600/20 hover:bg-green-600/30 border border-green-500 text-green-300 rounded-lg py-2 text-xs font-semibold transition-all duration-300 hover:scale-105"
+                  >
+                    ACKNOWLEDGE
+                  </button>
+                  <button
+                    onClick={() => handleEventDecision('Escalate')}
+                    className="flex-1 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500 text-yellow-300 rounded-lg py-2 text-xs font-semibold transition-all duration-300 hover:scale-105"
+                  >
+                    ESCALATE
+                  </button>
+                  <button
+                    onClick={() => handleEventDecision('Ignore')}
+                    className="flex-1 bg-red-600/20 hover:bg-red-600/30 border border-red-500 text-red-300 rounded-lg py-2 text-xs font-semibold transition-all duration-300 hover:scale-105"
+                  >
+                    IGNORE
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Review Modal with fade-in */}
           {showReview && review && (
