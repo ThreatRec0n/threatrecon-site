@@ -1,84 +1,1018 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ThreatRecon Labs</title>
-  <link rel="preconnect" href="https://fonts.gstatic.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThreatRecon - Full Incident Lifecycle Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
   <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono:wght@400&display=swap');
+        
     body {
-      background: radial-gradient(circle at 20% 20%, #1a2337 0%, #0c1222 80%);
-      color: #f8fafc;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-      min-height: 100vh;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .card {
-      background: rgba(15,23,42,0.8);
-      border: 1px solid rgba(148,163,184,0.2);
-      border-radius: 16px;
-      box-shadow: 0 30px 80px rgba(0,0,0,0.8);
-      padding: 2rem 2.5rem;
-      max-width: 420px;
-      width: 90%;
-      text-align: center;
-    }
-    h1 {
-      font-size: 1.1rem;
-      font-weight: 500;
-      letter-spacing: -0.03em;
-      color: #94a3b8;
-      margin: 0 0 0.5rem;
-    }
-    h2 {
-      margin: 0;
-      font-size: 1.5rem;
-      line-height: 1.2;
-      font-weight: 600;
-      color: #f8fafc;
-    }
-    p {
-      font-size: 0.9rem;
-      line-height: 1.5rem;
-      color: #94a3b8;
-      margin: 1rem 0 2rem;
-    }
-    a.launch-btn {
-      background: linear-gradient(to right, #7f1d1d, #991b1b, #dc2626);
-      color: #fff;
-      font-weight: 600;
-      border-radius: 8px;
-      display: block;
-      padding: 0.8rem 1rem;
-      text-decoration: none;
-      box-shadow: 0 15px 40px rgba(220,38,38,0.4);
-      border: 1px solid rgba(255,255,255,0.12);
-    }
-    a.launch-btn:hover {
-      filter: brightness(1.08);
-    }
-    .foot {
-      font-size: 0.7rem;
-      margin-top: 1.5rem;
-      color: #475569;
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+        }
+        
+        .act {
+            display: none;
+        }
+        
+        .act.active {
+            display: block;
+        }
+        
+        .glow {
+            text-shadow: 0 0 10px currentColor;
+        }
+        
+        .terminal-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #10b981 #000;
+        }
+        
+        .terminal-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .terminal-scroll::-webkit-scrollbar-track {
+            background: #000;
+        }
+        
+        .terminal-scroll::-webkit-scrollbar-thumb {
+            background: #10b981;
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .pulse-red {
+            animation: pulseRed 0.5s;
+        }
+        
+        @keyframes pulseRed {
+            0%, 100% { background-color: #000; }
+            50% { background-color: #7f1d1d; }
     }
   </style>
 </head>
-<body>
-  <main class="card">
-    <h1>ThreatRecon Labs</h1>
-    <h2>Pick your side. Compromise or Contain.</h2>
-    <p>
-      Live-fire cyber range. You're either the intruder breaking in or the analyst
-      holding the line. Realistic CLI. Active adversary. Full incident report at
-      the end.
-    </p>
-    <a class="launch-btn" href="/labs.html">Enter Range</a>
-  </main>
+<body class="bg-black text-green-400 font-mono">
+    
+    <!-- Custom Modal Component -->
+    <div id="custom-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+        <div class="bg-gray-900 border-2 border-green-500 rounded-lg p-8 max-w-lg w-full mx-4 slide-in">
+            <div id="modal-content" class="text-green-400"></div>
+            <button id="modal-close" class="mt-6 w-full bg-green-500 hover:bg-green-600 text-black font-bold py-2 px-4 rounded">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div id="main-container" class="min-h-screen">
+        
+        <!-- ACT 1: FIREWALL LOCKDOWN -->
+        <div id="act-1-firewall" class="act active">
+            <div class="flex flex-col items-center justify-center min-h-screen p-8">
+                <h1 class="text-6xl font-bold mb-8 glow text-red-500">LOCKDOWN IN</h1>
+                <div id="firewall-timer" class="text-9xl font-bold glow text-red-500 mb-12">10</div>
+                
+                <div class="w-full max-w-4xl">
+                    <h2 class="text-2xl mb-6 text-center">Configure Firewall Rules</h2>
+                    <div id="firewall-rules" class="space-y-4">
+                        <!-- Firewall rules will be generated here -->
+                    </div>
+                    
+                    <div class="flex justify-center mt-8">
+                        <button id="lock-in-btn" class="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-8 rounded text-xl">
+                            LOCK IN
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACT 2: LIVE THREAT PURSUIT -->
+        <div id="act-2-pursuit" class="act">
+            <div class="flex flex-col lg:flex-row h-screen">
+                <!-- Packet Stream -->
+                <div class="flex-1 overflow-hidden bg-black">
+                    <div class="bg-gray-900 p-4 border-b-2 border-green-500">
+                        <h2 class="text-2xl glow">Live Network Traffic</h2>
+                    </div>
+                    <div id="packet-stream" class="terminal-scroll h-full p-6 space-y-2 text-sm overflow-y-auto">
+                        <!-- Packet logs will appear here -->
+                    </div>
+                </div>
+                
+                <!-- Network Status Panel -->
+                <div class="w-full lg:w-80 bg-gray-900 border-l-2 border-green-500 p-6">
+                    <h3 class="text-xl mb-4 glow">Network Status</h3>
+                    <div id="network-icons" class="space-y-4">
+                        <!-- Network icons will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACT 3: SOC TRIAGE DASHBOARD -->
+        <div id="act-3-triage" class="act">
+            <div class="flex flex-col lg:flex-row h-screen">
+                
+                <!-- Column 1: Alert Queue -->
+                <div class="w-full lg:w-80 bg-gray-900 border-r-2 border-green-500 p-6">
+                    <h3 class="text-xl mb-4 glow">Alert Queue</h3>
+                    <div id="alert-queue" class="space-y-4">
+                        <!-- Alert ticket will appear here -->
+                    </div>
+                </div>
+                
+                <!-- Column 2: Investigation Workbench -->
+                <div class="flex-1 bg-black p-6 overflow-y-auto">
+                    <div id="selected-alert" class="mb-6 hidden">
+                        <h3 class="text-2xl mb-4 glow">Investigation Workbench</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <!-- Host Info -->
+                            <div class="bg-gray-900 p-4 rounded border border-green-500">
+                                <h4 class="text-xl mb-2">Host Info</h4>
+                                <div id="host-info"></div>
+                            </div>
+                            
+                            <!-- Attacker Info -->
+                            <div class="bg-gray-900 p-4 rounded border border-green-500">
+                                <h4 class="text-xl mb-2">Attacker Info</h4>
+                                <div id="attacker-info"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Investigation Tools -->
+                        <div class="space-y-3">
+                            <button id="query-logs-btn" class="w-full bg-green-500 hover:bg-green-600 text-black font-bold py-2 px-4 rounded">
+                                Query Endpoint Logs
+                            </button>
+                            <button id="vt-ip-btn" class="w-full bg-green-500 hover:bg-green-600 text-black font-bold py-2 px-4 rounded">
+                                Run VirusTotal (IP)
+                            </button>
+                            <button id="vt-domain-btn" class="w-full bg-green-500 hover:bg-green-600 text-black font-bold py-2 px-4 rounded">
+                                Run VirusTotal (Domain)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Column 3: Actions & Triage -->
+                <div class="w-full lg:w-80 bg-gray-900 border-l-2 border-green-500 p-6">
+                    <h3 class="text-xl mb-4 glow">Actions & Triage</h3>
+                    
+                    <div class="space-y-3 mb-6">
+                        <h4 class="text-lg">Containment Actions</h4>
+                        <button id="isolate-btn" class="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded">
+                            Isolate Host
+                        </button>
+                        <button id="block-ip-btn" class="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded">
+                            Block IP
+                        </button>
+                        <button id="block-domain-btn" class="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded">
+                            Block Domain
+                        </button>
+                        <button id="reset-pw-btn" class="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded">
+                            Reset Password
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-3 mb-6">
+                        <h4 class="text-lg">Ticket Closure</h4>
+                        <select id="severity-select" class="w-full bg-black border border-green-500 rounded px-4 py-2 text-green-400">
+                            <option value="">Select Severity</option>
+                            <option value="Critical">Critical</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                        <select id="incident-type-select" class="w-full bg-black border border-green-500 rounded px-4 py-2 text-green-400">
+                            <option value="">Select Incident Type</option>
+                            <option value="Malware">Malware</option>
+                            <option value="Unauthorized Access">Unauthorized Access</option>
+                            <option value="Data Exfiltration">Data Exfiltration</option>
+                            <option value="DDoS">DDoS</option>
+                        </select>
+                    </div>
+                    
+                    <button id="close-ticket-btn" class="w-full bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-4 rounded text-lg">
+                        CLOSE TICKET
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACT 4: PERFORMANCE REVIEW -->
+        <div id="act-4-review" class="act">
+            <div class="flex flex-col items-center justify-center min-h-screen p-8">
+                <h1 class="text-5xl font-bold mb-12 glow">SHIFT COMPLETE</h1>
+                
+                <div id="review-content" class="w-full max-w-3xl bg-gray-900 p-8 rounded-lg border-2 border-green-500">
+                    <!-- Review data will appear here -->
+                </div>
+                
+                <div class="mt-8 space-x-4">
+                    <button id="next-shift-btn" class="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-8 rounded text-xl">
+                        START NEXT SHIFT
+                    </button>
+                    <button id="view-profile-btn" class="bg-blue-500 hover:bg-blue-600 text-black font-bold py-3 px-8 rounded text-xl">
+                        VIEW PROFILE
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // THREAT PRIMITIVES (The "$0 Database")
+        // ========================================
+        
+        const THREAT_PRIMITIVES = {
+            ATTACKER_IPS: [
+                "185.12.33.4", "104.22.1.88", "198.51.100.2", "203.0.113.10", 
+                "172.99.1.50", "94.168.11.77", "209.85.128.20"
+            ],
+            
+            ATTACKER_DOMAINS: [
+                "data-stream.xyz", "update-srvc.com", "cdn-analytics.net", 
+                "office365-verify.link", "secure-cdn.net", "api-tracking.com"
+            ],
+            
+            VECTORS: {
+                "RDP_Brute_Force": {
+                    name: "RDP Brute Force",
+                    port: 3389,
+                    firewallRule: "ALLOW_RDP",
+                    logs: [
+                        { type: "packet", content: "[SYN] {attacker_ip} -> {target_ip}:3389" },
+                        { type: "log", content: "EventID 4625: Failed Logon (User: admin)" },
+                        { type: "log", content: "EventID 4625: Failed Logon (User: administrator)" },
+                        { type: "log", content: "EventID 4625: Failed Logon (User: root)" },
+                        { type: "log", content: "EventID 4624: SUCCESSFUL LOGON (User: administrator)" }
+                    ]
+                },
+                "FTP_Brute_Force": {
+                    name: "FTP Anonymous Login",
+                    port: 21,
+                    firewallRule: "ALLOW_FTP",
+                    logs: [
+                        { type: "packet", content: "[SYN] {attacker_ip} -> {target_ip}:21" },
+                        { type: "log", content: "FTP Login: USER anonymous" },
+                        { type: "log", content: "FTP Login: PASS anonymous" },
+                        { type: "log", content: "FTP Login: 230 Login successful." }
+                    ]
+                },
+                "Phishing_Email": {
+                    name: "Phishing Payload (Internal)",
+                    firewallRule: "BYPASS",
+                    logs: [
+                        { type: "log", content: "User 'jdoe' opened suspicious email attachment..." },
+                        { type: "log", content: "Process 'powershell.exe' spawned with encoded command..." },
+                        { type: "log", content: "Outbound connection to {attacker_domain}:443 established." }
+                    ]
+                },
+                "SSH_Brute_Force": {
+                    name: "SSH Brute Force",
+                    port: 22,
+                    firewallRule: "ALLOW_SSH",
+                    logs: [
+                        { type: "packet", content: "[SYN] {attacker_ip} -> {target_ip}:22" },
+                        { type: "log", content: "Failed SSH login attempt for user: root" },
+                        { type: "log", content: "Failed SSH login attempt for user: admin" },
+                        { type: "log", content: "SUCCESSFUL SSH CONNECTION (User: root)" }
+                    ]
+                }
+            },
+            
+            PAYLOADS: {
+                "C2_Beacon": {
+                    name: "Cobalt Strike C2 Beacon",
+                    logs: [
+                        { type: "packet", content: "[SYN] {target_ip} -> {attacker_domain}:443" },
+                        { type: "log", content: "Outbound connection to {attacker_domain} (Known C2 infrastructure)" },
+                        { type: "log", content: "Process 'svchost.exe' performing anomalous DNS queries" }
+                    ],
+                    triageInfo: {
+                        ruleName: "C2 Beacon Detected",
+                        classification: "Malware Beacon"
+                    }
+                },
+                "Ransomware": {
+                    name: "LokiLocker Ransomware",
+                    logs: [
+                        { type: "log", content: "File Write: 'README.txt' on Desktop" },
+                        { type: "log", content: "File Write: 'document.pdf.loki'" },
+                        { type: "log", content: "File Write: 'backup.zip.loki'" },
+                        { type: "log", content: "Registry modification: HKEY_CURRENT_USER encrypted" }
+                    ],
+                    triageInfo: {
+                        ruleName: "Ransomware Activity Detected",
+                        classification: "Ransomware"
+                    }
+                },
+                "Data_Exfil": {
+                    name: "Data Exfiltration",
+                    logs: [
+                        { type: "log", content: "Large data transfer detected: 450MB -> {attacker_domain}" },
+                        { type: "log", content: "Multiple SQL queries: SELECT * FROM users" },
+                        { type: "log", content: "File encryption initiated on sensitive directories" }
+                    ],
+                    triageInfo: {
+                        ruleName: "Data Exfiltration Detected",
+                        classification: "Data Exfiltration"
+                    }
+                }
+            }
+        };
+
+        // ========================================
+        // AUDIO ENGINE
+        // ========================================
+        
+        const AudioEngine = {
+            init() {
+                this.synth = new Tone.Synth().toDestination();
+            },
+            
+            play(note, duration = '8n') {
+                try {
+                    this.synth.triggerAttackRelease(note, duration);
+                } catch (e) {
+                    console.log('Audio error:', e);
+                }
+            },
+            
+            click() {
+                this.play('C3', '16n');
+            },
+            
+            alert() {
+                this.play('G4', '8n');
+            },
+            
+            breach() {
+                this.play('A5', '4n');
+            },
+            
+            success() {
+                this.play('E5', '8n');
+            }
+        };
+
+        // ========================================
+        // MODAL SYSTEM
+        // ========================================
+        
+        const Modal = {
+            show(content) {
+                document.getElementById('modal-content').innerHTML = content;
+                document.getElementById('custom-modal').classList.remove('hidden');
+                AudioEngine.click();
+            },
+            
+            hide() {
+                document.getElementById('custom-modal').classList.add('hidden');
+            }
+        };
+
+        document.getElementById('modal-close').addEventListener('click', () => {
+            Modal.hide();
+        });
+
+        // ========================================
+        // ACT 1: FIREWALL LOCKDOWN
+        // ========================================
+        
+        const Act1 = {
+            init(callback) {
+                this.callback = callback;
+                this.firewallRules = [
+                    { name: 'RDP (3389)', rule: 'ALLOW_RDP', default: 'ALLOW' },
+                    { name: 'SSH (22)', rule: 'ALLOW_SSH', default: 'ALLOW' },
+                    { name: 'FTP (21)', rule: 'ALLOW_FTP', default: 'ALLOW' },
+                    { name: 'HTTP (80)', rule: 'ALLOW_HTTP', default: 'ALLOW' },
+                    { name: 'HTTPS (443)', rule: 'ALLOW_HTTPS', default: 'ALLOW' },
+                    { name: 'Telnet (23)', rule: 'ALLOW_TELNET', default: 'ALLOW' },
+                    { name: 'SMB (445)', rule: 'ALLOW_SMB', default: 'ALLOW' }
+                ];
+                this.timeLeft = 10;
+                this.firewallConfig = {};
+                this.timerInterval = null;
+                
+                this.renderRules();
+                this.startTimer();
+                this.setupEvents();
+            },
+            
+            renderRules() {
+                const container = document.getElementById('firewall-rules');
+                container.innerHTML = '';
+                
+                this.firewallRules.forEach(rule => {
+                    this.firewallConfig[rule.rule] = rule.default;
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center p-4 bg-gray-900 rounded border border-green-500';
+                    div.innerHTML = `
+                        <span class="text-xl">${rule.name}</span>
+                        <div class="space-x-2">
+                            <button class="allow-btn bg-green-500 hover:bg-green-600 text-black font-bold py-2 px-6 rounded" data-rule="${rule.rule}">ALLOW</button>
+                            <button class="block-btn bg-red-500 hover:bg-red-600 text-black font-bold py-2 px-6 rounded" data-rule="${rule.rule}">BLOCK</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+                
+                // Setup click handlers
+                container.querySelectorAll('.allow-btn, .block-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const rule = e.target.dataset.rule;
+                        const isAllow = e.target.classList.contains('allow-btn');
+                        this.firewallConfig[rule] = isAllow ? 'ALLOW' : 'BLOCK';
+                        AudioEngine.click();
+                    });
+                });
+            },
+            
+            startTimer() {
+                this.timerInterval = setInterval(() => {
+                    this.timeLeft--;
+                    document.getElementById('firewall-timer').textContent = this.timeLeft;
+                    
+                    if (this.timeLeft === 3) {
+                        AudioEngine.alert();
+                    }
+                    
+                    if (this.timeLeft <= 0) {
+                        clearInterval(this.timerInterval);
+                        this.complete();
+                    }
+                }, 1000);
+            },
+            
+            complete() {
+                clearInterval(this.timerInterval);
+                document.getElementById('firewall-timer').textContent = '0';
+                AudioEngine.alert();
+                
+                // Fade out and call callback
+                setTimeout(() => {
+                    this.callback(this.firewallConfig);
+                }, 500);
+            },
+            
+            setupEvents() {
+                document.getElementById('lock-in-btn').addEventListener('click', () => {
+                    clearInterval(this.timerInterval);
+                    this.complete();
+                });
+            }
+        };
+
+        // ========================================
+        // ACT 2: LIVE THREAT PURSUIT
+        // ========================================
+        
+        const Act2 = {
+            init(firewallConfig, scenario, onBreachCallback) {
+                this.firewallConfig = firewallConfig;
+                this.scenario = scenario;
+                this.onBreachCallback = onBreachCallback;
+                
+                // Clear previous content
+                document.getElementById('packet-stream').innerHTML = '';
+                document.getElementById('network-icons').innerHTML = `
+                    <div class="text-6xl">🖥️</div>
+                    <div class="text-4xl">🔒</div>
+                `;
+                
+                // Check if firewall blocked the attack
+                const vectorFirewallRule = scenario.vector.firewallRule;
+                
+                if (vectorFirewallRule !== "BYPASS" && firewallConfig[vectorFirewallRule] === "BLOCKED") {
+                    this.playBlockedAttack();
+                } else {
+                    this.playSuccessfulAttack();
+                }
+            },
+            
+            playBlockedAttack() {
+                this.addLog("[SYN] " + this.scenario.attackerIp + " -> YOUR_SERVER:" + this.scenario.vector.port, true);
+                
+                setTimeout(() => {
+                    this.addLog("[RST, ACK] FIREWALL BLOCKED", true);
+                    AudioEngine.success();
+                }, 2000);
+                
+                setTimeout(() => {
+                    this.addLog("THREAT BLOCKED. ATTEMPTING EVASION...", true);
+                }, 3000);
+                
+                // Launch phishing attack (bypasses firewall)
+                setTimeout(() => {
+                    this.launchBackupAttack();
+                }, 5000);
+            },
+            
+            launchBackupAttack() {
+                this.addLog("[NEW ATTACK] Phishing email payload activated internally...", true);
+                
+                const phishingLogs = this.fillPlaceholders(THREAT_PRIMITIVES.VECTORS.Phishing_Email.logs, 
+                                                          this.scenario.attackerIp, 
+                                                          "YOUR_SERVER",
+                                                          this.scenario.attackerDomain);
+                
+                this.playLogs(phishingLogs, this.scenario.payload.logs, false, true);
+            },
+            
+            playSuccessfulAttack() {
+                const vectorLogs = this.fillPlaceholders(this.scenario.vector.logs, 
+                                                        this.scenario.attackerIp, 
+                                                        "YOUR_SERVER",
+                                                        this.scenario.attackerDomain);
+                
+                // Append payload logs
+                const payloadLogs = this.fillPlaceholders(this.scenario.payload.logs,
+                                                          this.scenario.attackerIp,
+                                                          "YOUR_SERVER",
+                                                          this.scenario.attackerDomain);
+                
+                this.playLogs(vectorLogs, payloadLogs, true, false);
+            },
+            
+            fillPlaceholders(logs, ip, host, domain) {
+                return logs.map(log => {
+                    let content = log.content.replace(/{attacker_ip}/g, ip);
+                    content = content.replace(/{target_ip}/g, host);
+                    content = content.replace(/{attacker_domain}/g, domain);
+                    return { type: log.type, content: content };
+                });
+            },
+            
+            playLogs(vectorLogs, payloadLogs, showBreach, usePhishing) {
+                let index = 0;
+                const allLogs = [...vectorLogs, ...payloadLogs];
+                
+                const addNextLog = () => {
+                    if (index < allLogs.length) {
+                        const log = allLogs[index];
+                        this.addLog(log.content, log.type === 'packet');
+                        
+                        // Check if this is the breach moment
+                        if (showBreach && index === vectorLogs.length - 1) {
+                            setTimeout(() => {
+                                AudioEngine.breach();
+                                document.body.classList.add('pulse-red');
+                                setTimeout(() => {
+                                    document.body.classList.remove('pulse-red');
+                                }, 500);
+                                
+                                // Update network status
+                                document.getElementById('network-icons').innerHTML = `
+                                    <div class="text-6xl text-red-500 blink">⚠️</div>
+                                    <div class="text-4xl text-red-500">🔴</div>
+                                `;
+                            }, 500);
+                        }
+                        
+                        index++;
+                        setTimeout(addNextLog, 300 + Math.random() * 200);
+                    } else {
+                        // Move to Act 3
+                        setTimeout(() => {
+                            this.onBreachCallback();
+                        }, 2000);
+                    }
+                };
+                
+                addNextLog();
+            },
+            
+            addLog(content, isPacket = false) {
+                const stream = document.getElementById('packet-stream');
+                const logDiv = document.createElement('div');
+                logDiv.className = isPacket ? 'text-blue-400' : 'text-yellow-400';
+                logDiv.textContent = content;
+                stream.appendChild(logDiv);
+                stream.scrollTop = stream.scrollHeight;
+            }
+        };
+
+        // ========================================
+        // ACT 3: SOC TRIAGE DASHBOARD
+        // ========================================
+        
+        const Act3 = {
+            init(triageData, showReviewCallback) {
+                this.triageData = triageData;
+                this.showReviewCallback = showReviewCallback;
+                this.userActions = [];
+                this.selectedSeverity = '';
+                this.selectedIncidentType = '';
+                
+                this.renderAlert();
+                this.setupEvents();
+            },
+            
+            renderAlert() {
+                const queue = document.getElementById('alert-queue');
+                queue.innerHTML = `
+                    <div class="bg-red-900 border-2 border-red-500 rounded p-4 blink cursor-pointer" id="alert-ticket">
+                        <div class="font-bold text-red-400">CRITICAL</div>
+                        <div class="text-white text-2xl">${this.triageData.ticketId}</div>
+                        <div class="text-sm mt-2">${this.triageData.ruleName}</div>
+                    </div>
+                `;
+                
+                document.getElementById('alert-ticket').addEventListener('click', () => {
+                    this.selectAlert();
+                });
+            },
+            
+            selectAlert() {
+                document.getElementById('selected-alert').classList.remove('hidden');
+                
+                // Render Host Info
+                document.getElementById('host-info').innerHTML = `
+                    <div class="text-sm space-y-1">
+                        <div>Hostname: YOUR_SERVER</div>
+                        <div class="text-red-400">Status: COMPROMISED</div>
+                        <div>OS: Windows Server 2019</div>
+                    </div>
+                `;
+                
+                // Render Attacker Info
+                document.getElementById('attacker-info').innerHTML = `
+                    <div class="text-sm space-y-1">
+                        <div>Source IP: ${this.triageData.attackerIp}</div>
+                        <div>Attacker Domain: ${this.triageData.attackerDomain}</div>
+                        <div class="text-red-400">Threat Level: CRITICAL</div>
+                    </div>
+                `;
+                
+                AudioEngine.click();
+            },
+            
+            setupEvents() {
+                // Investigation Tools
+                document.getElementById('query-logs-btn').addEventListener('click', () => {
+                    const logsText = this.triageData.endpointLogs.map(log => log.content).join('\n');
+                    Modal.show(`
+                        <h3 class="text-2xl mb-4">Endpoint Logs</h3>
+                        <pre class="text-sm bg-black p-4 rounded overflow-auto max-h-96">${logsText}</pre>
+                    `);
+                    AudioEngine.alert();
+                });
+                
+                document.getElementById('vt-ip-btn').addEventListener('click', () => {
+                    const vtData = this.triageData.threatIntel[this.triageData.attackerIp];
+                    Modal.show(`
+                        <h3 class="text-2xl mb-4">VirusTotal Report</h3>
+                        <div class="text-lg">${this.triageData.attackerIp}</div>
+                        <div class="text-red-400 mt-4">${vtData}</div>
+                    `);
+                    AudioEngine.alert();
+                });
+                
+                document.getElementById('vt-domain-btn').addEventListener('click', () => {
+                    const vtData = this.triageData.threatIntel[this.triageData.attackerDomain];
+                    Modal.show(`
+                        <h3 class="text-2xl mb-4">VirusTotal Report</h3>
+                        <div class="text-lg">${this.triageData.attackerDomain}</div>
+                        <div class="text-red-400 mt-4">${vtData}</div>
+                    `);
+                    AudioEngine.alert();
+                });
+                
+                // Containment Actions
+                document.getElementById('isolate-btn').addEventListener('click', () => {
+                    if (!this.userActions.includes('ISOLATE_HOST')) {
+                        this.userActions.push('ISOLATE_HOST');
+                        AudioEngine.click();
+                    }
+                });
+                
+                document.getElementById('block-ip-btn').addEventListener('click', () => {
+                    if (!this.userActions.includes('BLOCK_IP')) {
+                        this.userActions.push('BLOCK_IP');
+                        AudioEngine.click();
+                    }
+                });
+                
+                document.getElementById('block-domain-btn').addEventListener('click', () => {
+                    if (!this.userActions.includes('BLOCK_DOMAIN')) {
+                        this.userActions.push('BLOCK_DOMAIN');
+                        AudioEngine.click();
+                    }
+                });
+                
+                document.getElementById('reset-pw-btn').addEventListener('click', () => {
+                    if (!this.userActions.includes('RESET_PASSWORD')) {
+                        this.userActions.push('RESET_PASSWORD');
+                        AudioEngine.click();
+                    }
+                });
+                
+                // Dropdowns
+                document.getElementById('severity-select').addEventListener('change', (e) => {
+                    this.selectedSeverity = e.target.value;
+                });
+                
+                document.getElementById('incident-type-select').addEventListener('change', (e) => {
+                    this.selectedIncidentType = e.target.value;
+                });
+                
+                // Close Ticket
+                document.getElementById('close-ticket-btn').addEventListener('click', () => {
+                    if (!this.selectedSeverity || !this.selectedIncidentType) {
+                        Modal.show('<div class="text-red-400">Please select severity and incident type before closing the ticket.</div>');
+                        return;
+                    }
+                    
+                    this.processTicket();
+                });
+            },
+            
+            processTicket() {
+                const userSolution = {
+                    actions: this.userActions,
+                    classification: this.selectedIncidentType
+                };
+                
+                const correctSolution = this.triageData.correctSolution;
+                
+                // Calculate grade
+                let correctActions = 0;
+                userSolution.actions.forEach(action => {
+                    if (correctSolution.actions.includes(action)) {
+                        correctActions++;
+                    }
+                });
+                
+                const grade = this.calculateGrade(correctActions, correctSolution.actions.length);
+                const xp = this.calculateXP(correctActions, correctSolution.actions.length);
+                
+                this.showReviewCallback({
+                    incidentType: this.triageData.ruleName,
+                    userSolution: userSolution,
+                    correctSolution: correctSolution,
+                    grade: grade,
+                    xp: xp,
+                    performance: {
+                        correctActions: correctActions,
+                        totalActions: correctSolution.actions.length
+                    }
+                });
+            },
+            
+            calculateGrade(correct, total) {
+                const percentage = correct / total;
+                if (percentage === 1) return 'A+';
+                if (percentage >= 0.8) return 'A-';
+                if (percentage >= 0.6) return 'B+';
+                if (percentage >= 0.4) return 'B-';
+                if (percentage >= 0.2) return 'C';
+                return 'D';
+            },
+            
+            calculateXP(correct, total) {
+                const percentage = correct / total;
+                return Math.floor(500 * percentage) + (percentage === 1 ? 200 : 0);
+            }
+        };
+
+        // ========================================
+        // ACT 4: PERFORMANCE REVIEW
+        // ========================================
+        
+        const Act4 = {
+            init(reviewData) {
+                this.reviewData = reviewData;
+                this.render();
+            },
+            
+            render() {
+                const content = document.getElementById('review-content');
+                content.innerHTML = `
+                    <h2 class="text-3xl mb-6">Incident Handled: ${this.reviewData.incidentType}</h2>
+                    
+                    <div class="mb-6 space-y-4">
+                        <div>
+                            <strong>Your Actions:</strong> ${this.reviewData.userSolution.actions.join(', ') || 'None'}
+                        </div>
+                        <div>
+                            <strong>Correct Actions:</strong> ${this.reviewData.correctSolution.actions.join(', ')}
+                        </div>
+                        <div>
+                            <strong>Performance:</strong> ${this.reviewData.performance.correctActions}/${this.reviewData.performance.totalActions} actions correct
+                        </div>
+                        <div class="text-4xl font-bold ${this.getGradeColor(this.reviewData.grade)}">
+                            Grade: ${this.reviewData.grade}
+                        </div>
+                        <div class="text-2xl">
+                            XP Gained: +${this.reviewData.xp} XP
+                        </div>
+                    </div>
+                `;
+            },
+            
+            getGradeColor(grade) {
+                if (grade.startsWith('A')) return 'text-green-400';
+                if (grade.startsWith('B')) return 'text-yellow-400';
+                if (grade.startsWith('C')) return 'text-orange-400';
+                return 'text-red-400';
+            }
+        };
+
+        // ========================================
+        // GAME ENGINE (The "Brain")
+        // ========================================
+        
+        const GameEngine = {
+            state: {
+                playerProfile: {
+                    rank: "Trainee",
+                    xp: 0,
+                    incidentsHandled: 0,
+                    correctTriages: 0,
+                    avgContainmentTime: 0
+                }
+            },
+            
+            currentScenario: {},
+            
+            init() {
+                console.log("Game Engine Initialized.");
+                AudioEngine.init();
+                this.loadProfile();
+                this.showAct('act-1-firewall');
+                this.currentScenario = this.generateDynamicScenario();
+                Act1.init(this.startAttack.bind(this));
+            },
+            
+            generateDynamicScenario() {
+                console.log("Generating new dynamic threat...");
+                
+                const attackerIp = this.getRandom(THREAT_PRIMITIVES.ATTACKER_IPS);
+                const attackerDomain = this.getRandom(THREAT_PRIMITIVES.ATTACKER_DOMAINS);
+                const vectorKey = this.getRandom(Object.keys(THREAT_PRIMITIVES.VECTORS));
+                const payloadKey = this.getRandom(Object.keys(THREAT_PRIMITIVES.PAYLOADS));
+                
+                const vector = THREAT_PRIMITIVES.VECTORS[vectorKey];
+                const payload = THREAT_PRIMITIVES.PAYLOADS[payloadKey];
+                
+                const dynamicTriageData = {
+                    ticketId: `INC-${Math.floor(1000 + Math.random() * 9000)}`,
+                    ruleName: `${vector.name} with ${payload.name}`,
+                    attackerIp: attackerIp,
+                    attackerDomain: attackerDomain,
+                    targetHost: "YOUR_SERVER",
+                    
+                    endpointLogs: this.fillPlaceholders(vector.logs, attackerIp, "YOUR_SERVER", attackerDomain)
+                                     .concat(this.fillPlaceholders(payload.logs, attackerIp, "YOUR_SERVER", attackerDomain)),
+                    
+                    threatIntel: {
+                        [attackerIp]: "MALICIOUS (50/90 vendors).",
+                        [attackerDomain]: "MALICIOUS (78/90 vendors)."
+                    },
+                    
+                    correctSolution: {
+                        actions: ["ISOLATE_HOST", "BLOCK_IP", "BLOCK_DOMAIN"],
+                        classification: payload.triageInfo.classification
+                    }
+                };
+                
+                const scenario = {
+                    vector: vector,
+                    payload: payload,
+                    attackerIp: attackerIp,
+                    attackerDomain: attackerDomain,
+                    triageData: dynamicTriageData
+                };
+                
+                console.log("Generated Scenario:", scenario);
+                return scenario;
+            },
+            
+            startAttack(firewallConfig) {
+                this.showAct('act-2-pursuit');
+                Act2.init(
+                    firewallConfig,
+                    this.currentScenario,
+                    this.triggerTriage.bind(this)
+                );
+            },
+            
+            triggerTriage() {
+                this.showAct('act-3-triage');
+                Act3.init(
+                    this.currentScenario.triageData,
+                    this.showReview.bind(this)
+                );
+            },
+            
+            showReview(reviewData) {
+                this.showAct('act-4-review');
+                
+                // Update profile
+                this.state.playerProfile.xp += reviewData.xp;
+                this.state.playerProfile.incidentsHandled++;
+                if (reviewData.grade.startsWith('A')) {
+                    this.state.playerProfile.correctTriages++;
+                }
+                
+                // Calculate rank
+                if (this.state.playerProfile.xp >= 5000) {
+                    this.state.playerProfile.rank = "Senior Analyst";
+                } else if (this.state.playerProfile.xp >= 2000) {
+                    this.state.playerProfile.rank = "Junior Analyst";
+                }
+                
+                this.saveProfile();
+                Act4.init(reviewData);
+                
+                // Setup buttons
+                document.getElementById('next-shift-btn').addEventListener('click', () => {
+                    this.init();
+                });
+                
+                document.getElementById('view-profile-btn').addEventListener('click', () => {
+                    Modal.show(`
+                        <h3 class="text-2xl mb-4">Analyst Profile</h3>
+                        <div class="space-y-2">
+                            <div><strong>Rank:</strong> ${this.state.playerProfile.rank}</div>
+                            <div><strong>Total XP:</strong> ${this.state.playerProfile.xp}</div>
+                            <div><strong>Incidents Handled:</strong> ${this.state.playerProfile.incidentsHandled}</div>
+                            <div><strong>Correct Triages:</strong> ${this.state.playerProfile.correctTriages}</div>
+                        </div>
+                    `);
+                });
+            },
+            
+            showAct(actId) {
+                document.querySelectorAll('.act').forEach(act => {
+                    act.classList.remove('active');
+                });
+                document.getElementById(actId).classList.add('active');
+            },
+            
+            saveProfile() {
+                localStorage.setItem('threatReconProfile', JSON.stringify(this.state.playerProfile));
+            },
+            
+            loadProfile() {
+                const saved = localStorage.getItem('threatReconProfile');
+                if (saved) {
+                    this.state.playerProfile = JSON.parse(saved);
+                }
+            },
+            
+            getRandom(arr) {
+                return arr[Math.floor(Math.random() * arr.length)];
+            },
+            
+            fillPlaceholders(logs, ip, host, domain) {
+                return logs.map(log => {
+                    let content = log.content.replace(/{attacker_ip}/g, ip);
+                    content = content.replace(/{target_ip}/g, host);
+                    content = content.replace(/{attacker_domain}/g, domain);
+                    return { type: log.type, content: content };
+                });
+            }
+        };
+
+        // ========================================
+        // START THE GAME
+        // ========================================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            GameEngine.init();
+        });
+    </script>
 </body>
 </html>
-
