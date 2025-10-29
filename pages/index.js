@@ -28,15 +28,52 @@ export default function Home() {
   const [showEventModal, setShowEventModal] = useState(false);
   const [toast, setToast] = useState(null);
   const [tickerEvents, setTickerEvents] = useState([]);
+  const [eventHistory, setEventHistory] = useState([]);
+  const [eventFilter, setEventFilter] = useState('all');
+  const [isPaused, setIsPaused] = useState(false);
+  const [teamScore, setTeamScore] = useState(1000);
+  const [aiAnalystMessages, setAiAnalystMessages] = useState([]);
+  const [soundGlowActive, setSoundGlowActive] = useState(false);
   const progressIntervalRef = useRef(null);
   const eventIntervalRef = useRef(null);
   const tickerRef = useRef(null);
+  const eventDebounceRef = useRef(null);
+  const aiResponseTimeoutRef = useRef(null);
+
+  // Sound cue function
+  const playEventSound = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
+        
+        // Trigger glow animation
+        setSoundGlowActive(true);
+        setTimeout(() => setSoundGlowActive(false), 500);
+      } catch (e) {
+        // Fallback if audio context unavailable
+        console.log('Audio context unavailable');
+      }
+    }
+  };
 
   useEffect(() => {
     // Fade-in on page load
     setFadeIn(true);
     
-    // Load profile from localStorage if available
+    // Load profile and persistent data from localStorage if available
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('threatReconProfile_v2');
       if (saved) {
@@ -44,6 +81,31 @@ export default function Home() {
           setProfile(JSON.parse(saved));
         } catch (e) {
           console.error('Failed to load profile:', e);
+        }
+      }
+      
+      // Load persistent score
+      const savedScore = localStorage.getItem('threatReconScore_v1');
+      if (savedScore) {
+        try {
+          const score = parseInt(savedScore, 10);
+          if (!isNaN(score)) {
+            setRealTimeScore(score);
+            setTeamScore(score);
+          }
+        } catch (e) {
+          console.error('Failed to load score:', e);
+        }
+      }
+      
+      // Load event history (last 20)
+      const savedHistory = localStorage.getItem('eventHistory_v1');
+      if (savedHistory) {
+        try {
+          const history = JSON.parse(savedHistory);
+          setEventHistory(history.slice(-20)); // Keep last 20
+        } catch (e) {
+          console.error('Failed to load event history:', e);
         }
       }
     }
@@ -63,29 +125,87 @@ export default function Home() {
       
       // Trigger AI events during active shift (every 15-25 seconds)
       eventIntervalRef.current = setInterval(async () => {
-        try {
-          const response = await fetch('/api/events/trigger', { method: 'POST' });
-          const event = await response.json();
-          
-          setAiEvents(prev => [...prev, event]);
-          setTickerEvents(prev => [...prev, `${event.title} [${event.severity.toUpperCase()}]`]);
-          setCurrentEvent(event);
-          setShowEventModal(true);
-          
-          // Show toast notification
-          setToast({
-            id: event.id,
-            title: event.title,
-            severity: event.severity,
-          });
-          
-          // Auto-fade toast after 10 seconds
-          setTimeout(() => {
-            setToast(null);
-          }, 10000);
-        } catch (error) {
-          console.error('Failed to trigger event:', error);
+        if (isPaused) return;
+        
+        // Debounce to prevent overlap
+        if (eventDebounceRef.current) {
+          clearTimeout(eventDebounceRef.current);
         }
+        
+        eventDebounceRef.current = setTimeout(async () => {
+          try {
+            const response = await fetch('/api/events/trigger', { method: 'POST' });
+            const event = await response.json();
+            
+            // Play sound cue
+            playEventSound();
+            
+            // Add to history (keep last 20)
+            setEventHistory(prev => {
+              const updated = [...prev, event].slice(-20);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('eventHistory_v1', JSON.stringify(updated));
+              }
+              return updated;
+            });
+            
+            setAiEvents(prev => [...prev, event]);
+            setTickerEvents(prev => [...prev, `${event.title} [${event.severity.toUpperCase()}]`]);
+            setCurrentEvent(event);
+            setShowEventModal(true);
+            
+            // Show toast notification
+            setToast({
+              id: event.id,
+              title: event.title,
+              severity: event.severity,
+            });
+            
+            // Auto-fade toast after 10 seconds
+            setTimeout(() => {
+              setToast(null);
+            }, 10000);
+            
+            // AI analyst auto-respond after 3-5 seconds
+            const aiResponseDelay = 3000 + Math.random() * 2000;
+            aiResponseTimeoutRef.current = setTimeout(() => {
+              const analysts = ['AI-Echo-1', 'AI-Echo-2'];
+              const analyst = analysts[Math.floor(Math.random() * analysts.length)];
+              const decisions = ['escalated', 'acknowledged', 'analyzing'];
+              const decision = decisions[Math.floor(Math.random() * decisions.length)];
+              
+              const message = {
+                id: `msg-${Date.now()}`,
+                analyst: analyst,
+                action: decision,
+                event: event.title,
+                timestamp: new Date().toISOString(),
+              };
+              
+              setAiAnalystMessages(prev => [...prev, message].slice(-10));
+              
+              // Update team score based on AI decision
+              let scoreChange = 0;
+              if (decision === 'escalated' && ['high', 'critical'].includes(event.severity)) {
+                scoreChange = +10;
+              } else if (decision === 'acknowledged') {
+                scoreChange = +10;
+              } else {
+                scoreChange = -10;
+              }
+              
+              setTeamScore(prev => {
+                const newScore = Math.max(0, prev + scoreChange);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('threatReconTeamScore_v1', newScore.toString());
+                }
+                return newScore;
+              });
+            }, aiResponseDelay);
+          } catch (error) {
+            console.error('Failed to trigger event:', error);
+          }
+        }, 300); // 300ms debounce
       }, 15000 + Math.random() * 10000); // Random 15-25 second intervals
     } else {
       if (progressIntervalRef.current) {
@@ -93,6 +213,12 @@ export default function Home() {
       }
       if (eventIntervalRef.current) {
         clearInterval(eventIntervalRef.current);
+      }
+      if (aiResponseTimeoutRef.current) {
+        clearTimeout(aiResponseTimeoutRef.current);
+      }
+      if (eventDebounceRef.current) {
+        clearTimeout(eventDebounceRef.current);
       }
       setShiftProgress(0);
     }
@@ -104,8 +230,14 @@ export default function Home() {
       if (eventIntervalRef.current) {
         clearInterval(eventIntervalRef.current);
       }
+      if (aiResponseTimeoutRef.current) {
+        clearTimeout(aiResponseTimeoutRef.current);
+      }
+      if (eventDebounceRef.current) {
+        clearTimeout(eventDebounceRef.current);
+      }
     };
-  }, [shiftActive]);
+  }, [shiftActive, isPaused]);
 
   const handleClockIn = async () => {
     setLoading(true);
@@ -248,12 +380,25 @@ export default function Home() {
         scoreChange = +10;
       }
       
-      setRealTimeScore(prev => Math.max(0, prev + scoreChange));
+      const newScore = Math.max(0, realTimeScore + scoreChange);
+      setRealTimeScore(newScore);
+      
+      // Save persistent score
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('threatReconScore_v1', newScore.toString());
+      }
     }
     
     setShowEventModal(false);
     setCurrentEvent(null);
   };
+
+  const filteredEventHistory = eventHistory.filter(event => {
+    if (eventFilter === 'all') return true;
+    if (eventFilter === 'high') return event.severity === 'high' || event.severity === 'critical';
+    if (eventFilter === 'critical') return event.severity === 'critical';
+    return true;
+  });
 
   return (
     <>
@@ -306,8 +451,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* Title Banner */}
-          <div className="title-banner fade-in mb-6">
+          {/* Title Banner with Sound Glow */}
+          <div className={`title-banner fade-in mb-6 ${soundGlowActive ? 'animate-sound-glow' : ''}`}>
             <h1 className="text-2xl md:text-3xl font-bold text-terminal-green font-mono tracking-wider">
               THREATRECON SOC SIMULATOR
             </h1>
@@ -346,7 +491,7 @@ export default function Home() {
                   Active Analysts
                 </span>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 mb-4">
                 <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-mono text-terminal-green">AI-Echo-1</span>
@@ -368,6 +513,28 @@ export default function Home() {
                   <div className="text-[10px] text-gray-400 font-mono">Monitoring C2 traffic</div>
                 </div>
               </div>
+              
+              {/* Team Score */}
+              <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-3 mb-3">
+                <div className="text-[10px] text-gray-400 font-mono mb-1">Team Score</div>
+                <div className={`text-lg font-bold font-mono ${teamScore >= 1000 ? 'text-terminal-green' : teamScore >= 500 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {teamScore}
+                </div>
+              </div>
+              
+              {/* AI Analyst Messages */}
+              {aiAnalystMessages.length > 0 && (
+                <div className="border-t border-gray-700 pt-3">
+                  <div className="text-[10px] text-gray-400 font-mono mb-2 uppercase">Recent Activity</div>
+                  <div className="space-y-2 max-h-[120px] overflow-y-auto">
+                    {aiAnalystMessages.slice(-5).map((msg) => (
+                      <div key={msg.id} className="bg-terminal-green/10 border-l-2 border-terminal-green p-2 rounded text-[9px] font-mono text-gray-300 fade-in">
+                        <span className="text-terminal-green">{msg.analyst}</span> {msg.action} <span className="text-gray-500 italic">{msg.event}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Main Content Grid (2 columns on desktop) */}
@@ -484,8 +651,94 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Event History Card */}
+            <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl p-4 flex flex-col min-h-[220px] md:col-span-2 card-glow fade-in">
+              <div className="text-xs uppercase tracking-wide text-gray-400 mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-gray-200 font-semibold text-sm">
+                  <span className={`h-2 w-2 rounded-full bg-terminal-green ${soundGlowActive ? 'animate-sound-glow' : ''}`}></span>
+                  Event History
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEventFilter('all')}
+                    className={`px-2 py-1 rounded text-[10px] font-mono transition-all ${
+                      eventFilter === 'all' 
+                        ? 'bg-terminal-green/20 border border-terminal-green text-terminal-green' 
+                        : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-300'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setEventFilter('high')}
+                    className={`px-2 py-1 rounded text-[10px] font-mono transition-all ${
+                      eventFilter === 'high' 
+                        ? 'bg-orange-600/20 border border-orange-500 text-orange-400' 
+                        : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-300'
+                    }`}
+                  >
+                    High+
+                  </button>
+                  <button
+                    onClick={() => setEventFilter('critical')}
+                    className={`px-2 py-1 rounded text-[10px] font-mono transition-all ${
+                      eventFilter === 'critical' 
+                        ? 'bg-red-600/20 border border-red-500 text-red-400' 
+                        : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-300'
+                    }`}
+                  >
+                    Critical
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 bg-gray-950 border border-gray-700/70 rounded-lg p-2 overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-y-auto text-[11px] leading-relaxed font-mono text-gray-300 space-y-2 max-h-[200px]">
+                  {filteredEventHistory.length === 0 ? (
+                    <div className="text-gray-500 italic text-center py-4">No event history yet.</div>
+                  ) : (
+                    filteredEventHistory.slice(-10).reverse().map((event, idx) => {
+                      const severityClasses = {
+                        critical: 'bg-gradient-severity-critical border-l-4 border-severity-critical text-severity-critical',
+                        high: 'bg-gradient-severity-high border-l-4 border-severity-high text-severity-high',
+                        medium: 'bg-gradient-severity-medium border-l-4 border-severity-medium text-severity-medium',
+                        low: 'bg-gradient-severity-low border-l-4 border-severity-low text-severity-low',
+                      };
+                      const className = severityClasses[event.severity] || severityClasses.medium;
+                      const eventTime = new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      
+                      return (
+                        <div key={event.id || idx} className={`${className} p-2 rounded fade-in`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-[10px]">{event.title}</span>
+                            <span className="text-[9px] text-gray-500">{eventTime}</span>
+                          </div>
+                          {event.intelBlurb && (
+                            <div className="text-[9px] text-gray-400 italic mt-1">{event.intelBlurb}</div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Shift Control Card */}
             <div className="bg-gray-900/80 border-2 border-red-500 rounded-xl shadow-xl p-4 flex flex-col md:col-span-2 card-glow fade-in">
+              <div className="flex gap-2 mb-3">
+                {shiftActive && (
+                  <button
+                    onClick={() => setIsPaused(!isPaused)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-mono transition-all ${
+                      isPaused 
+                        ? 'bg-yellow-600 hover:bg-yellow-500 text-white border border-yellow-400' 
+                        : 'bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600'
+                    }`}
+                  >
+                    {isPaused ? '▶ RESUME' : '⏸ PAUSE'}
+                  </button>
+                )}
+              </div>
               <button
                 onClick={handleClockIn}
                 disabled={loading || shiftActive}
@@ -587,6 +840,11 @@ export default function Home() {
                 {currentEvent.mitigationHint && (
                   <div className="bg-blue-900/20 border-l-4 border-blue-500 p-3 text-[10px] text-gray-300 italic">
                     <strong>Hint:</strong> {currentEvent.mitigationHint}
+                  </div>
+                )}
+                {currentEvent.intelBlurb && (
+                  <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 text-[10px] text-gray-400 font-mono">
+                    <strong className="text-gray-300">Intel:</strong> {currentEvent.intelBlurb}
                   </div>
                 )}
                 <div className="flex gap-2">
