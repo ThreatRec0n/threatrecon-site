@@ -1,11 +1,19 @@
 "use client";
 import React, { useState, useMemo } from 'react';
+import { createAudioContext } from '../lib/audio-safe';
 import { safeIso } from '../lib/safe-time';
 
 function RtpPlayer({ packet }) {
   const [url, setUrl] = useState(null);
   const [blob, setBlob] = useState(null);
   const [error, setError] = useState(null);
+  const [ac, setAc] = useState(null);
+  const startAudio = () => {
+    if (!ac) {
+      const ctx = createAudioContext();
+      if (ctx) setAc(ctx);
+    }
+  };
   
   const handleBuild = async () => {
     try {
@@ -48,6 +56,9 @@ function RtpPlayer({ packet }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
+        {!ac && (
+          <button onClick={startAudio} className="px-3 py-1 text-[11px] font-mono rounded border border-gray-700 text-gray-200 hover:bg-gray-800 transition-colors">Enable audio</button>
+        )}
         <button 
           onClick={handleBuild} 
           className="px-3 py-1 text-[11px] font-mono rounded border border-gray-700 text-gray-200 hover:bg-gray-800 transition-colors"

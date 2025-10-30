@@ -1,20 +1,13 @@
-import Head from 'next/head';
-import Script from 'next/script';
-import ErrorBoundary from '../components/ErrorBoundary';
+import '../styles/globals.css';
+import { useState } from 'react';
 
-export default function App({ Component, pageProps }) {
-  return (
-    <ErrorBoundary>
-      <Head>
-        <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta httpEquiv="Cache-Control" content="no-store" />
-        <title>ThreatRecon.io SOC Simulator</title>
-      </Head>
-      {/* Tone.js for audio effects */}
-      <Script src="https://unpkg.com/tone@14.8.49/build/Tone.js" strategy="lazyOnload" />
-      <Component {...pageProps} />
-    </ErrorBoundary>
-  );
+function Boundary({ children }) {
+  const [err, setErr] = useState(null);
+  if (err) return <div style={{color:'#fff',padding:24}}>System recovered from a render error. Try New Round.</div>;
+  return <ErrorCatcher onError={setErr}>{children}</ErrorCatcher>;
 }
+function ErrorCatcher({ onError, children }) {
+  try { return children; } catch (e) { console.error('render error', e); onError(e); return null; }
+}
+export default function App({ Component, pageProps }) { return <Boundary><Component {...pageProps} /></Boundary>; }
 

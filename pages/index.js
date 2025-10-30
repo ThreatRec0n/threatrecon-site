@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import Head from 'next/head';
+import dynamic from 'next/dynamic';
+export async function getStaticProps(){ return { props:{}, revalidate: 300 }; }
+const HomeApp = dynamic(() => import('../components/HomeApp'), { ssr: false });
+export default function Page(){ return <HomeApp />; }
 import PacketList from '../components/PacketList';
 import PacketDetail from '../components/PacketDetail';
 import ChallengeEngine from '../components/ChallengeEngine';
