@@ -1,3 +1,13 @@
+.vercel
+.next
+out
+dist
+build
+node_modules
+npm-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+*.local
 # Dependencies
 node_modules/
 .pnp
