@@ -16,6 +16,7 @@ import ProtocolGuideModal from './ProtocolGuideModal';
 import ProtocolIntelModal from './ProtocolIntelModal';
 import StudyPackModal from './StudyPackModal';
 import { buildTcpStreams } from '../lib/stream-builder';
+import FlowOverlay from './FlowUI/FlowOverlay';
 
 export default function HomeApp(){
   useEffect(()=>{ console.log('Home mounted OK'); },[]);
@@ -35,6 +36,8 @@ export default function HomeApp(){
   const [showStudyPack, setShowStudyPack] = useState(false);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState('beginner');
+  const [showFlow, setShowFlow] = useState(false);
+  const [flowEngine, setFlowEngine] = useState(null);
 
   const packets = roundPackets;
   const markedCount = useEvidenceCount(markedPacketIds);
@@ -95,6 +98,23 @@ export default function HomeApp(){
     }
   };
 
+  const handleStartFlow = async () => {
+    try {
+      const { default: FlowEngine } = await import('../modes/flow/FlowEngine.js');
+      const scenario = (await import('../modes/flow/flow-scenarios/flow-bank-heist.json', { assert: { type: 'json' } })).default;
+      const engine = new FlowEngine({ scenarioJson: scenario, difficulty: level });
+      const start = engine.start();
+      setFlowEngine(engine);
+      setRoundPackets(start.packets || engine.packets || []);
+      setSelectedPacketId(null);
+      setMarkedPacketIds([]);
+      setShowFlow(true);
+    } catch (e) {
+      console.error('Flow mode failed to start', e);
+      toast('Failed to start Flow mode');
+    }
+  };
+
   const handleSelectPacket = (packetId) => {
     setSelectedPacketId(packetId);
     setTimeout(() => {
@@ -137,6 +157,7 @@ export default function HomeApp(){
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={handleNewRound} className="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-lg border border-red-400 px-3 py-1.5 font-mono">NEW ROUND</button>
+              <button onClick={handleStartFlow} className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-lg border border-indigo-400 px-3 py-1.5 font-mono">FLOW MODE</button>
               <span aria-label={roundHealth==='ok'?'Round healthy':'Round warning'} className={`inline-block h-2 w-2 rounded-full ${roundHealth==='ok'?'bg-green-500':'bg-amber-400'}`}></span>
               <div className="px-3 py-1 rounded-md border border-zinc-700 text-zinc-200 font-mono text-[11px]">Packets: {visibleCount}/{budget} • Evidence marked: {markedCount}</div>
               <button onClick={()=>setShowHelp(true)} className="bg-gray-700 hover:bg-gray-600 text-white font-semibold text-xs rounded-lg border border-gray-600 px-3 py-1.5 font-mono">HELP</button>
@@ -167,6 +188,9 @@ export default function HomeApp(){
         <ProtocolGuideModal open={showProtocolGuide} onClose={() => setShowProtocolGuide(false)} />
         {showIntel && <ProtocolIntelModal open onClose={() => setShowIntel(false)} />}
         <StudyPackModal isOpen={showStudyPack} onClose={() => setShowStudyPack(false)} />
+      {showFlow && flowEngine && (
+        <FlowOverlay engine={flowEngine} onClose={() => setShowFlow(false)} />
+      )}
       </div>
     </>
   );
