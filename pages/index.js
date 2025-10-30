@@ -7,6 +7,7 @@ import ScenarioPicker from '../components/ScenarioPicker';
 import VoipPanel from '../components/VoipPanel';
 import TimelinePlayer from '../components/TimelinePlayer';
 import { createRound } from '../lib/round-engine';
+import { toast } from '../utils/toast';
 import HelpModal from '../components/HelpModal';
 import ProtocolGuideModal from '../components/ProtocolGuideModal';
 import ProtocolIntelModal from '../components/ProtocolIntelModal';
@@ -114,10 +115,9 @@ export default function Home() {
 
     } catch (err) {
       console.error('New round failed', err);
-      // Show friendly error instead of full reload
-      alert('Could not start a new round. Please try again. Error: ' + err.message);
+      // Show friendly non-blocking toast instead of full reload/alert
+      toast('New Round failed. State was reset. Try again.');
       setIsStreaming(false);
-      // do NOT call window.location.reload(); let user retry
     }
   };
 

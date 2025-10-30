@@ -1,23 +1,24 @@
+"use client";
 import React, { useState, useMemo } from 'react';
-import { parseRtpHeader, isLikelyRtp, reconstructRtpStream, exportWav } from '../lib/rtp-decoder';
 
 function RtpPlayer({ packet }) {
   const [url, setUrl] = useState(null);
   const [blob, setBlob] = useState(null);
   const [error, setError] = useState(null);
   
-  const handleBuild = () => {
+  const handleBuild = async () => {
     try {
       setError(null);
       const raw = packet.raw || [];
       const bytes = raw.length ? Uint8Array.from(raw) : new TextEncoder().encode(packet.payloadAscii || '');
       
-      if (!isLikelyRtp(bytes)) { 
+      const rtp = await import('../lib/rtp-decoder');
+      if (!rtp.isLikelyRtp(bytes)) { 
         setError('Not RTP or unsupported payload type'); 
         return; 
       }
       
-      const hdr = parseRtpHeader(bytes);
+      const hdr = rtp.parseRtpHeader(bytes);
       
       // Check if it's encrypted (SRTP)
       if (hdr.payloadType !== 0 && hdr.payloadType !== 8) {
@@ -26,7 +27,7 @@ function RtpPlayer({ packet }) {
       }
       
       const payload = bytes.slice(hdr.headerLen);
-      const { audioBuffer, sampleRate } = reconstructRtpStream([{ 
+      const { audioBuffer, sampleRate } = rtp.reconstructRtpStream([{ 
         seq: hdr.seq, 
         ts: hdr.ts, 
         ssrc: hdr.ssrc, 
@@ -34,7 +35,7 @@ function RtpPlayer({ packet }) {
         payload 
       }]);
       
-      const wav = exportWav(audioBuffer, sampleRate);
+      const wav = rtp.exportWav(audioBuffer, sampleRate);
       const urlObj = URL.createObjectURL(wav);
       setBlob(wav);
       setUrl(urlObj);
