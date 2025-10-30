@@ -1,11 +1,13 @@
 ﻿"use client";
 import { useState } from "react";
-import scenarioData from "@/../public/scenarios/enterprise.json";
+import scenarioData from "@/app/data/enterprise";
 import type { Scenario, Host, Firewall } from "@/lib/sim/types";
 import { pingFromHost, tracerouteFromHost, nslookupHost } from "@/lib/sim/engine";
- type Tab = "Configure" | "Diagnostics" | "Firewall/NAT" | "Logs";
+
+type Tab = "Configure" | "Diagnostics" | "Firewall/NAT" | "Logs";
+
 export default function Page() {
-  const scn = scenarioData as unknown as Scenario;
+  const scn = scenarioData as Scenario;
   const [activeTab, setActiveTab] = useState<Tab>("Configure");
   const [fw, setFw] = useState<Firewall>({...scn.devices.firewall, nat:{}, rules:[]});
   const [lan1, setLan1] = useState<Host>({...scn.devices.lanHosts[0]});
@@ -14,9 +16,12 @@ export default function Page() {
   const [dmz2, setDmz2] = useState<Host>({...scn.devices.dmzHosts[1]});
   const [logs, setLogs] = useState<string[]>([]);
   const [output, setOutput] = useState<string>("");
+
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
+
   const addSnat = () => {
-    const srcCidr = scn.subnets.lan.cidr; const toIp = fw.ifaces.wan;
+    const srcCidr = scn.subnets.lan.cidr;
+    const toIp = fw.ifaces.wan;
     setFw(prev => ({...prev, nat: { ...(prev.nat||{}), snat: { srcCidr, toIp }}}));
     addLog(`SNAT added: ${srcCidr} -> ${toIp}`);
   };
@@ -24,6 +29,7 @@ export default function Page() {
     setFw(prev => ({...prev, rules: [...(prev.rules||[]), { action:"ALLOW" as const, proto, src, dst, inIface }]}));
     addLog(`ALLOW ${proto} ${src} -> ${dst}${inIface? " in:"+inIface:""}`);
   };
+
   const doPing = (target: string) => {
     const res = pingFromHost(scn, lan1, target, fw);
     setOutput(renderPing(res.success, res.hops, res.reason));
@@ -39,6 +45,7 @@ export default function Page() {
     setOutput(res.answer ? `Name: ${name}\nAddress: ${res.answer}` : `** server can't find ${name}: NXDOMAIN`);
     addLog(`[nslookup] ${name} => ${res.answer || "NXDOMAIN"}`);
   };
+
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="flex items-center justify-between p-4 border-b bg-white">
@@ -71,8 +78,8 @@ export default function Page() {
         </section>
         <section className="col-span-5 bg-white rounded-xl shadow p-4 flex flex-col">
           <div className="flex gap-2 text-sm">
-            {["Configure","Diagnostics","Firewall/NAT","Logs"].map((t)=> (
-              <button key={t} onClick={()=>setActiveTab(t as any)} className={`px-3 py-1 border rounded ${activeTab===t?"bg-slate-900 text-white":"bg-white"}`}>{t}</button>
+            {(["Configure","Diagnostics","Firewall/NAT","Logs"] as Tab[]).map(t => (
+              <button key={t} onClick={()=>setActiveTab(t)} className={`px-3 py-1 border rounded ${activeTab===t?"bg-slate-900 text-white":"bg-white"}`}>{t}</button>
             ))}
           </div>
           {activeTab === "Configure" && (
@@ -92,7 +99,6 @@ export default function Page() {
                 <button className="px-2 py-1 border rounded" onClick={()=>allowRule("ICMP", "ANY", scn.subnets.wan.gw, "wan")}>ALLOW ICMP ANYâ†’WAN_GW</button>
                 <button className="px-2 py-1 border rounded" onClick={addSnat}>Add SNAT (LAN /24 â†’ FW WAN)</button>
               </div>
-              <div className="text-xs text-slate-600">Tip: Youâ€™ll need an ALLOW for ICMP out the WAN, plus SNAT, for Internet ping to work.</div>
               <pre className="mt-3 p-2 bg-slate-100 rounded overflow-auto">{JSON.stringify(fw, null, 2)}</pre>
             </div>
           )}
@@ -116,6 +122,7 @@ export default function Page() {
     </main>
   );
 }
+
 function DeviceConfig({ title, host, onChange }:{ title:string; host:any; onChange:(h:any)=>void }) {
   return (
     <div className="p-3 border rounded">
