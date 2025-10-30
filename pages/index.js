@@ -6,7 +6,7 @@ import ChallengeEngine from '../components/ChallengeEngine';
 import ScenarioPicker from '../components/ScenarioPicker';
 import VoipPanel from '../components/VoipPanel';
 import TimelinePlayer from '../components/TimelinePlayer';
-import { createRound } from '../lib/round-engine';
+import { newRound } from '../lib/round-engine';
 import { toast } from '../utils/toast';
 import HelpModal from '../components/HelpModal';
 import ProtocolGuideModal from '../components/ProtocolGuideModal';
@@ -21,7 +21,7 @@ export default function Home() {
   const [markedPacketIds, setMarkedPacketIds] = useState([]);
   const [scenarioId, setScenarioId] = useState('mixed');
   const [difficulty, setDifficulty] = useState('beginner');
-  const [packetCount, setPacketCount] = useState(35);
+  const [packetCount, setPacketCount] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [tcpStreams, setTcpStreams] = useState({});
@@ -96,11 +96,17 @@ export default function Home() {
       setMarkedPacketIds([]);        // clear marks
       setGroundTruth({ ids: [], reason: '', rubric: [] });
 
-      // call scenario generator - must return an array of packets
-      const { packets: newPkts, groundTruth: gt, hints } = await createRound({ 
-        scenarioId, 
-        difficulty
-      });
+      // call scenario generator using difficulty-driven packet budgets
+      const { packets: newPkts } = await newRound({ difficulty: level.charAt(0).toUpperCase() + level.slice(1), profile: scenarioId, buildScenario: async ({ template, totalPackets, evidencePackets }) => {
+        // delegate to existing serverless/generator if present; otherwise return empty
+        const { SCENARIOS } = await import('../lib/scenario-catalog');
+        const scen = SCENARIOS[template] || SCENARIOS.mixed || Object.values(SCENARIOS)[0];
+        if (scen && typeof scen.generate === 'function') {
+          const r = scen.generate({ difficulty: level.charAt(0).toUpperCase() + level.slice(1), packetCount: totalPackets, evidenceCount: evidencePackets, seed: Date.now() });
+          return { packets: r.packets || [], evidenceIds: r.groundTruth?.ids || [], briefing: r.groundTruth?.reason };
+        }
+        return { packets: [], evidenceIds: [], briefing: '' };
+      }});
 
       // defensive check
       if (!Array.isArray(newPkts)) {
@@ -110,7 +116,7 @@ export default function Home() {
 
       // set UI state
       setRoundPackets(newPkts);
-      setGroundTruth(gt);
+      // ground truth handled by Challenge engine; keep neutral here
       setIsStreaming(false);
 
     } catch (err) {

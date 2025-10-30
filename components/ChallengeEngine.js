@@ -198,7 +198,7 @@ export default function ChallengeEngine({
     if (typeof window !== 'undefined') {
       const transcripts = JSON.parse(localStorage.getItem('threatrecon_challenge_transcripts') || '[]');
       transcripts.push({
-        ts: new Date().toISOString(),
+      ts: new Date().toISOString(),
         objective: briefing.objective,
         answerPacketId: correctPacketId,
         selectedPacketId: submissionData.selectedPacketId,

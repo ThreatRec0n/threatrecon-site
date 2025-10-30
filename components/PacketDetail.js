@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo } from 'react';
+import { safeIso } from '../lib/safe-time';
 
 function RtpPlayer({ packet }) {
   const [url, setUrl] = useState(null);
@@ -119,8 +120,8 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
   const renderSummary = () => {
     const src = packet.src || (packet.layers?.ip?.srcIp || packet.layers?.ip?.src);
     const dst = packet.dst || (packet.layers?.ip?.dstIp || packet.layers?.ip?.dst);
-    const timestamp = packet.timeEpochMs ? new Date(packet.timeEpochMs) : (typeof packet.ts === 'string' ? new Date(packet.ts) : new Date(packet.ts));
-    const humanTime = timestamp.toLocaleString();
+    const tsStr = typeof packet.ts === 'string' || typeof packet.ts === 'number' ? packet.ts : packet.timeEpochMs;
+    const humanTime = safeIso(tsStr);
     const proto = packet.protocol || packet.proto || (packet.layers?.ip?.protocolName) || 'Unknown';
     const sport = packet.layers?.tcp?.srcPort || packet.layers?.udp?.srcPort;
     const dport = packet.layers?.tcp?.dstPort || packet.layers?.udp?.dstPort;
