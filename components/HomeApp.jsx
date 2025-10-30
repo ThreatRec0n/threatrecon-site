@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import PacketList from './PacketList';
 import PacketDetail from './PacketDetail';
+import HexView from './HexView';
 import ChallengeEngine from './ChallengeEngine';
 import ScenarioPicker from './ScenarioPicker';
 import VoipPanel from './VoipPanel';
@@ -129,7 +130,7 @@ export default function HomeApp(){
       <div className="min-h-screen bg-gray-950 text-gray-200 flex flex-col font-sans">
         <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-700 px-4 py-3">
           <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="text-terminal-green font-bold tracking-wider text-base md:text-lg font-mono">THREATRECON PACKET HUNT</div>
+            <div className="text-terminal-green font-bold tracking-wider text-base md:text-lg font-mono">Threat Recon</div>
             <div className="flex items-center gap-3 text-xs font-mono flex-wrap">
               <div className="flex items-center gap-2"><span className="text-gray-400">Level:</span><span className="text-terminal-green font-semibold">{levelDisplay}</span></div>
               <div className="flex items-center gap-2"><span className="text-gray-400">Score:</span><span className="text-terminal-green font-bold">{score}</span></div>
@@ -152,7 +153,10 @@ export default function HomeApp(){
           {packets.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-[calc(100vh-120px)]">
               <div className="lg:col-span-4"><PacketList packets={packets} selectedPacketId={selectedPacketId} onSelectPacket={handleSelectPacket} markedPacketIds={markedPacketIds} isStreaming={false} /></div>
-              <div className="lg:col-span-5"><PacketDetail packet={selectedPacket} onMarkAsEvidence={handleMarkAsEvidence} markedPacketIds={markedPacketIds} tcpStreams={tcpStreams} allPackets={packets} /></div>
+              <div className="lg:col-span-5 flex flex-col min-h-0">
+                <PacketDetail packet={selectedPacket} onMarkAsEvidence={handleMarkAsEvidence} markedPacketIds={markedPacketIds} tcpStreams={tcpStreams} allPackets={packets} />
+                <HexView raw={selectedPacket?.raw || selectedPacket?.rawBytes} />
+              </div>
               <div className="lg:col-span-3 space-y-3"><TimelinePlayer packets={packets} onTick={(p)=> setSelectedPacketId(p.id)} /><VoipPanel packets={packets} onSelectPacket={handleSelectPacket} /><ChallengeEngine scenarioId={scenarioId} difficulty={difficulty} markedPacketIds={markedPacketIds} selectedPacketId={selectedPacketId} onMarkPacket={handleMarkAsEvidence} onValidated={()=>{}} score={score} groundTruth={groundTruth} packets={packets} /></div>
             </div>
           ) : (
