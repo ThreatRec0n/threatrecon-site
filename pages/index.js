@@ -1,23 +1,7 @@
 import dynamic from 'next/dynamic';
-export async function getStaticProps(){ return { props:{}, revalidate: 300 }; }
-const HomeApp = dynamic(() => import('../components/HomeApp'), { ssr: false });
-export default function Page(){ return <HomeApp />; }
-import PacketList from '../components/PacketList';
-import PacketDetail from '../components/PacketDetail';
-import ChallengeEngine from '../components/ChallengeEngine';
-import ScenarioPicker from '../components/ScenarioPicker';
-import VoipPanel from '../components/VoipPanel';
-import TimelinePlayer from '../components/TimelinePlayer';
-import { newRound } from '../lib/round-engine';
-import { useRoundBudget, useEvidenceCount } from '../lib/useRoundBudget';
-import { toast } from '../utils/toast';
-import HelpModal from '../components/HelpModal';
-import ProtocolGuideModal from '../components/ProtocolGuideModal';
-import ProtocolIntelModal from '../components/ProtocolIntelModal';
-import StudyPackModal from '../components/StudyPackModal';
-// PCAP upload functionality removed - training mode only
-import { usePacketStream } from '../lib/usePacketStream';
-import { buildTcpStreams } from '../lib/stream-builder';
+export async function getStaticProps(){ return { props:{}, revalidate:300 }; }
+const HomeApp = dynamic(() => import('../components/HomeApp'), { ssr:false });
+export default function Page(){ return <HomeApp/>; }
 
 export default function Home() {
   const [selectedPacketId, setSelectedPacketId] = useState(null);
