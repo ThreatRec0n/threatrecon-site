@@ -1,0 +1,28 @@
+﻿{
+  "name": "network-connectivity-sim",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "build:sim": "esbuild lib/sim/engine.ts lib/sim/ip.ts lib/sim/types.ts --bundle --format=cjs --platform=node --outfile=lib/sim/engine.cjs",
+    "test": "npm run build:sim && node smoke/engine.smoke.test.mjs"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.30",
+    "@types/react": "18.2.66",
+    "@types/react-dom": "18.2.22",
+    "autoprefixer": "10.4.19",
+    "esbuild": "0.23.1",
+    "postcss": "8.4.38",
+    "tailwindcss": "3.4.10",
+    "typescript": "5.6.3"
+  }
+}
