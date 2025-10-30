@@ -17,7 +17,7 @@ export default function handler(req, res) {
       "APT29 lateral movement via LOLBins.",
     ],
     sessionId: `session-${Date.now()}`,
-    timestamp: new Date().toISOString()
+    timestamp: (await import('../../../lib/safe-time')).safeIso(Date.now())
   };
 
   res.status(200).json(sessionData);

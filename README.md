@@ -1,3 +1,5 @@
+> Production branch = main. Previews use any branch.
+
 # ThreatRecon SOC Simulator v1.0
 
 A production-grade, interactive cybersecurity operations simulation dashboard built with Next.js.
