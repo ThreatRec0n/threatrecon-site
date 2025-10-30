@@ -7,6 +7,7 @@ import ScenarioPicker from '../components/ScenarioPicker';
 import VoipPanel from '../components/VoipPanel';
 import TimelinePlayer from '../components/TimelinePlayer';
 import { newRound } from '../lib/round-engine';
+import { useRoundBudget, useEvidenceCount } from '../lib/useRoundBudget';
 import { toast } from '../utils/toast';
 import HelpModal from '../components/HelpModal';
 import ProtocolGuideModal from '../components/ProtocolGuideModal';
@@ -19,8 +20,12 @@ import { buildTcpStreams } from '../lib/stream-builder';
 export default function Home() {
   const [selectedPacketId, setSelectedPacketId] = useState(null);
   const [markedPacketIds, setMarkedPacketIds] = useState([]);
-  const [scenarioId, setScenarioId] = useState('mixed');
+  const [scenarioId, setScenarioId] = useState('http-exfil');
   const [difficulty, setDifficulty] = useState('beginner');
+  const { budget } = useRoundBudget(difficulty);
+  const markedCount = useEvidenceCount(markedPacketIds);
+  const visibleCount = roundPackets.length;
+  const [roundHealth, setRoundHealth] = useState('ok'); // 'ok' | 'warn'
   const [packetCount, setPacketCount] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -41,16 +46,24 @@ export default function Home() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const profile = JSON.parse(localStorage.getItem('threatrecon_packet_hunt_profile') || '{}');
-      if (profile.score !== undefined) {
-        setScore(profile.score);
-      }
+      if (profile.score !== undefined) setScore(profile.score);
       if (profile.level) {
         const savedLevel = profile.level.toLowerCase();
         setLevel(savedLevel);
         setDifficulty(savedLevel);
       }
+      const prefs = JSON.parse(localStorage.getItem('tr_round_prefs') || '{}');
+      if (prefs.difficulty) setDifficulty(String(prefs.difficulty).toLowerCase());
+      if (prefs.scenarioId) setScenarioId(prefs.scenarioId);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const prefs = { difficulty, scenarioId };
+      localStorage.setItem('tr_round_prefs', JSON.stringify(prefs));
+    }
+  }, [difficulty, scenarioId]);
 
   // Build TCP streams when packets change
   useEffect(() => {
@@ -95,6 +108,7 @@ export default function Home() {
       setSelectedPacketId(null);     // clear selection
       setMarkedPacketIds([]);        // clear marks
       setGroundTruth({ ids: [], reason: '', rubric: [] });
+      setRoundHealth('ok');
 
       // call scenario generator using difficulty-driven packet budgets
       const { packets: newPkts } = await newRound({ difficulty: level.charAt(0).toUpperCase() + level.slice(1), profile: scenarioId, buildScenario: async ({ template, totalPackets, evidencePackets }) => {
@@ -118,12 +132,14 @@ export default function Home() {
       setRoundPackets(newPkts);
       // ground truth handled by Challenge engine; keep neutral here
       setIsStreaming(false);
+      setRoundHealth('ok');
 
     } catch (err) {
       console.error('New round failed', err);
       // Show friendly non-blocking toast instead of full reload/alert
       toast('New Round failed. State was reset. Try again.');
       setIsStreaming(false);
+      setRoundHealth('warn');
     }
   };
 
@@ -257,6 +273,11 @@ export default function Home() {
               
               {/* Upload PCAP removed - training mode only */}
               
+              {/* Round health dot */}
+              <span aria-label={roundHealth === 'ok' ? 'Round healthy' : 'Round warning'} title={roundHealth === 'ok' ? 'Round healthy' : 'Issue occurred in last round'} className={`inline-block h-2 w-2 rounded-full ${roundHealth === 'ok' ? 'bg-green-500' : 'bg-amber-400'}`}></span>
+              {/* Packet/Evidence pill */}
+              <div className="px-3 py-1 rounded-md border border-zinc-700 text-zinc-200 font-mono text-[11px]">Packets: {visibleCount}/{budget} • Evidence marked: {markedCount}</div>
+
               <button
                 onClick={() => setShowHelp(true)}
                 className="bg-gray-700 hover:bg-gray-600 text-white font-semibold text-xs rounded-lg border border-gray-600 px-3 py-1.5 font-mono transition-all"
