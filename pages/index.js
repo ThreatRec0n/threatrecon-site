@@ -11,7 +11,7 @@ import HelpModal from '../components/HelpModal';
 import ProtocolGuideModal from '../components/ProtocolGuideModal';
 import ProtocolIntelModal from '../components/ProtocolIntelModal';
 import StudyPackModal from '../components/StudyPackModal';
-import { parsePcapFile } from '../lib/pcap-parser-browser';
+// PCAP upload functionality removed - training mode only
 import { usePacketStream } from '../lib/usePacketStream';
 import { buildTcpStreams } from '../lib/stream-builder';
 
@@ -30,7 +30,7 @@ export default function Home() {
   const [showIntel, setShowIntel] = useState(false);
   const [showStudyPack, setShowStudyPack] = useState(false);
   
-  const fileInputRef = useRef(null);
+  // fileInputRef removed - no upload functionality
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState('beginner');
 
@@ -86,8 +86,6 @@ export default function Home() {
     setDifficulty(newLevel);
   };
 
-  const PACKET_COUNTS = { beginner: 25, intermediate: 50, advanced: 100 };
-
   const handleNewRound = async () => {
     try {
       // Immediately set loading state so UI is stable
@@ -97,14 +95,10 @@ export default function Home() {
       setMarkedPacketIds([]);        // clear marks
       setGroundTruth({ ids: [], reason: '', rubric: [] });
 
-      // determine count based on difficulty
-      const packetCount = PACKET_COUNTS[difficulty] || 25;
-
       // call scenario generator - must return an array of packets
       const { packets: newPkts, groundTruth: gt, hints } = await createRound({ 
         scenarioId, 
-        difficulty, 
-        packetCountRange: [packetCount, packetCount] 
+        difficulty
       });
 
       // defensive check

@@ -4,34 +4,82 @@ import { parseRtpHeader, isLikelyRtp, reconstructRtpStream, exportWav } from '..
 function RtpPlayer({ packet }) {
   const [url, setUrl] = useState(null);
   const [blob, setBlob] = useState(null);
+  const [error, setError] = useState(null);
+  
   const handleBuild = () => {
     try {
+      setError(null);
       const raw = packet.raw || [];
       const bytes = raw.length ? Uint8Array.from(raw) : new TextEncoder().encode(packet.payloadAscii || '');
-      if (!isLikelyRtp(bytes)) { alert('Not RTP/Supported PT'); return; }
+      
+      if (!isLikelyRtp(bytes)) { 
+        setError('Not RTP or unsupported payload type'); 
+        return; 
+      }
+      
       const hdr = parseRtpHeader(bytes);
+      
+      // Check if it's encrypted (SRTP)
+      if (hdr.payloadType !== 0 && hdr.payloadType !== 8) {
+        setError('Encrypted audio cannot be decoded without keys');
+        return;
+      }
+      
       const payload = bytes.slice(hdr.headerLen);
-      const { audioBuffer, sampleRate } = reconstructRtpStream([{ seq: hdr.seq, ts: hdr.ts, ssrc: hdr.ssrc, payloadType: hdr.payloadType, payload }]);
+      const { audioBuffer, sampleRate } = reconstructRtpStream([{ 
+        seq: hdr.seq, 
+        ts: hdr.ts, 
+        ssrc: hdr.ssrc, 
+        payloadType: hdr.payloadType, 
+        payload 
+      }]);
+      
       const wav = exportWav(audioBuffer, sampleRate);
       const urlObj = URL.createObjectURL(wav);
       setBlob(wav);
       setUrl(urlObj);
     } catch (e) {
-      alert('RTP decode failed');
+      setError('RTP decode failed: ' + e.message);
     }
   };
+  
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <button onClick={handleBuild} className="px-2 py-1 text-[11px] font-mono rounded border border-gray-700 text-gray-200 hover:bg-gray-800">Build Audio</button>
+        <button 
+          onClick={handleBuild} 
+          className="px-3 py-1 text-[11px] font-mono rounded border border-gray-700 text-gray-200 hover:bg-gray-800 transition-colors"
+        >
+          Build Audio
+        </button>
         {blob && (
-          <a href={URL.createObjectURL(blob)} download="audio.wav" className="px-2 py-1 text-[11px] font-mono rounded border border-gray-700 text-gray-200 hover:bg-gray-800">Download WAV</a>
+          <a 
+            href={URL.createObjectURL(blob)} 
+            download="audio.wav" 
+            className="px-3 py-1 text-[11px] font-mono rounded border border-gray-700 text-gray-200 hover:bg-gray-800 transition-colors"
+          >
+            Download WAV
+          </a>
         )}
       </div>
+      
+      {error && (
+        <div className="text-[10px] text-red-400 font-mono bg-red-900/20 border border-red-800 rounded p-2">
+          {error}
+        </div>
+      )}
+      
       {url ? (
-        <audio controls src={url} className="w-full" />
-      ) : (
-        <div className="text-[10px] text-gray-400 font-mono">Build audio to preview.</div>
+        <div className="space-y-2">
+          <audio controls src={url} className="w-full" />
+          <div className="text-[9px] text-gray-400 font-mono">
+            Audio reconstructed from RTP stream
+          </div>
+        </div>
+      ) : !error && (
+        <div className="text-[10px] text-gray-400 font-mono">
+          Click "Build Audio" to reconstruct and play the RTP stream.
+        </div>
       )}
     </div>
   );
@@ -66,7 +114,7 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
       : `${sip} → ${dip}`;
   };
 
-  // Render Summary Tab - Neutral overview
+  // Render Summary Tab - Wireshark-style overview
   const renderSummary = () => {
     const src = packet.src || (packet.layers?.ip?.srcIp || packet.layers?.ip?.src);
     const dst = packet.dst || (packet.layers?.ip?.dstIp || packet.layers?.ip?.dst);
@@ -75,41 +123,40 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
     const proto = packet.protocol || packet.proto || (packet.layers?.ip?.protocolName) || 'Unknown';
     const sport = packet.layers?.tcp?.srcPort || packet.layers?.udp?.srcPort;
     const dport = packet.layers?.tcp?.dstPort || packet.layers?.udp?.dstPort;
+    const direction = sport !== undefined && dport !== undefined
+      ? `${src}:${sport} → ${dst}:${dport}`
+      : `${src} → ${dst}`;
     const tuple = packet.layers?.tcp ? `5-tuple: ${src}${sport!==undefined?`:${sport}`:''} → ${dst}${dport!==undefined?`:${dport}`:''}` : (packet.layers?.udp ? `4-tuple: ${src}${sport!==undefined?`:${sport}`:''} → ${dst}${dport!==undefined?`:${dport}`:''}` : `Endpoints: ${src} → ${dst}`);
 
     return (
       <div className="space-y-3">
-        {/* Packet Overview - Neutral */}
+        {/* Packet Overview - Wireshark style */}
         <div className="bg-gray-950 border border-gray-800 rounded p-3">
           <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">PACKET OVERVIEW</div>
           <div className="space-y-2 text-[10px] font-mono">
             <div className="flex justify-between">
-              <span className="text-gray-400">Timestamp:</span>
+              <span className="text-gray-400">No.:</span>
+              <span className="text-gray-300">{packet.no || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Time:</span>
               <span className="text-gray-300">{humanTime}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Direction:</span>
-              <span className="text-gray-300">{direction()}</span>
+              <span className="text-gray-300">{direction}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Source:</span>
-              <span className="text-blue-400">{src}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Destination:</span>
-              <span className="text-purple-400">{dst}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Protocol:</span>
+              <span className="text-gray-400">Protocols:</span>
               <span className="text-terminal-green">{proto}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Length:</span>
+              <span className="text-gray-300">{packet.length || 0} bytes</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Tuple:</span>
               <span className="text-gray-300 truncate max-w-[60%] text-right">{tuple}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Payload Size:</span>
-              <span className="text-gray-300">{packet.length || 0} bytes</span>
             </div>
           </div>
         </div>
@@ -512,10 +559,15 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
         {activeTab === 'hex' && renderHex()}
         {activeTab === 'stream' && renderStream()}
         {activeTab === 'voip' && (
-          packet.layers?.rtp ? (
+          packet.layers?.rtp || packet.proto === 'RTP' ? (
             <div className="space-y-3">
               <div className="bg-gray-950 border border-gray-800 rounded p-3">
-                <div className="text-[10px] text-terminal-green font-semibold mb-2">RTP (G.711) Playback</div>
+                <div className="text-[10px] text-terminal-green font-semibold mb-2">RTP Audio Stream</div>
+                <div className="text-[9px] text-gray-400 mb-3">
+                  {packet.layers?.rtp?.payloadType === 0 ? 'G.711 μ-law (PCMU)' : 
+                   packet.layers?.rtp?.payloadType === 8 ? 'G.711 A-law (PCMA)' : 
+                   'Encrypted audio (SRTP)'}
+                </div>
                 <RtpPlayer packet={packet} />
               </div>
             </div>
