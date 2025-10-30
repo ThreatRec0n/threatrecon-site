@@ -1,6 +1,6 @@
 {
   "name": "threatrecon-site",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "ThreatRecon Packet Hunt - Interactive Wireshark-style packet forensics learning game",
   "scripts": {
     "dev": "next dev",

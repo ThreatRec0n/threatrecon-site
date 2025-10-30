@@ -4,8 +4,13 @@ import PacketList from '../components/PacketList';
 import PacketDetail from '../components/PacketDetail';
 import ChallengeEngine from '../components/ChallengeEngine';
 import ScenarioPicker from '../components/ScenarioPicker';
+import VoipPanel from '../components/VoipPanel';
+import TimelinePlayer from '../components/TimelinePlayer';
 import { createRound } from '../lib/round-engine';
 import HelpModal from '../components/HelpModal';
+import ProtocolGuideModal from '../components/ProtocolGuideModal';
+import ProtocolIntelModal from '../components/ProtocolIntelModal';
+import StudyPackModal from '../components/StudyPackModal';
 import { parsePcapFile } from '../lib/pcap-parser-browser';
 import { usePacketStream } from '../lib/usePacketStream';
 import { buildTcpStreams } from '../lib/stream-builder';
@@ -21,6 +26,9 @@ export default function Home() {
   const [tcpStreams, setTcpStreams] = useState({});
   const [roundPackets, setRoundPackets] = useState([]);
   const [groundTruth, setGroundTruth] = useState({ ids: [], reason: '', rubric: [] });
+  const [showProtocolGuide, setShowProtocolGuide] = useState(false);
+  const [showIntel, setShowIntel] = useState(false);
+  const [showStudyPack, setShowStudyPack] = useState(false);
   
   const fileInputRef = useRef(null);
   const [score, setScore] = useState(0);
@@ -78,32 +86,51 @@ export default function Home() {
     setDifficulty(newLevel);
   };
 
+  const PACKET_COUNTS = { beginner: 25, intermediate: 50, advanced: 100 };
+
   const handleNewRound = async () => {
-    setMarkedPacketIds([]);
-    setSelectedPacketId(null);
-    const { packets: newPkts, groundTruth: gt, hints } = await createRound({ scenarioId, difficulty, packetCountRange: [packetCount, packetCount] });
-    setRoundPackets(newPkts);
-    setGroundTruth(gt);
-    setIsStreaming(false);
+    try {
+      // Immediately set loading state so UI is stable
+      setIsStreaming(false);
+      setRoundPackets([]);           // clear previous packets
+      setSelectedPacketId(null);     // clear selection
+      setMarkedPacketIds([]);        // clear marks
+      setGroundTruth({ ids: [], reason: '', rubric: [] });
+
+      // determine count based on difficulty
+      const packetCount = PACKET_COUNTS[difficulty] || 25;
+
+      // call scenario generator - must return an array of packets
+      const { packets: newPkts, groundTruth: gt, hints } = await createRound({ 
+        scenarioId, 
+        difficulty, 
+        packetCountRange: [packetCount, packetCount] 
+      });
+
+      // defensive check
+      if (!Array.isArray(newPkts)) {
+        console.error('createRound returned invalid packets:', newPkts);
+        throw new Error('Invalid packet generation result');
+      }
+
+      // set UI state
+      setRoundPackets(newPkts);
+      setGroundTruth(gt);
+      setIsStreaming(false);
+
+    } catch (err) {
+      console.error('New round failed', err);
+      // Show friendly error instead of full reload
+      alert('Could not start a new round. Please try again. Error: ' + err.message);
+      setIsStreaming(false);
+      // do NOT call window.location.reload(); let user retry
+    }
   };
 
   const handlePause = () => { setIsStreaming(false); };
   const handleResume = () => { setIsStreaming(false); };
 
-  const handleUploadPcap = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    try {
-      const parsedPackets = await parsePcapFile(file);
-      // Convert to our format if needed
-      setIsStreaming(false);
-    } catch (error) {
-      alert('PCAP upload failed. Use Start Challenge instead.');
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
+  // Upload PCAP functionality removed - training mode only
 
   const handleSelectPacket = (packetId) => {
     setSelectedPacketId(packetId);
@@ -228,22 +255,34 @@ export default function Home() {
                 </button>
               )}
               
-              <label className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg border border-blue-400 shadow-[0_0_10px_rgba(37,99,235,0.6)] px-3 py-1.5 font-mono cursor-pointer transition-all">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pcap,.cap"
-                  onChange={handleUploadPcap}
-                  className="hidden"
-                />
-                UPLOAD PCAP
-              </label>
+              {/* Upload PCAP removed - training mode only */}
               
               <button
                 onClick={() => setShowHelp(true)}
                 className="bg-gray-700 hover:bg-gray-600 text-white font-semibold text-xs rounded-lg border border-gray-600 px-3 py-1.5 font-mono transition-all"
               >
                 HELP
+              </button>
+
+              <button
+                onClick={() => setShowProtocolGuide(true)}
+                className="bg-gray-800 hover:bg-gray-700 text-white font-semibold text-xs rounded-lg border border-gray-700 px-3 py-1.5 font-mono transition-all"
+              >
+                PROTOCOL GUIDE
+              </button>
+
+              <button
+                onClick={() => setShowIntel(true)}
+                className="ml-0 md:ml-2 px-3 py-1 text-xs bg-slate-800 hover:bg-slate-700 rounded text-white font-mono border border-slate-700"
+              >
+                PROTOCOL INTEL
+              </button>
+
+              <button
+                onClick={() => setShowStudyPack(true)}
+                className="ml-0 md:ml-2 px-3 py-1 text-xs bg-purple-800 hover:bg-purple-700 rounded text-white font-mono border border-purple-700"
+              >
+                STUDY PACK
               </button>
             </div>
           </div>
@@ -277,7 +316,6 @@ export default function Home() {
                   onSelectPacket={handleSelectPacket}
                   markedPacketIds={markedPacketIds}
                   isStreaming={false}
-                  onToggleSelect={(id)=> setMarkedPacketIds(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id])}
                 />
               </div>
 
@@ -292,8 +330,16 @@ export default function Home() {
                 />
               </div>
 
-              {/* Right: Challenge Engine / Briefing */}
-              <div className="lg:col-span-3">
+              {/* Right: Calls / Briefing */}
+              <div className="lg:col-span-3 space-y-3">
+                <TimelinePlayer
+                  packets={packets}
+                  onTick={(p)=> setSelectedPacketId(p.id)}
+                />
+                <VoipPanel
+                  packets={packets}
+                  onSelectPacket={handleSelectPacket}
+                />
                 <ChallengeEngine
                   scenarioId={scenarioId}
                   difficulty={difficulty}
@@ -330,6 +376,9 @@ export default function Home() {
 
         {/* Help Modal */}
         <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+        <ProtocolGuideModal open={showProtocolGuide} onClose={() => setShowProtocolGuide(false)} />
+        {showIntel && <ProtocolIntelModal open onClose={() => setShowIntel(false)} />}
+        <StudyPackModal isOpen={showStudyPack} onClose={() => setShowStudyPack(false)} />
       </div>
     </>
   );

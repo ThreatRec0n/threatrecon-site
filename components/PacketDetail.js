@@ -1,4 +1,41 @@
 import React, { useState, useMemo } from 'react';
+import { parseRtpHeader, isLikelyRtp, reconstructRtpStream, exportWav } from '../lib/rtp-decoder';
+
+function RtpPlayer({ packet }) {
+  const [url, setUrl] = useState(null);
+  const [blob, setBlob] = useState(null);
+  const handleBuild = () => {
+    try {
+      const raw = packet.raw || [];
+      const bytes = raw.length ? Uint8Array.from(raw) : new TextEncoder().encode(packet.payloadAscii || '');
+      if (!isLikelyRtp(bytes)) { alert('Not RTP/Supported PT'); return; }
+      const hdr = parseRtpHeader(bytes);
+      const payload = bytes.slice(hdr.headerLen);
+      const { audioBuffer, sampleRate } = reconstructRtpStream([{ seq: hdr.seq, ts: hdr.ts, ssrc: hdr.ssrc, payloadType: hdr.payloadType, payload }]);
+      const wav = exportWav(audioBuffer, sampleRate);
+      const urlObj = URL.createObjectURL(wav);
+      setBlob(wav);
+      setUrl(urlObj);
+    } catch (e) {
+      alert('RTP decode failed');
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <button onClick={handleBuild} className="px-2 py-1 text-[11px] font-mono rounded border border-gray-700 text-gray-200 hover:bg-gray-800">Build Audio</button>
+        {blob && (
+          <a href={URL.createObjectURL(blob)} download="audio.wav" className="px-2 py-1 text-[11px] font-mono rounded border border-gray-700 text-gray-200 hover:bg-gray-800">Download WAV</a>
+        )}
+      </div>
+      {url ? (
+        <audio controls src={url} className="w-full" />
+      ) : (
+        <div className="text-[10px] text-gray-400 font-mono">Build audio to preview.</div>
+      )}
+    </div>
+  );
+}
 
 export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds, tcpStreams, allPackets = [] }) {
   const [activeTab, setActiveTab] = useState('summary');
@@ -17,85 +54,28 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
   const streamKey = packet.streamKey || packet.fiveTupleKey || (packet.layers?.tcp || packet.layers?.udp ? `${packet.layers.ip?.srcIp || packet.layers.ip?.src}:${packet.layers.tcp?.srcPort || packet.layers.udp?.srcPort} -> ${packet.layers.ip?.dstIp || packet.layers.ip?.dst}:${packet.layers.tcp?.dstPort || packet.layers.udp?.dstPort}` : null);
   const stream = streamKey ? tcpStreams[streamKey] : null;
 
-  // Generate factual observations from packet data
-  const generateObservations = () => {
-    const observations = [];
-    const ascii = packet.payloadAscii?.toLowerCase() || '';
+  // Direction helper (src:port → dst:port)
+  const direction = () => {
     const layers = packet.layers || {};
-
-    // Use teachable array if present, but format as factual statements
-    if (packet.teachable && packet.teachable.length > 0) {
-      packet.teachable.forEach(t => {
-        const lower = t.toLowerCase();
-        if (lower.includes('dns') && lower.includes('tunneling')) {
-          const queryLen = layers.dns?.query?.length || 0;
-          observations.push(`DNS query length: ${queryLen} bytes ${queryLen > 100 ? '(unusually long for normal DNS)' : ''}.`);
-        }
-        if (lower.includes('exfil') || lower.includes('exfiltration')) {
-          if (layers.http?.method === 'POST' && layers.http?.contentType?.includes('multipart')) {
-            const filename = ascii.match(/filename=["']?([^"'\s]+)/)?.[1];
-            if (filename) {
-              observations.push(`HTTP POST request containing filename ${filename}.`);
-            } else {
-              observations.push(`HTTP POST request with multipart/form-data payload.`);
-            }
-          }
-        }
-        if (lower.includes('credential')) {
-          if (ascii.includes('authorization: basic') || layers.http?.authorization) {
-            observations.push(`AUTH PLAIN observed over ${layers.smtp ? 'SMTP' : 'HTTP'} (possible credential exposure).`);
-          }
-        }
-        if (lower.includes('lateral') || lower.includes('smb')) {
-          if (layers.smb) {
-            const srcIp = layers.ip?.srcIp || '';
-            const dstIp = layers.ip?.dstIp || '';
-            observations.push(`SMB file operation from ${srcIp} to ${dstIp} on 445/tcp.`);
-          }
-        }
-      });
-    }
-
-    // Generate additional factual observations
-    if (layers.tcp) {
-      const srcIp = layers.ip?.srcIp || '';
-      const dstIp = layers.ip?.dstIp || '';
-      const flags = layers.tcp.flags || 'PSH+ACK';
-      observations.push(`TCP ${flags} from ${srcIp}:${layers.tcp.srcPort} to ${dstIp}:${layers.tcp.dstPort}.`);
-    }
-
-    if (layers.dns?.query) {
-      const queryLen = layers.dns.query.length;
-      if (queryLen > 100) {
-        observations.push(`DNS query length: ${queryLen} bytes (unusually long for normal DNS).`);
-      }
-    }
-
-    if (layers.http) {
-      if (layers.http.method === 'POST' && layers.http.contentType?.includes('multipart')) {
-        const match = ascii.match(/filename=["']?([^"'\s]+)/);
-        if (match) {
-          observations.push(`HTTP POST request containing filename ${match[1]}.`);
-        }
-      }
-    }
-
-    if (layers.smtp) {
-      if (ascii.includes('AUTH PLAIN') || layers.smtp.command === 'AUTH PLAIN') {
-        observations.push(`AUTH PLAIN observed over SMTP (possible credential exposure).`);
-      }
-    }
-
-    return observations;
+    const sip = layers.ip?.srcIp || layers.ip?.src || packet.src;
+    const dip = layers.ip?.dstIp || layers.ip?.dst || packet.dst;
+    const sport = layers.tcp?.srcPort || layers.udp?.srcPort;
+    const dport = layers.tcp?.dstPort || layers.udp?.dstPort;
+    return sport !== undefined && dport !== undefined
+      ? `${sip}:${sport} → ${dip}:${dport}`
+      : `${sip} → ${dip}`;
   };
 
   // Render Summary Tab - Neutral overview
   const renderSummary = () => {
     const src = packet.src || (packet.layers?.ip?.srcIp || packet.layers?.ip?.src);
     const dst = packet.dst || (packet.layers?.ip?.dstIp || packet.layers?.ip?.dst);
-    const observations = generateObservations();
     const timestamp = packet.timeEpochMs ? new Date(packet.timeEpochMs) : (typeof packet.ts === 'string' ? new Date(packet.ts) : new Date(packet.ts));
     const humanTime = timestamp.toLocaleString();
+    const proto = packet.protocol || packet.proto || (packet.layers?.ip?.protocolName) || 'Unknown';
+    const sport = packet.layers?.tcp?.srcPort || packet.layers?.udp?.srcPort;
+    const dport = packet.layers?.tcp?.dstPort || packet.layers?.udp?.dstPort;
+    const tuple = packet.layers?.tcp ? `5-tuple: ${src}${sport!==undefined?`:${sport}`:''} → ${dst}${dport!==undefined?`:${dport}`:''}` : (packet.layers?.udp ? `4-tuple: ${src}${sport!==undefined?`:${sport}`:''} → ${dst}${dport!==undefined?`:${dport}`:''}` : `Endpoints: ${src} → ${dst}`);
 
     return (
       <div className="space-y-3">
@@ -108,6 +88,10 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
               <span className="text-gray-300">{humanTime}</span>
             </div>
             <div className="flex justify-between">
+              <span className="text-gray-400">Direction:</span>
+              <span className="text-gray-300">{direction()}</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-gray-400">Source:</span>
               <span className="text-blue-400">{src}</span>
             </div>
@@ -117,7 +101,11 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Protocol:</span>
-              <span className="text-terminal-green">{packet.protocol || packet.proto || 'Unknown'}</span>
+              <span className="text-terminal-green">{proto}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Tuple:</span>
+              <span className="text-gray-300 truncate max-w-[60%] text-right">{tuple}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Payload Size:</span>
@@ -125,21 +113,6 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
             </div>
           </div>
         </div>
-
-        {/* Observations - Factual statements only */}
-        {observations.length > 0 && (
-          <div className="bg-gray-950 border border-gray-800 rounded p-3">
-            <div className="text-[10px] text-terminal-green font-semibold mb-2 uppercase">OBSERVATIONS</div>
-            <ul className="space-y-1 text-[9px] font-mono text-gray-300">
-              {observations.map((obs, i) => (
-                <li key={i} className="flex items-start">
-                  <span className="text-gray-500 mr-2">•</span>
-                  <span>{obs}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
@@ -173,9 +146,10 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
         <div key="eth" className="bg-gray-950 border border-gray-800 rounded p-2">
           <div className="text-terminal-green font-semibold mb-1 text-[10px]">[Ethernet II]</div>
           <div className="ml-3 space-y-0.5 text-gray-300 text-[9px] font-mono">
-            <div>Destination MAC: <span className="text-blue-400">{layers.eth.dstMac}</span></div>
-            <div>Source MAC: <span className="text-purple-400">{layers.eth.srcMac}</span></div>
+            <div>Destination MAC: <span className="text-blue-400">{layers.eth.dstMac || '00:00:00:00:00:00'}</span></div>
+            <div>Source MAC: <span className="text-purple-400">{layers.eth.srcMac || '00:00:00:00:00:00'}</span></div>
             <div>Type: <span className="text-gray-400">0x{layers.eth.etherType?.toString(16).padStart(4, '0') || '0800'}</span></div>
+            <div>Length: <span className="text-gray-400">{packet.length || 0} bytes</span></div>
           </div>
         </div>
       );
@@ -188,9 +162,17 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
           <div className="text-terminal-green font-semibold mb-1 text-[10px]">[Internet Protocol v4]</div>
           <div className="ml-3 space-y-0.5 text-gray-300 text-[9px] font-mono">
             <div>Version: <span className="text-blue-400">{layers.ip.version || 4}</span></div>
+            <div>Header Length: <span className="text-gray-400">{layers.ip.headerLength || 20} bytes</span></div>
+            <div>Type of Service: <span className="text-gray-400">0x{(layers.ip.tos || 0).toString(16).padStart(2, '0')}</span></div>
+            <div>Total Length: <span className="text-gray-400">{layers.ip.totalLength || packet.length || 0} bytes</span></div>
+            <div>Identification: <span className="text-gray-400">0x{(layers.ip.id || 0).toString(16).padStart(4, '0')}</span></div>
+            <div>Flags: <span className="text-yellow-400">{layers.ip.flags || '0x0000'}</span></div>
+            <div>Fragment Offset: <span className="text-gray-400">{layers.ip.fragmentOffset || 0}</span></div>
+            <div>Time to Live: <span className="text-orange-400">{layers.ip.ttl || 64}</span></div>
+            <div>Protocol: <span className="text-terminal-green">{layers.ip.protocolName || 'Unknown'} ({layers.ip.protocol})</span></div>
+            <div>Header Checksum: <span className="text-gray-400">0x{(layers.ip.checksum || 0).toString(16).padStart(4, '0')}</span></div>
             <div>Source IP: <span className="text-blue-400">{layers.ip.srcIp}</span></div>
             <div>Destination IP: <span className="text-purple-400">{layers.ip.dstIp}</span></div>
-            <div>Protocol: <span className="text-terminal-green">{layers.ip.protocolName || 'Unknown'} ({layers.ip.protocol})</span></div>
           </div>
         </div>
       );
@@ -204,9 +186,16 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
           <div className="ml-3 space-y-0.5 text-gray-300 text-[9px] font-mono">
             <div>Source Port: <span className="text-blue-400">{layers.tcp.srcPort}</span></div>
             <div>Destination Port: <span className="text-purple-400">{layers.tcp.dstPort}</span></div>
+            <div>Sequence Number: <span className="text-gray-400">{layers.tcp.seq || '0'}</span></div>
+            <div>Acknowledgment Number: <span className="text-gray-400">{layers.tcp.ack || '0'}</span></div>
+            <div>Header Length: <span className="text-gray-400">{layers.tcp.headerLength || 20} bytes</span></div>
             <div>Flags: <span className="text-yellow-400">{layers.tcp.flags || 'ACK'}</span></div>
-            <div>Sequence: <span className="text-gray-400">{layers.tcp.seq || 'N/A'}</span></div>
-            <div>Acknowledgment: <span className="text-gray-400">{layers.tcp.ack || 'N/A'}</span></div>
+            <div>Window Size: <span className="text-gray-400">{layers.tcp.window || '65535'}</span></div>
+            <div>Checksum: <span className="text-gray-400">0x{(layers.tcp.checksum || 0).toString(16).padStart(4, '0')}</span></div>
+            <div>Urgent Pointer: <span className="text-gray-400">{layers.tcp.urgent || '0'}</span></div>
+            {layers.tcp.options && (
+              <div>Options: <span className="text-gray-400">{layers.tcp.options}</span></div>
+            )}
           </div>
         </div>
       );
@@ -329,18 +318,13 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
     return <div className="space-y-2">{sections}</div>;
   };
 
-  // Render Hex/ASCII Tab - Enhanced with highlighting
+  // Render Hex/ASCII Tab - Neutral; synthesize placeholder when empty
   const renderHex = () => {
     const payloadHex = packet.payloadHex || '';
     const payloadAscii = packet.payloadAscii || '';
-    const raw = packet.raw || [];
-
+    let raw = packet.raw || [];
     if (raw.length === 0 && !payloadHex && !payloadAscii) {
-      return (
-        <div className="text-gray-500 text-xs font-mono text-center py-8">
-          No application payload present. This may be handshake/control traffic.
-        </div>
-      );
+      raw = Array.from({ length: 54 }, (_, i) => (i % 16 === 0 ? 0x45 : 0x00));
     }
 
     // Convert to rows if we have raw bytes
@@ -364,49 +348,7 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
       }
     }
 
-    // Highlight suspicious patterns
-    const highlightText = (text) => {
-      const suspicious = [
-        /Authorization:/gi,
-        /passwd/gi,
-        /\.exe/gi,
-        /\.xlsx/gi,
-        /[A-Za-z0-9+\/]{50,}/g, // Base64-like chunks
-      ];
-
-      let highlighted = text;
-      const spans = [];
-      
-      suspicious.forEach((pattern, idx) => {
-        const matches = [...text.matchAll(pattern)];
-        matches.forEach(match => {
-          if (match[0].length > 10 || match[0] === '.exe' || match[0] === '.xlsx') {
-            spans.push({
-              start: match.index,
-              end: match.index + match[0].length,
-              pattern: idx,
-            });
-          }
-        });
-      });
-
-      // Sort spans and build highlighted string
-      spans.sort((a, b) => a.start - b.start);
-      let result = [];
-      let lastEnd = 0;
-      spans.forEach(span => {
-        if (span.start > lastEnd) {
-          result.push(text.substring(lastEnd, span.start));
-        }
-        result.push(`<span class="text-yellow-400 font-bold">${text.substring(span.start, span.end)}</span>`);
-        lastEnd = span.end;
-      });
-      if (lastEnd < text.length) {
-        result.push(text.substring(lastEnd));
-      }
-
-      return result.length > 1 ? result.join('') : text;
-    };
+    const highlightText = (text) => text;
 
     if (rows.length === 0) {
       return (
@@ -429,7 +371,7 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
             const isSuspicious = highlightedAscii !== r.ascii;
             
             return (
-              <div key={idx} className={`grid grid-cols-[90px_1fr_90px] gap-3 hover:bg-gray-800/50 rounded px-1 py-0.5 ${isSuspicious ? 'bg-yellow-900/20 border-l border-yellow-500' : ''}`}>
+              <div key={idx} className={`grid grid-cols-[90px_1fr_90px] gap-3 hover:bg-gray-800/50 rounded px-1 py-0.5`}>
                 <div className="text-gray-500">{r.offset}</div>
                 <div className="text-terminal-green break-all">{r.hex || ''}</div>
                 <div className={`text-gray-400`} dangerouslySetInnerHTML={{ __html: highlightedAscii || r.ascii }}></div>
@@ -441,7 +383,7 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
     );
   };
 
-  // Render Stream Tab - Protocol-aware
+  // Render Stream Tab - Neutral
   const renderStream = () => {
     // TCP Stream
     if (stream && packet.layers?.tcp) {
@@ -451,14 +393,9 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
 
       return (
         <div className="space-y-3">
-          <div className="bg-terminal-green/10 border border-terminal-green rounded p-2">
+          <div className="bg-gray-950 border border-gray-800 rounded p-2">
             <div className="text-[10px] text-terminal-green font-semibold mb-1">Follow Stream (TCP)</div>
-            <div className="text-[9px] font-mono text-gray-300">
-              You are viewing reconstructed TCP conversation for this flow. IR uses this to prove what data actually left.
-            </div>
-            <div className="text-[9px] font-mono text-gray-400 mt-1">
-              Flow: {stream.packets.length} packets, {streamLength > maxLength ? `${maxLength}+` : streamLength} bytes
-            </div>
+            <div className="text-[9px] font-mono text-gray-400">Flow: {stream.packets.length} packets, {streamLength > maxLength ? `${maxLength}+` : streamLength} bytes</div>
           </div>
           <div className="bg-gray-950 border border-gray-800 rounded p-3">
             <div className="font-mono text-[10px] bg-black/60 border border-gray-800 rounded p-3 max-h-[500px] overflow-y-auto whitespace-pre-wrap break-all text-gray-300">
@@ -467,13 +404,7 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
                 : streamText || '[No readable text in stream]'}
             </div>
           </div>
-          {(streamText.toLowerCase().includes('authorization') || streamText.toLowerCase().includes('password') || streamText.toLowerCase().includes('.xlsx') || streamText.toLowerCase().includes('.pdf')) && (
-            <div className="bg-blue-900/20 border border-blue-500 rounded p-2">
-              <div className="text-[9px] font-mono text-blue-300">
-                This stream contains reusable credentials / sensitive file content. In IR, packets from this stream are commonly cited as proof in the incident timeline.
-              </div>
-            </div>
-          )}
+          
         </div>
       );
     }
@@ -489,14 +420,9 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
 
       return (
         <div className="space-y-3">
-          <div className="bg-blue-900/20 border border-blue-500 rounded p-2">
-            <div className="text-[10px] text-blue-400 font-semibold mb-1">DNS Query Pattern</div>
-            <div className="text-[9px] font-mono text-gray-300">
-              Analysts look for repetitive long DNS queries to spot tunneling / exfil over DNS.
-            </div>
-            <div className="text-[9px] font-mono text-blue-300 mt-1">
-              Last {Math.min(dnsPackets.length, 10)} DNS queries from {srcIp} in the last 5 seconds:
-            </div>
+          <div className="bg-gray-950 border border-gray-800 rounded p-2">
+            <div className="text-[10px] text-terminal-green font-semibold mb-1">DNS Query Pattern</div>
+            <div className="text-[9px] font-mono text-gray-400">Last {Math.min(dnsPackets.length, 10)} DNS queries from {srcIp} in the last 5 seconds:</div>
           </div>
           <div className="bg-gray-950 border border-gray-800 rounded p-3 max-h-[500px] overflow-y-auto">
             {dnsPackets.slice(-10).map((p, i) => {
@@ -527,9 +453,7 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
               {packet.layers?.icmp?.id && <div>ICMP ID: 0x{packet.layers.icmp.id.toString(16).padStart(4, '0')}</div>}
               {packet.layers?.icmp?.seq !== undefined && <div>Sequence: {packet.layers.icmp.seq}</div>}
             </div>
-            <div className="text-[9px] font-mono text-yellow-400 mt-2">
-              This pattern looks like scanning / recon. ICMP rarely carries bulk data.
-            </div>
+            
           </div>
         </div>
       );
@@ -538,11 +462,9 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
     // RTP
     if (packet.proto === 'RTP' || packet.layers?.rtp) {
       return (
-        <div className="bg-purple-900/20 border border-purple-500 rounded p-3">
-          <div className="text-[10px] text-purple-400 font-semibold mb-2">RTP Media Stream</div>
-          <div className="text-[9px] font-mono text-purple-300">
-            RTP media stream: continuous UDP packets with similar size/interval. Possible voice/audio exfil.
-          </div>
+        <div className="bg-gray-950 border border-gray-800 rounded p-3">
+          <div className="text-[10px] text-terminal-green font-semibold mb-2">RTP Media Stream</div>
+          <div className="text-[9px] font-mono text-gray-300">Continuous UDP packets with similar size/interval.</div>
         </div>
       );
     }
@@ -561,14 +483,14 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
     <div className="bg-gray-900/80 border border-gray-700 rounded-xl shadow-xl flex flex-col h-full card-glow">
       <div className="text-xs uppercase tracking-wide text-gray-400 px-4 py-3 border-b border-gray-800 flex items-center justify-between">
         <span className="flex items-center gap-2 text-gray-200 font-semibold">
-          <span className="h-2 w-2 rounded-full bg-purple-400 shadow-neon-blue"></span>
+          <span className="h-2 w-2 rounded-full bg-purple-400"></span>
           Packet Details
         </span>
       </div>
 
       {/* Tabs */}
       <div className="flex border-b border-gray-800 px-4">
-        {['summary', 'headers', 'hex', 'stream'].map(tab => (
+        {['summary', 'headers', 'hex', 'stream', 'voip'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -589,19 +511,27 @@ export default function PacketDetail({ packet, onMarkAsEvidence, markedPacketIds
         {activeTab === 'headers' && renderHeaders()}
         {activeTab === 'hex' && renderHex()}
         {activeTab === 'stream' && renderStream()}
+        {activeTab === 'voip' && (
+          packet.layers?.rtp ? (
+            <div className="space-y-3">
+              <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                <div className="text-[10px] text-terminal-green font-semibold mb-2">RTP (G.711) Playback</div>
+                <RtpPlayer packet={packet} />
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 text-xs font-mono">No RTP data for this packet.</div>
+          )
+        )}
       </div>
 
       {/* Mark as Evidence Button */}
       <div className="px-4 pb-4 border-t border-gray-800 pt-3">
         <button
           onClick={() => onMarkAsEvidence(packet.id)}
-          className={`w-full rounded-lg py-2 text-xs font-semibold font-mono transition-all duration-300 ${
-            isMarked
-              ? 'bg-yellow-600/40 border-2 border-yellow-500 text-yellow-200'
-              : 'bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500 text-yellow-300'
-          }`}
+          className={`w-full rounded-lg py-2 text-xs font-semibold font-mono transition-all duration-300 ${isMarked ? 'bg-gray-800 border border-gray-600 text-gray-200' : 'bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200'}`}
         >
-          {isMarked ? '✓ MARKED AS EVIDENCE' : 'MARK AS EVIDENCE'}
+          {isMarked ? '✓ Marked' : 'Mark as Evidence'}
         </button>
       </div>
     </div>

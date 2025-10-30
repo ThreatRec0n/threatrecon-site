@@ -230,8 +230,7 @@ export default function PacketList({ packets, selectedPacketId, onSelectPacket, 
       </div>
 
       {/* Table Header */}
-      <div className="grid grid-cols-[24px_40px_80px_120px_120px_70px_60px_1fr] gap-2 text-[9px] font-mono text-gray-400 px-4 py-2 border-b border-gray-800 bg-gray-900/50">
-        <div></div>
+      <div className="grid grid-cols-[40px_80px_120px_120px_70px_60px_1fr] gap-2 text-[9px] font-mono text-gray-400 px-4 py-2 border-b border-gray-800 bg-gray-900/50">
         <div className="cursor-pointer hover:text-terminal-green flex items-center gap-1" onClick={() => handleSort('no')}>
           No. <SortIcon column="no" />
         </div>
@@ -277,11 +276,10 @@ export default function PacketList({ packets, selectedPacketId, onSelectPacket, 
                 key={pkt.id}
                 data-packet-id={pkt.id}
                 onClick={() => onSelectPacket(pkt.id)}
-                className={`grid grid-cols-[24px_40px_80px_120px_120px_70px_60px_1fr] gap-2 px-4 py-1.5 text-[10px] font-mono cursor-pointer transition-all hover:bg-gray-800/50 ${
+                className={`grid grid-cols-[40px_80px_120px_120px_70px_60px_1fr] gap-2 px-4 py-1.5 text-[10px] font-mono cursor-pointer transition-all hover:bg-gray-800/50 ${
                   isSelected ? 'bg-terminal-green/10' : ''
                 } ${isMarked ? 'border-l border-yellow-500' : ''}`}
               >
-                <div className="flex items-center"><input type="checkbox" checked={isMarked} onChange={(e)=>{ e.stopPropagation(); onToggleSelect && onToggleSelect(pkt.id); }} /></div>
                 <div className="text-gray-500">{packetNo}</div>
                 <div className="text-gray-400">{timeStr}</div>
                 <div className="text-blue-400 truncate" title={src}>{src}</div>
