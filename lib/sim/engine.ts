@@ -53,3 +53,18 @@ export function nslookupHost(scn: Scenario, host: Host, name: string): { answer?
   const ip = scn.internet.dns[name];
   return ip ? { answer: ip } : {};
 }
+
+/** Map ping hops to diagram node keys for animation */
+export function hopsToNodes(hops: string[], scn: Scenario): Array<"LAN1"|"FW"|"WAN_ROUTER"|"INTERNET"|"DMZ1"|"DMZ2"|"LAN2"> {
+  const out: Array<"LAN1"|"FW"|"WAN_ROUTER"|"INTERNET"|"DMZ1"|"DMZ2"|"LAN2"> = [];
+  for (const h of hops) {
+    if (h === scn.devices.router.wan || h === scn.subnets.wan.gw) out.push("WAN_ROUTER");
+    else if (h === scn.internet.pingTarget) out.push("INTERNET");
+    else if (h === scn.devices.firewall.ifaces.lan || h === scn.devices.firewall.ifaces.dmz || h === scn.devices.firewall.ifaces.wan) out.push("FW");
+    else if (h === scn.devices.lanHosts[0].ip) out.push("LAN1");
+    else if (h === scn.devices.lanHosts[1].ip) out.push("LAN2");
+    else if (h === scn.devices.dmzHosts[0].ip) out.push("DMZ1");
+    else if (h === scn.devices.dmzHosts[1].ip) out.push("DMZ2");
+  }
+  return out;
+}

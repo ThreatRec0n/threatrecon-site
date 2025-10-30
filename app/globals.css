@@ -3,3 +3,6 @@
 @tailwind utilities;
 
 html,body { height: 100%; }
+
+/* Subtle focus style */
+button:focus, input:focus { outline: 2px solid rgba(59,130,246,.6); outline-offset: 1px; }
