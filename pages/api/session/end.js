@@ -20,7 +20,7 @@ export default function handler(req, res) {
     },
     promoted: grade === 'A+' && Math.random() > 0.7,
     newRank: grade === 'A+' ? "Analyst" : "Trainee",
-    timestamp: (await import('../../../lib/safe-time')).safeIso(Date.now())
+    timestamp: new Date().toISOString()
   };
 
   res.status(200).json(sessionEndData);

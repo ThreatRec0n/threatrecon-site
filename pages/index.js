@@ -74,7 +74,7 @@ export default function Home() {
     
     if (!profile.history) profile.history = [];
     profile.history.push({
-      ts: (await import('../lib/safe-time')).safeIso(Date.now()),
+      ts: new Date().toISOString(),
       scenarioId: scenarioTitle,
       result: correct ? 'correct' : 'wrong',
       scoreDelta,
