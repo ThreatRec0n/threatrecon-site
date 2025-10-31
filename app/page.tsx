@@ -219,10 +219,15 @@ export default function Page() {
         <section className="col-span-7 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4">
           <h2 className="font-medium mb-2">Network Topology</h2>
           <TopologyCanvas nodes={topo.nodes as any} links={topo.links as any} packetPath={packetPath as any} natOverlay={natOverlay}/>
-          <div className="mt-2 text-xs text-slate-500">
-            <span className="font-semibold text-red-400">⚠️ OBJECTIVE:</span> Configure the network correctly to establish Internet connectivity. 
-            The door will unlock when {lan1.id} successfully reaches {scn.internet.pingTarget}.
-            {oxygenLevel < 30 && <span className="block mt-1 text-red-400 animate-pulse">⚡ CRITICAL: Oxygen running low!</span>}
+          <div className="mt-2 text-xs text-slate-500 space-y-1">
+            <div>
+              <span className="font-semibold text-red-400">⚠️ OBJECTIVE:</span> Configure all network devices with correct static IPs, gateways, firewall rules, and NAT to establish Internet connectivity.
+            </div>
+            <div className="text-slate-400">
+              The door unlocks when {lan1.id} successfully reaches {scn.internet.pingTarget}. 
+              <span className="font-mono text-slate-600"> Use private IP ranges (10.x, 172.x, 192.x) - see IP Range Guide above.</span>
+            </div>
+            {oxygenLevel < 30 && <span className="block mt-1 text-red-400 animate-pulse">⚡ CRITICAL: Oxygen running low! Configure faster!</span>}
           </div>
         </section>
         <section className="col-span-5 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4 flex flex-col">
