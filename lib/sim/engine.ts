@@ -73,37 +73,54 @@ function isValidCidr(cidr: string): boolean {
   return !isNaN(prefixNum) && prefixNum >= 0 && prefixNum <= 32;
 }
 
-export function pingFromHost(scn: Scenario, host: Host, targetIp: string, fw: Firewall): PingResult {
+export function pingFromHost(
+  scn: Scenario, 
+  host: Host, 
+  targetIp: string, 
+  fw: Firewall,
+  lanRouter?: { lanIp: string; gw: string }
+): PingResult {
   const hops: string[] = [host.ip];
 
-  // Validate input IPs
-  if (!isValidIp(host.ip)) {
-    return { success: false, hops, reason: "invalid host IP address format" };
+  // Validate input IPs - all must be configured
+  if (!host.ip || !isValidIp(host.ip)) {
+    return { success: false, hops, reason: "host IP address must be configured and valid" };
   }
-  if (!isValidIp(targetIp)) {
-    return { success: false, hops, reason: "invalid target IP address format" };
+  if (!targetIp || !isValidIp(targetIp)) {
+    return { success: false, hops, reason: "target IP address must be configured and valid" };
+  }
+  if (!host.gw || !isValidIp(host.gw)) {
+    return { success: false, hops, reason: "host gateway must be configured and valid" };
+  }
+
+  // LAN router must be configured
+  if (!lanRouter || !lanRouter.lanIp) {
+    return { success: false, hops, reason: "LAN router IP must be configured" };
+  }
+  if (!isValidIp(lanRouter.lanIp)) {
+    return { success: false, hops, reason: "LAN router IP format is invalid" };
   }
 
   // 1) Host -> LAN router (must be same /24 and GW points to LAN router)
-  if (!inSame24(host.ip, scn.devices.lanRouter.lanIp)) {
-    return { success: false, hops, reason: "host IP must be in same /24 subnet as LAN router" };
+  if (!inSame24(host.ip, lanRouter.lanIp)) {
+    return { success: false, hops, reason: "host IP must be in same /24 subnet as LAN router (first 3 octets must match)" };
   }
-  if (!isValidIp(host.gw)) {
-    return { success: false, hops, reason: "invalid gateway IP address format" };
-  }
-  if (host.gw !== scn.devices.lanRouter.lanIp) {
+  if (host.gw !== lanRouter.lanIp) {
     return { success: false, hops, reason: "host gateway must point to LAN router IP" };
   }
-  hops.push(scn.devices.lanRouter.lanIp);
+  hops.push(lanRouter.lanIp);
 
   // 2) LAN router default route must be firewall.lan
-  if (!isValidIp(scn.devices.lanRouter.gw)) {
-    return { success: false, hops, reason: "LAN router gateway must be a valid IP" };
+  if (!lanRouter.gw || !isValidIp(lanRouter.gw)) {
+    return { success: false, hops, reason: "LAN router gateway must be configured and valid" };
   }
-  if (scn.devices.lanRouter.gw !== scn.devices.firewall.ifaces.lan) {
-    return { success: false, hops, reason: "LAN router gateway must point to firewall LAN interface" };
+  if (!fw.ifaces.lan || !isValidIp(fw.ifaces.lan)) {
+    return { success: false, hops, reason: "firewall LAN interface must be configured and valid" };
   }
-  hops.push(scn.devices.firewall.ifaces.lan);
+  if (lanRouter.gw !== fw.ifaces.lan) {
+    return { success: false, hops, reason: "LAN router gateway must point to firewall LAN interface IP" };
+  }
+  hops.push(fw.ifaces.lan);
 
   // 3) Firewall policy: need explicit ALLOW rules for both ingress and egress
   const allow = allowEgressICMP(fw, host.ip, targetIp);
@@ -128,11 +145,15 @@ export function pingFromHost(scn: Scenario, host: Host, targetIp: string, fw: Fi
   if (!subnetContains(fw.nat.snat.srcCidr, host.ip)) {
     return { success: false, hops, reason: "SNAT source CIDR must include host IP" };
   }
+  // Firewall WAN interface must be configured
+  if (!fw.ifaces.wan || !isValidIp(fw.ifaces.wan)) {
+    return { success: false, hops, reason: "firewall WAN interface must be configured and valid" };
+  }
   // Verify SNAT translate-to matches firewall WAN IP
-  if (fw.nat.snat.toIp !== scn.devices.firewall.ifaces.wan) {
+  if (fw.nat.snat.toIp !== fw.ifaces.wan) {
     return { success: false, hops, reason: "SNAT must translate to firewall WAN IP" };
   }
-  hops.push(scn.devices.firewall.ifaces.wan);
+  hops.push(fw.ifaces.wan);
 
   // 5) Through WAN gateway to Internet
   hops.push(scn.subnets.wan.gw);
@@ -145,8 +166,14 @@ export function pingFromHost(scn: Scenario, host: Host, targetIp: string, fw: Fi
   hops.push(targetIp);
   return { success: true, hops };
 }
-export function tracerouteFromHost(scn: Scenario, host: Host, targetIp: string, fw: Firewall): { hops: string[], reached: boolean } {
-  const pr = pingFromHost(scn, host, targetIp, fw);
+export function tracerouteFromHost(
+  scn: Scenario, 
+  host: Host, 
+  targetIp: string, 
+  fw: Firewall,
+  lanRouter?: { lanIp: string; gw: string }
+): { hops: string[], reached: boolean } {
+  const pr = pingFromHost(scn, host, targetIp, fw, lanRouter);
   return { hops: pr.hops, reached: pr.success };
 }
 export function nslookupHost(scn: Scenario, host: Host, name: string): { answer?: string } {
@@ -155,17 +182,24 @@ export function nslookupHost(scn: Scenario, host: Host, name: string): { answer?
 }
 
 /** Map ping hops to diagram node keys for animation */
-export function hopsToNodes(hops: string[], scn: Scenario): Array<"LAN1"|"FW"|"WAN_ROUTER"|"INTERNET"|"DMZ1"|"DMZ2"|"LAN2"|"LAN_ROUTER"> {
+export function hopsToNodes(
+  hops: string[], 
+  scn: Scenario,
+  lanRouter?: { lanIp: string },
+  lanHost1Ip?: string,
+  fw?: { ifaces: { lan: string; dmz: string; wan: string } }
+): Array<"LAN1"|"FW"|"WAN_ROUTER"|"INTERNET"|"DMZ1"|"DMZ2"|"LAN2"|"LAN_ROUTER"> {
   const out: Array<"LAN1"|"FW"|"WAN_ROUTER"|"INTERNET"|"DMZ1"|"DMZ2"|"LAN2"|"LAN_ROUTER"> = [];
   for (const h of hops) {
     if (h === scn.devices.router.wan || h === scn.subnets.wan.gw) out.push("WAN_ROUTER");
     else if (h === scn.internet.pingTarget) out.push("INTERNET");
-    else if (h === scn.devices.firewall.ifaces.lan || h === scn.devices.firewall.ifaces.dmz || h === scn.devices.firewall.ifaces.wan) out.push("FW");
-    else if (h === scn.devices.lanRouter.lanIp) out.push("LAN_ROUTER");
-    else if (h === scn.devices.lanHosts[0].ip) out.push("LAN1");
-    else if (h === scn.devices.lanHosts[1].ip) out.push("LAN2");
-    else if (h === scn.devices.dmzHosts[0].ip) out.push("DMZ1");
-    else if (h === scn.devices.dmzHosts[1].ip) out.push("DMZ2");
+    else if (fw && (h === fw.ifaces.lan || h === fw.ifaces.dmz || h === fw.ifaces.wan)) out.push("FW");
+    else if (lanRouter && h === lanRouter.lanIp) out.push("LAN_ROUTER");
+    else if (lanHost1Ip && h === lanHost1Ip) out.push("LAN1");
+    // Try to match based on IP patterns if exact match fails
+    else if (h.startsWith("192.168.1.") && hops.indexOf(h) < 3) out.push("LAN1");
+    else if (h.startsWith("192.168.1.")) out.push("LAN_ROUTER");
+    else if (h.startsWith("10.10.10.")) out.push("DMZ1");
   }
   return out;
 }
