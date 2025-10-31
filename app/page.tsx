@@ -1,5 +1,6 @@
 ﻿"use client";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import scenarioData from "@/app/data/enterprise";
 import type { Scenario, Host, Firewall } from "@/lib/sim/types";
 import { pingFromHost, tracerouteFromHost, nslookupHost, hopsToNodes } from "@/lib/sim/engine";
@@ -9,6 +10,8 @@ import HintPanel from "@/components/HintPanel";
 import NetTerminal from "@/components/NetTerminal";
 import NatFirewallPanel from "@/components/NatFirewallPanel";
 import CircuitBackground from "@/components/CircuitBackground";
+import EscapeStory from "@/components/EscapeStory";
+import OxygenMeter from "@/components/OxygenMeter";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -26,8 +29,42 @@ export default function Page() {
   const [failed, setFailed] = useState<string | null>(null);
   const [lanR, setLanR] = useState(scn.devices.lanRouter);
   const [natOverlay, setNatOverlay] = useState<{from: string; to: string; visible: boolean}>({from: "", to: "", visible: false});
+  const [oxygenLevel, setOxygenLevel] = useState(100);
+  const [isConnected, setIsConnected] = useState(false);
+  const [hasEscaped, setHasEscaped] = useState(false);
 
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
+
+  // Oxygen depletion system
+  useEffect(() => {
+    if (hasEscaped || isConnected) return;
+    
+    const interval = setInterval(() => {
+      setOxygenLevel(prev => {
+        const newLevel = Math.max(0, prev - 0.05); // Deplete slowly
+        if (newLevel <= 0) {
+          // Game over
+          return 0;
+        }
+        return newLevel;
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [hasEscaped, isConnected]);
+
+  // Check for successful connection
+  useEffect(() => {
+    const checkConnection = () => {
+      const res = pingFromHost(scn, lan1, scn.internet.pingTarget, fw);
+      if (res.success) {
+        setIsConnected(true);
+      }
+    };
+
+    const interval = setInterval(checkConnection, 2000);
+    return () => clearInterval(interval);
+  }, [scn, lan1, fw]);
 
   function inSame24(a:string,b:string){const A=a.split(".").map(n=>+n),B=b.split(".").map(n=>+n);return A[0]===B[0]&&A[1]===B[1]&&A[2]===B[2];}
 
@@ -85,21 +122,61 @@ export default function Page() {
 
   const getHints = () => {
     return [
-      "Ensure each host and its gateway are in the same /24 subnet.",
-      "LAN egress: allow ICMP on LAN ingress and WAN egress on the firewall.",
-      "For Internet, SNAT must translate 192.168.1.0/24 to the FW WAN IP.",
-      "Traceroute reveals where traffic stops; adjust rules or gateways accordingly."
-    ];
+      "✓ Each host IP must be in the same /24 subnet as its gateway (first 3 octets must match).",
+      "✓ The LAN router's gateway must point to the firewall's LAN interface IP.",
+      "✓ Firewall needs TWO rules: ALLOW ICMP on LAN interface (ingress) AND WAN interface (egress).",
+      "✓ SNAT must translate 192.168.1.0/24 to the firewall's WAN IP address exactly.",
+      "✓ Use 'ping 8.8.8.8' in the terminal to test connectivity.",
+      oxygenLevel < 50 ? "⚠️ Time is running out! Check each configuration carefully." : ""
+    ].filter(Boolean);
   };
+
+  const handleEscape = () => {
+    setHasEscaped(true);
+    setIsConnected(true);
+  };
+
+  const handleOxygenDepleted = () => {
+    // Game over - show message
+    alert("Oxygen depleted. You didn't make it in time. The door remains locked.");
+  };
+
+  if (hasEscaped) {
+    return (
+      <main className="min-h-screen relative">
+        <CircuitBackground />
+        <div className="relative z-50 flex items-center justify-center min-h-screen">
+          <div className="bg-slate-900/95 backdrop-blur border-2 border-emerald-500 rounded-xl p-12 max-w-2xl text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="text-8xl mb-6"
+            >
+              🎉
+            </motion.div>
+            <h1 className="text-4xl font-bold text-emerald-400 mb-4">Escape Successful!</h1>
+            <p className="text-xl text-slate-300 mb-6">
+              You successfully configured the network and established a connection to the outside world.
+            </p>
+            <p className="text-lg text-slate-400">
+              The door unlocked, and you made it out alive. Well done!
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen relative">
       <CircuitBackground />
+      <OxygenMeter level={oxygenLevel} onDepleted={handleOxygenDepleted} />
+      <EscapeStory oxygenLevel={oxygenLevel} onEscape={handleEscape} isConnected={isConnected} />
       <header className="relative z-10 flex items-center justify-between p-4 border-b bg-slate-900/80 backdrop-blur-sm text-white">
-        <div className="font-semibold text-white">Network Connectivity Simulator</div>
+        <div className="font-semibold text-white">🚪 Escape Room: Network Configuration</div>
         <div className="flex items-center gap-3">
-          <MissionTimer minutes={15} onExpire={()=>{}} />
-          <div className="text-sm text-slate-300">{scn.name}</div>
+          <MissionTimer minutes={Math.floor(oxygenLevel / 6.67)} onExpire={handleOxygenDepleted} />
+          <div className="text-sm text-slate-300">Connect to Internet to Unlock Door</div>
         </div>
       </header>
       <div className="relative z-10 p-6 grid grid-cols-12 gap-4">
@@ -107,7 +184,11 @@ export default function Page() {
         <section className="col-span-7 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4">
           <h2 className="font-medium mb-2">Network Topology</h2>
           <TopologyCanvas nodes={topo.nodes as any} links={topo.links as any} packetPath={packetPath as any} natOverlay={natOverlay}/>
-          <div className="mt-2 text-xs text-slate-500">Goal: configure static IPv4, routes, and NAT so {lan1.id} reaches {scn.internet.pingTarget} or resolves {scn.internet.httpHost}.</div>
+          <div className="mt-2 text-xs text-slate-500">
+            <span className="font-semibold text-red-400">⚠️ OBJECTIVE:</span> Configure the network correctly to establish Internet connectivity. 
+            The door will unlock when {lan1.id} successfully reaches {scn.internet.pingTarget}.
+            {oxygenLevel < 30 && <span className="block mt-1 text-red-400 animate-pulse">⚡ CRITICAL: Oxygen running low!</span>}
+          </div>
         </section>
         <section className="col-span-5 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4 flex flex-col">
           <div className="flex gap-2 text-sm">
