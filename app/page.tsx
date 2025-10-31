@@ -28,6 +28,7 @@ import NatTable from "@/components/NatTable";
 import ErrorCounter from "@/components/ErrorCounter";
 import RandomEvent from "@/components/RandomEvent";
 import AchievementBadge from "@/components/AchievementBadge";
+import DifficultySelect from "@/components/DifficultySelect";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -104,10 +105,10 @@ export default function Page() {
   const [packetPath, setPacketPath] = useState<Array<any>>([]);
   const [failed, setFailed] = useState<string | null>(null);
   const [natOverlay, setNatOverlay] = useState<{from: string; to: string; visible: boolean}>({from: "", to: "", visible: false});
+  const [preset, setPreset] = useState<"Beginner"|"Intermediate"|"Advanced" | null>(null); // Start with null - show selector
   const [oxygenLevel, setOxygenLevel] = useState(100);
   const [isConnected, setIsConnected] = useState(false);
   const [hasEscaped, setHasEscaped] = useState(false);
-  const [preset, setPreset] = useState<"Beginner"|"Intermediate"|"Advanced">("Beginner");
   const [trace, setTrace] = useState<{ command: string; args: string[]; hops: string[]; success: boolean; reason?: string }|null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
@@ -275,6 +276,29 @@ export default function Page() {
     alert("Oxygen depleted. You didn't make it in time. The door remains locked.");
   };
 
+  // Show difficulty selector if not selected
+  if (preset === null) {
+    return (
+      <main className="min-h-screen relative">
+        <CircuitBackground />
+        <DifficultySelect onSelect={(d) => {
+          setPreset(d);
+          // Reset everything when starting
+          setOxygenLevel(100);
+          setIsConnected(false);
+          setHasEscaped(false);
+          setErrorCount(0);
+          setAchievements({
+            firstCommit: false,
+            firstPing: false,
+            zeroErrors: false,
+            speedRun: false,
+          });
+        }} />
+      </main>
+    );
+  }
+
   if (hasEscaped) {
     return (
       <main className="min-h-screen relative">
@@ -310,7 +334,7 @@ export default function Page() {
         <div className="font-semibold text-white">🚪 Escape Room: Network Configuration</div>
         <div className="flex items-center gap-3">
           <ErrorCounter count={errorCount} />
-          <MissionTimer minutes={15} onExpire={handleOxygenDepleted} onTimeUpdate={handleTimeUpdate} />
+          <MissionTimer minutes={30} onExpire={handleOxygenDepleted} onTimeUpdate={handleTimeUpdate} />
           <div className="text-sm text-slate-300">Connect to Internet to Unlock Door</div>
           <div className="flex gap-1">
             <AchievementBadge id="firstCommit" name="First Commit" earned={achievements.firstCommit} />
@@ -356,12 +380,14 @@ export default function Page() {
             <HintPanel getHints={getHints}/>
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs">
-            <span className="text-slate-600">Preset:</span>
-            <select value={preset} onChange={e=>setPreset(e.target.value as any)} className="border rounded px-2 py-1">
-              <option>Beginner</option>
-              <option>Intermediate</option>
-              <option>Advanced</option>
-            </select>
+            <span className="text-slate-600">Difficulty:</span>
+            <span className={`px-2 py-1 rounded font-semibold ${
+              preset === "Beginner" ? "bg-emerald-100 text-emerald-800" :
+              preset === "Intermediate" ? "bg-blue-100 text-blue-800" :
+              "bg-red-100 text-red-800"
+            }`}>
+              {preset}
+            </span>
           </div>
           {activeTab === "Configure" && (
             <div className="mt-3 space-y-4">
