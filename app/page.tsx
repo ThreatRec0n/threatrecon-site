@@ -317,7 +317,7 @@ function DeviceConfig({ title, host, onChange, hint }: { title: string; host: an
     <div className="p-3 border rounded bg-white/90">
       <div className="font-medium mb-2 text-sm">{title}</div>
       {hint && <div className="text-[10px] text-slate-500 mb-2 italic">{hint}</div>}
-      <Labeled v="IP Address" value={host.ip} onChange={v=>onChange({...host, ip:v})} showValidation={isValid} ipClass={getIpClass(host.ip)} />
+      <Labeled v="IP Address" value={host.ip} onChange={v=>onChange({...host, ip:v})} showValidation={isValid} ipClass={getIpClass} />
       <Labeled v="Subnet Mask" value={host.mask} onChange={v=>onChange({...host, mask:v})} placeholder="255.255.255.0" />
       <Labeled v="Gateway" value={host.gw} onChange={v=>onChange({...host, gw:v})} showValidation={isValid} />
     </div>
@@ -359,10 +359,13 @@ function Labeled({
   onChange: (s: string) => void;
   placeholder?: string;
   showValidation?: (s: string) => boolean;
-  ipClass?: (s: string) => string;
+  /** IP class can be provided as a function (maps value -> class string) or a precomputed string */
+  ipClass?: ((s: string) => string) | string;
 }) {
   const isValid = showValidation ? showValidation(value) : true;
-  const classInfo = ipClass && value ? ipClass(value) : "";
+  const classInfo = ipClass && value 
+    ? (typeof ipClass === "function" ? ipClass(value) : ipClass)
+    : "";
   
   return (
     <label className="block text-xs mb-2">
