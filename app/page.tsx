@@ -25,6 +25,9 @@ import StateTable from "@/components/StateTable";
 import RoutingTable from "@/components/RoutingTable";
 import PacketInspector from "@/components/PacketInspector";
 import NatTable from "@/components/NatTable";
+import ErrorCounter from "@/components/ErrorCounter";
+import RandomEvent from "@/components/RandomEvent";
+import AchievementBadge from "@/components/AchievementBadge";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -81,12 +84,21 @@ export default function Page() {
   const [cLanR, setCLanR] = useState({ id:"lan-r1", lanIp:"", gw:"" });
   const [cFw, setCFw] = useState<Firewall>({ id:"fw1", ifaces:{ dmz:"", lan:"", wan:"" }, nat:{}, rules:[] });
 
-  const commitLan1 = () => setCLan1({ ...lan1 });
-  const commitLan2 = () => setCLan2({ ...lan2 });
-  const commitDmz1 = () => setCDmz1({ ...dmz1 });
-  const commitDmz2 = () => setCDmz2({ ...dmz2 });
-  const commitLanRouter = () => setCLanR({ ...lanR });
-  const commitFirewall = () => setCFw({ ...fw });
+  const isValidIp = (ip?: string) => {
+    if (!ip) return false;
+    const parts = ip.split(".");
+    return parts.length === 4 && parts.every(p => {
+      const n = parseInt(p, 10);
+      return !isNaN(n) && n >= 0 && n <= 255 && p === String(n);
+    });
+  };
+
+  const commitLan1 = () => commitWithValidation("LAN1", () => setCLan1({ ...lan1 }), () => isValidIp(lan1.ip) && isValidIp(lan1.gw));
+  const commitLan2 = () => commitWithValidation("LAN2", () => setCLan2({ ...lan2 }), () => !lan2.ip || (isValidIp(lan2.ip) && isValidIp(lan2.gw)));
+  const commitDmz1 = () => commitWithValidation("DMZ1", () => setCDmz1({ ...dmz1 }), () => isValidIp(dmz1.ip) && isValidIp(dmz1.gw));
+  const commitDmz2 = () => commitWithValidation("DMZ2", () => setCDmz2({ ...dmz2 }), () => !dmz2.ip || (isValidIp(dmz2.ip) && isValidIp(dmz2.gw)));
+  const commitLanRouter = () => commitWithValidation("LAN_ROUTER", () => setCLanR({ ...lanR }), () => isValidIp(lanR.lanIp) && lanR.lanIp.startsWith("192.168.") && isValidIp(lanR.gw));
+  const commitFirewall = () => commitWithValidation("FW", () => setCFw({ ...fw }), () => isValidIp(fw.ifaces.lan) && isValidIp(fw.ifaces.wan) && fw.ifaces.dmz?.startsWith("10."));
   const [logs, setLogs] = useState<string[]>([]);
   const [output, setOutput] = useState<string>("");
   const [packetPath, setPacketPath] = useState<Array<any>>([]);
@@ -98,29 +110,76 @@ export default function Page() {
   const [preset, setPreset] = useState<"Beginner"|"Intermediate"|"Advanced">("Beginner");
   const [trace, setTrace] = useState<{ command: string; args: string[]; hops: string[]; success: boolean; reason?: string }|null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
+  const [achievements, setAchievements] = useState<Record<string, boolean>>({
+    firstCommit: false,
+    firstPing: false,
+    zeroErrors: false,
+    speedRun: false,
+  });
 
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
 
-  // Sync oxygen level with timer (controlled by MissionTimer)
+  // Sync oxygen level with timer (controlled by MissionTimer) + error penalty
   const handleTimeUpdate = (remainingPercent: number) => {
     if (!hasEscaped && !isConnected) {
-      setOxygenLevel(remainingPercent);
+      const penalty = errorCount > 0 ? Math.min(errorCount * 2, 15) : 0; // Max 15% penalty
+      const adjusted = Math.max(0, remainingPercent - penalty);
+      setOxygenLevel(adjusted);
     }
   };
 
-  // Check for successful connection (uses COMMITTED config)
+  // Track achievements
+  useEffect(() => {
+    if (cLan1.ip && !achievements.firstCommit) {
+      setAchievements(a => ({ ...a, firstCommit: true }));
+    }
+    if (trace?.success && !achievements.firstPing) {
+      setAchievements(a => ({ ...a, firstPing: true }));
+    }
+    if (errorCount === 0 && (cLan1.ip || cLanR.lanIp || cFw.ifaces.lan) && !achievements.zeroErrors) {
+      setAchievements(a => ({ ...a, zeroErrors: true }));
+    }
+    if (isConnected && oxygenLevel > 80 && !achievements.speedRun) {
+      setAchievements(a => ({ ...a, speedRun: true }));
+    }
+  }, [cLan1.ip, trace, errorCount, isConnected, oxygenLevel, achievements]);
+
+  // Penalize on invalid commit attempts
+  const commitWithValidation = (key: string, commitFn: ()=>void, validator: ()=>boolean) => {
+    if (!validator()) {
+      setErrorCount(c => c + 1);
+      addLog(`❌ Invalid commit attempt on ${key} - penalty applied`);
+      return;
+    }
+    commitFn();
+    if (errorCount > 0 && validator()) {
+      // Small reward for correct commit after errors
+      setErrorCount(c => Math.max(0, c - 0.5));
+    }
+  };
+
+  // Check for successful connection (uses COMMITTED config) - Enhanced validation
   useEffect(() => {
     const checkConnection = () => {
-      if (!cLan1.ip || !cFw.ifaces.lan || !cFw.ifaces.wan || !cLanR.lanIp) return; // Wait for basic config
+      // Strict validation: all must be configured AND valid
+      if (!cLan1.ip || !cFw.ifaces.lan || !cFw.ifaces.wan || !cLanR.lanIp) return;
+      if (!isValidIp(cLan1.ip) || !isValidIp(cFw.ifaces.lan) || !isValidIp(cFw.ifaces.wan) || !isValidIp(cLanR.lanIp)) return;
+      // Verify subnet correctness before checking
+      const same24 = cLan1.ip.split('.').slice(0,3).join('.') === cLanR.lanIp.split('.').slice(0,3).join('.');
+      if (!same24 || cLan1.gw !== cLanR.lanIp) return;
+      if (cLanR.gw !== cFw.ifaces.lan) return;
+      
       const res = pingFromHost(scn, cLan1, scn.internet.pingTarget, cFw, cLanR);
-      if (res.success) {
+      if (res.success && !isConnected) {
         setIsConnected(true);
+        addLog("✅ Connection established! Door unlocking...");
       }
     };
 
     const interval = setInterval(checkConnection, 2000);
     return () => clearInterval(interval);
-  }, [scn, cLan1, cFw, cLanR]);
+  }, [scn, cLan1, cFw, cLanR, isConnected, addLog]);
 
   // Keyboard: Ctrl+Enter commit all if valid
   useEffect(()=>{
@@ -250,12 +309,27 @@ export default function Page() {
       <header className="relative z-10 flex items-center justify-between p-4 border-b bg-slate-900/80 backdrop-blur-sm text-white">
         <div className="font-semibold text-white">🚪 Escape Room: Network Configuration</div>
         <div className="flex items-center gap-3">
+          <ErrorCounter count={errorCount} />
           <MissionTimer minutes={15} onExpire={handleOxygenDepleted} onTimeUpdate={handleTimeUpdate} />
           <div className="text-sm text-slate-300">Connect to Internet to Unlock Door</div>
+          <div className="flex gap-1">
+            <AchievementBadge id="firstCommit" name="First Commit" earned={achievements.firstCommit} />
+            <AchievementBadge id="firstPing" name="First Ping" earned={achievements.firstPing} />
+            <AchievementBadge id="zeroErrors" name="Zero Errors" earned={achievements.zeroErrors} />
+            <AchievementBadge id="speedRun" name="Speed Run" earned={achievements.speedRun} />
+          </div>
           <ThemeToggle />
           <button onClick={()=>setHelpOpen(true)} className="px-2 py-1 rounded border text-xs">Help</button>
         </div>
       </header>
+      <RandomEvent enabled={!hasEscaped && !isConnected} onEvent={(e) => {
+        if (e.severity === "high") {
+          setErrorCount(c => c + 1);
+          addLog(`🚨 ${e.msg} - Error penalty applied!`);
+        } else {
+          addLog(`⚠️ ${e.msg}`);
+        }
+      }} />
       <div className="relative z-10 p-6 grid grid-cols-12 gap-4">
         {/* Animated Topology */}
         <section className="col-span-7 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4">
