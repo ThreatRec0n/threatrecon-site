@@ -2,13 +2,39 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-type StoryPhase = "intro" | "desperate" | "critical" | "escape";
+// Keep the 'escape' phase present to match the union used throughout.
+export type StoryPhase = "intro" | "desperate" | "critical" | "escape";
 
 interface EscapeStoryProps {
   oxygenLevel: number;
   onEscape: () => void;
   isConnected: boolean;
 }
+
+const messages: Record<StoryPhase, string[]> = {
+  intro: [
+    "You wake up disoriented, head throbbing. The room is dim, illuminated only by the faint glow of a computer screen.",
+    "You're trapped. The door won't budge. Panic sets in as you realize the air feels... thin.",
+    "On the desk, you find a note: 'The door will unlock when the network connects to the outside world. You have limited time.'",
+    "The oxygen reading on the wall shows: **REDACTED**%. You need to work fast.",
+  ],
+  desperate: [
+    "Your breathing is getting harder. The oxygen is running low.",
+    "The computer shows a network topology. You remember your networking courses... or was that just a dream?",
+    "Focus. Configure the static IPs correctly. Set up the firewall rules. Enable NAT.",
+    "Every mistake costs you precious air.",
+  ],
+  critical: [
+    "**GASP** The air is thin. Your vision blurs slightly.",
+    "This is your last chance. The network must connect. NOW.",
+    "Check each configuration carefully. One wrong IP address, one missed firewall rule...",
+    "The door mechanism hums quietly, waiting for the signal.",
+  ],
+  escape: [
+    "Connection established. The latch disengages.",
+    "You exhale. The door opens. Session archived.",
+  ],
+};
 
 export default function EscapeStory({ oxygenLevel, onEscape, isConnected }: EscapeStoryProps) {
   const [phase, setPhase] = useState<StoryPhase>("intro");
@@ -22,32 +48,12 @@ export default function EscapeStory({ oxygenLevel, onEscape, isConnected }: Esca
 
   useEffect(() => {
     if (isConnected) {
+      setPhase("escape");
       setTimeout(() => {
         onEscape();
       }, 2000);
     }
   }, [isConnected, onEscape]);
-
-  const messages = {
-    intro: [
-      "You wake up disoriented, head throbbing. The room is dim, illuminated only by the faint glow of a computer screen.",
-      "You're trapped. The door won't budge. Panic sets in as you realize the air feels... thin.",
-      "On the desk, you find a note: 'The door will unlock when the network connects to the outside world. You have limited time.'",
-      "The oxygen reading on the wall shows: **REDACTED**%. You need to work fast.",
-    ],
-    desperate: [
-      "Your breathing is getting harder. The oxygen is running low.",
-      "The computer shows a network topology. You remember your networking courses... or was that just a dream?",
-      "Focus. Configure the static IPs correctly. Set up the firewall rules. Enable NAT.",
-      "Every mistake costs you precious air.",
-    ],
-    critical: [
-      "**GASP** The air is thin. Your vision blurs slightly.",
-      "This is your last chance. The network must connect. NOW.",
-      "Check each configuration carefully. One wrong IP address, one missed firewall rule...",
-      "The door mechanism hums quietly, waiting for the signal.",
-    ],
-  };
 
   if (isConnected) {
     return (
@@ -104,12 +110,12 @@ export default function EscapeStory({ oxygenLevel, onEscape, isConnected }: Esca
             </button>
           </div>
           <div className="space-y-3 text-xs leading-relaxed">
-            {messages[phase].map((msg, i) => (
+            {(messages[phase] ?? []).map((msg, i) => (
               <motion.p
                 key={i}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.2 }}
+                transition={{ duration: 0.25, delay: i * 0.06 }}
                 className="italic"
               >
                 {msg}
@@ -137,4 +143,3 @@ export default function EscapeStory({ oxygenLevel, onEscape, isConnected }: Esca
     </AnimatePresence>
   );
 }
-
