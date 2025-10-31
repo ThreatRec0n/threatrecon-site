@@ -86,6 +86,12 @@ export function pingFromHost(
   if (!host.ip || !isValidIp(host.ip)) {
     return { success: false, hops, reason: "host IP address must be configured and valid" };
   }
+  // Enforce private LAN ranges for host
+  const firstOctet = parseInt(host.ip.split(".")[0] || "0", 10);
+  const isPrivate = host.ip.startsWith("10.") || (host.ip.startsWith("172.") && (()=>{ const s=parseInt(host.ip.split(".")[1]||"0",10); return s>=16 && s<=31; })()) || host.ip.startsWith("192.168.");
+  if (!isPrivate) {
+    return { success: false, hops, reason: "host IP must be from a private range (10.x, 172.16-31.x, 192.168.x)" };
+  }
   if (!targetIp || !isValidIp(targetIp)) {
     return { success: false, hops, reason: "target IP address must be configured and valid" };
   }
@@ -99,6 +105,9 @@ export function pingFromHost(
   }
   if (!isValidIp(lanRouter.lanIp)) {
     return { success: false, hops, reason: "LAN router IP format is invalid" };
+  }
+  if (!lanRouter.lanIp.startsWith("192.168.")) {
+    return { success: false, hops, reason: "LAN router must use 192.168.x.x for this scenario" };
   }
 
   // 1) Host -> LAN router (must be same /24 and GW points to LAN router)
@@ -134,6 +143,10 @@ export function pingFromHost(
   }
   if (!isValidCidr(fw.nat.snat.srcCidr)) {
     return { success: false, hops, reason: "SNAT source CIDR must be valid (e.g., 192.168.1.0/24)" };
+  }
+  // Enforce mask /24 for simplicity in this training scenario
+  if (!fw.nat.snat.srcCidr.endsWith("/24")) {
+    return { success: false, hops, reason: "SNAT source must be a /24 network in this scenario" };
   }
   if (!isValidIp(fw.nat.snat.toIp)) {
     return { success: false, hops, reason: "SNAT translate-to IP must be valid" };

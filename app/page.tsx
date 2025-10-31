@@ -168,17 +168,18 @@ export default function Page() {
   }, [cDmz1, cDmz2, cFw, cLan1, cLan2, cLanR, failed, scn]);
 
   const getHints = () => {
-    return [
-      "📋 Private IP Ranges: 10.0.0.0/8 (Class A), 172.16.0.0/12 (Class B), 192.168.0.0/16 (Class C)",
-      "✓ LAN devices: Use 192.168.1.x range. Gateway points to LAN router.",
-      "✓ LAN Router: Use 192.168.1.x (e.g., .254). Gateway points to Firewall LAN IP.",
-      "✓ Firewall LAN: Use 192.168.1.x (typically .1). WAN: Use 203.0.113.x (provided).",
-      "✓ Firewall needs TWO separate rules: ALLOW ICMP on LAN ingress AND WAN egress.",
-      "✓ SNAT: Translate 192.168.1.0/24 to the Firewall WAN IP (must match exactly).",
-      "✓ Subnet mask: Use 255.255.255.0 (/24) for all private networks.",
-      "✓ Test: Use 'ping 8.8.8.8' in terminal after configuring everything.",
-      oxygenLevel < 50 ? "⚠️ Time is running out! Check each IP address carefully." : ""
-    ].filter(Boolean);
+    const hints: string[] = [
+      "📋 Private IP Ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16",
+      "Subnet mask: 255.255.255.0 (/24) for all private networks",
+      "SNAT: 192.168.1.0/24 → Firewall WAN IP; ICMP allowed on LAN+WAN",
+    ];
+    if (!cLan1.ip) hints.push("LAN Host not committed yet");
+    if (cLan1.ip && !cLanR.lanIp) hints.push("Commit LAN Router before LAN Host can route");
+    if (cLanR.lanIp && (!cFw.ifaces.lan || cLanR.gw !== cFw.ifaces.lan)) hints.push("LAN Router gateway must equal Firewall LAN IP");
+    if (!cFw.ifaces.wan) hints.push("Commit Firewall WAN interface (203.0.113.x)");
+    if (!cFw.nat?.snat) hints.push("Configure SNAT for 192.168.1.0/24 → FW WAN");
+    if (oxygenLevel < 50) hints.push("⚠️ Oxygen low: reduce mistakes, check subnets/gateways");
+    return hints;
   };
 
   const handleEscape = () => {
@@ -318,6 +319,8 @@ function DeviceConfig({ title, host, onChange, hint, committedIp, onCommit }: { 
       return !isNaN(n) && n >= 0 && n <= 255 && p === String(n);
     });
   };
+  const isMaskValid = (mask: string) => mask === "255.255.255.0";
+  const gwMatchesSubnet = (ip: string, gw: string) => ip && gw && isValid(ip) && isValid(gw) && ip.split('.').slice(0,3).join('.') === gw.split('.').slice(0,3).join('.');
 
   const getIpClass = (ip: string): string => {
     if (!ip) return "";
@@ -333,9 +336,9 @@ function DeviceConfig({ title, host, onChange, hint, committedIp, onCommit }: { 
       <div className="font-medium mb-2 text-sm">{title}</div>
       {hint && <div className="text-[10px] text-slate-500 mb-2 italic">{hint}</div>}
       <Labeled v="IP Address" value={host.ip} onChange={v=>onChange({...host, ip:v})} showValidation={isValid} ipClass={getIpClass} />
-      <Labeled v="Subnet Mask" value={host.mask} onChange={v=>onChange({...host, mask:v})} placeholder="255.255.255.0" />
-      <Labeled v="Gateway" value={host.gw} onChange={v=>onChange({...host, gw:v})} showValidation={isValid} />
-      <CommitBar committed={!!committedIp} onCommit={() => onCommit && onCommit()} />
+      <Labeled v="Subnet Mask" value={host.mask} onChange={v=>onChange({...host, mask:v})} placeholder="255.255.255.0" showValidation={(m)=>isMaskValid(m)} />
+      <Labeled v="Gateway" value={host.gw} onChange={v=>onChange({...host, gw:v})} showValidation={(g)=>isValid(g) && gwMatchesSubnet(host.ip, g)} />
+      <CommitBar committed={!!committedIp} onCommit={() => onCommit && onCommit()} disabled={!(isValid(host.ip) && isMaskValid(host.mask) && gwMatchesSubnet(host.ip, host.gw))} />
     </div>
   );
 }
@@ -344,9 +347,9 @@ function LanRouterConfig({ lanR, onChange, committed, onCommit }:{ lanR:any; onC
     <div className="p-3 border rounded bg-white/90">
       <div className="font-medium mb-2 text-sm">LAN Router</div>
       <div className="text-[10px] text-slate-500 mb-2 italic">Use 192.168.1.x range (e.g., 192.168.1.254)</div>
-      <Labeled v="LAN IP" value={lanR.lanIp} onChange={v=>onChange({...lanR, lanIp:v})}/>
+      <Labeled v="LAN IP" value={lanR.lanIp} onChange={v=>onChange({...lanR, lanIp:v})} showValidation={(s)=>!!s && s.startsWith("192.168.")} />
       <Labeled v="Gateway (to Firewall)" value={lanR.gw} onChange={v=>onChange({...lanR, gw:v})} placeholder="Must match Firewall LAN IP" />
-      <CommitBar committed={!!committed} onCommit={() => onCommit && onCommit()} />
+      <CommitBar committed={!!committed} onCommit={() => onCommit && onCommit()} disabled={!(lanR.lanIp && lanR.lanIp.startsWith("192.168.") && !!lanR.gw)} />
     </div>
   );
 }
@@ -356,11 +359,11 @@ function FirewallConfig({ fw, onChange, committed, onCommit }:{ fw:any; onChange
       <div className="font-medium mb-2 text-sm">Firewall Interfaces</div>
       <div className="text-[10px] text-slate-500 mb-2 italic">DMZ: 10.x.x.x | LAN: 192.168.1.x | WAN: 203.0.113.x</div>
       <div className="grid grid-cols-3 gap-2">
-        <Labeled v="DMZ Interface" value={fw.ifaces.dmz} onChange={(v)=>onChange({...fw, ifaces:{...fw.ifaces, dmz:v}})} placeholder="10.x.x.1" />
-        <Labeled v="LAN Interface" value={fw.ifaces.lan} onChange={(v)=>onChange({...fw, ifaces:{...fw.ifaces, lan:v}})} placeholder="192.168.1.1" />
-        <Labeled v="WAN Interface" value={fw.ifaces.wan} onChange={(v)=>onChange({...fw, ifaces:{...fw.ifaces, wan:v}})} placeholder="203.0.113.2" />
+        <Labeled v="DMZ Interface" value={fw.ifaces.dmz} onChange={(v)=>onChange({...fw, ifaces:{...fw.ifaces, dmz:v}})} placeholder="10.x.x.1" showValidation={(s)=>!!s && s.startsWith("10.")} />
+        <Labeled v="LAN Interface" value={fw.ifaces.lan} onChange={(v)=>onChange({...fw, ifaces:{...fw.ifaces, lan:v}})} placeholder="192.168.1.1" showValidation={(s)=>!!s && s.startsWith("192.168.")} />
+        <Labeled v="WAN Interface" value={fw.ifaces.wan} onChange={(v)=>onChange({...fw, ifaces:{...fw.ifaces, wan:v}})} placeholder="203.0.113.2" showValidation={(s)=>!!s && s.startsWith("203.0.113.")} />
       </div>
-      <CommitBar committed={!!committed} onCommit={() => onCommit && onCommit()} />
+      <CommitBar committed={!!committed} onCommit={() => onCommit && onCommit()} disabled={!(fw.ifaces.dmz?.startsWith("10.") && fw.ifaces.lan?.startsWith("192.168.") && fw.ifaces.wan?.startsWith("203.0.113."))} />
     </div>
   );
 }

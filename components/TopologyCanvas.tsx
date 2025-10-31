@@ -78,6 +78,7 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
         const statusColor = n.status === "ok" ? "#10b981" : n.status === "warning" ? "#f59e0b" : n.status === "error" ? "#ef4444" : "#10b981";
         return (
           <g key={n.id} transform={`translate(${n.x-32}, ${n.y-18})`} onClick={()=>onNodeClick?.(n.id)} className="cursor-pointer">
+            <title>{`${n.label}${n.ip ? ` • ${n.ip}` : ""}`}</title>
             <rect width="64" height="36" rx="8" className="fill-white stroke-slate-300" />
             {/* Status indicator */}
             <circle cx="6" cy="6" r="4" fill={statusColor} opacity={n.status ? 1 : 0.6}>
