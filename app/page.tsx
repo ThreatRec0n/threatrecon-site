@@ -383,7 +383,7 @@ function DeviceConfig({ title, host, onChange, hint, committedIp, onCommit }: { 
     });
   };
   const isMaskValid = (mask: string) => mask === "255.255.255.0";
-  const gwMatchesSubnet = (ip: string, gw: string) => ip && gw && isValid(ip) && isValid(gw) && ip.split('.').slice(0,3).join('.') === gw.split('.').slice(0,3).join('.');
+  const gwMatchesSubnet = (ip: string, gw: string) => !!(ip && gw && isValid(ip) && isValid(gw) && ip.split('.').slice(0,3).join('.') === gw.split('.').slice(0,3).join('.'));
 
   const getIpClass = (ip: string): string => {
     if (!ip) return "";
@@ -398,7 +398,7 @@ function DeviceConfig({ title, host, onChange, hint, committedIp, onCommit }: { 
     <div className="p-3 border rounded bg-white/90">
       <div className="font-medium mb-2 text-sm">{title}</div>
       {hint && <div className="text-[10px] text-slate-500 mb-2 italic">{hint}</div>}
-      <Labeled v="IP Address" value={host.ip} onChange={v=>onChange({...host, ip:v})} showValidation={isValid} ipClass={getIpClass} />
+      <Labeled v="IP Address" value={host.ip} onChange={v=>onChange({...host, ip:v})} showValidation={(s)=>!!isValid(s)} ipClass={getIpClass(host.ip)} />
       <Labeled v="Subnet Mask" value={host.mask} onChange={v=>onChange({...host, mask:v})} placeholder="255.255.255.0" showValidation={(m)=>isMaskValid(m)} />
       <Labeled v="Gateway" value={host.gw} onChange={v=>onChange({...host, gw:v})} showValidation={(g)=>isValid(g) && gwMatchesSubnet(host.ip, g)} />
       <CommitBar committed={!!committedIp} onCommit={() => onCommit && onCommit()} disabled={!(isValid(host.ip) && isMaskValid(host.mask) && gwMatchesSubnet(host.ip, host.gw))} />
