@@ -16,13 +16,18 @@ const scenarioData: Scenario = {
       nat: {},
       rules: []
     },
+    lanRouter: {
+      id: "lan-r1",
+      lanIp: "192.168.1.254",
+      gw: "192.168.1.1"
+    },
     dmzHosts: [
       { id: "dmz1", nic: "ens0", ip: "10.10.10.10", mask: "255.255.255.0", gw: "10.10.10.1" },
       { id: "dmz2", nic: "ens1", ip: "10.10.10.11", mask: "255.255.255.0", gw: "10.10.10.1" }
     ],
     lanHosts: [
-      { id: "lan1", nic: "ens0", ip: "192.168.1.10", mask: "255.255.255.0", gw: "192.168.1.1", role: "browser" },
-      { id: "lan2", nic: "ens1", ip: "192.168.1.11", mask: "255.255.255.0", gw: "192.168.1.1" }
+      { id: "lan1", nic: "ens0", ip: "192.168.1.10", mask: "255.255.255.0", gw: "192.168.1.254", role: "browser" },
+      { id: "lan2", nic: "ens1", ip: "192.168.1.11", mask: "255.255.255.0", gw: "192.168.1.254" }
     ]
   },
   internet: {
