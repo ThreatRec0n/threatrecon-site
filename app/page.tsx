@@ -18,6 +18,13 @@ import CommitBar from "@/components/ui/CommitBar";
 import ChecklistPanel from "@/components/ChecklistPanel";
 import LintPanel from "@/components/LintPanel";
 import RuleTraceModal from "@/components/RuleTraceModal";
+import HelpOverlay from "@/components/HelpOverlay";
+import ThemeToggle from "@/components/ThemeToggle";
+import ObjectivesPanel from "@/components/ObjectivesPanel";
+import StateTable from "@/components/StateTable";
+import RoutingTable from "@/components/RoutingTable";
+import PacketInspector from "@/components/PacketInspector";
+import NatTable from "@/components/NatTable";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -90,6 +97,7 @@ export default function Page() {
   const [hasEscaped, setHasEscaped] = useState(false);
   const [preset, setPreset] = useState<"Beginner"|"Intermediate"|"Advanced">("Beginner");
   const [trace, setTrace] = useState<{ command: string; args: string[]; hops: string[]; success: boolean; reason?: string }|null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
 
@@ -244,6 +252,8 @@ export default function Page() {
         <div className="flex items-center gap-3">
           <MissionTimer minutes={15} onExpire={handleOxygenDepleted} onTimeUpdate={handleTimeUpdate} />
           <div className="text-sm text-slate-300">Connect to Internet to Unlock Door</div>
+          <ThemeToggle />
+          <button onClick={()=>setHelpOpen(true)} className="px-2 py-1 rounded border text-xs">Help</button>
         </div>
       </header>
       <div className="relative z-10 p-6 grid grid-cols-12 gap-4">
@@ -308,6 +318,7 @@ export default function Page() {
                     setNatOverlay({ from: cLan1.ip, to: cFw.ifaces.wan, visible: true });
                     setTimeout(() => setNatOverlay(prev => ({ ...prev, visible: false })), 3000);
                   }
+                  try { new AudioContext().resume().then(()=>{ const a = new (window.AudioContext|| (window as any).webkitAudioContext)(); const o=a.createOscillator(); const g=a.createGain(); o.type='sine'; o.frequency.value = res.success? 880 : 220; o.connect(g); g.connect(a.destination); g.gain.setValueAtTime(0.0001,a.currentTime); g.gain.exponentialRampToValueAtTime(0.1,a.currentTime+0.01); o.start(); o.stop(a.currentTime+0.15); }); } catch {}
                   setTrace({ command: "ping", args, hops: res.hops, success: res.success, reason: res.reason });
                   return res.success? "PING OK\n"+res.hops.join(" -> "): "PING FAIL: "+(res.reason||"blocked")+"\n"+res.hops.join(" -> ");
                 }
@@ -397,6 +408,7 @@ export default function Page() {
         </section>
       </div>
       <RuleTraceModal trace={trace} onClose={()=>setTrace(null)} />
+      <HelpOverlay open={helpOpen} onClose={()=>setHelpOpen(false)} />
     </main>
   );
 }
