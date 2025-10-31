@@ -8,6 +8,7 @@ import MissionTimer from "@/components/MissionTimer";
 import HintPanel from "@/components/HintPanel";
 import NetTerminal from "@/components/NetTerminal";
 import NatFirewallPanel from "@/components/NatFirewallPanel";
+import CircuitBackground from "@/components/CircuitBackground";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -24,10 +25,34 @@ export default function Page() {
   const [packetPath, setPacketPath] = useState<Array<any>>([]);
   const [failed, setFailed] = useState<string | null>(null);
   const [lanR, setLanR] = useState(scn.devices.lanRouter);
+  const [natOverlay, setNatOverlay] = useState<{from: string; to: string; visible: boolean}>({from: "", to: "", visible: false});
 
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
 
   function inSame24(a:string,b:string){const A=a.split(".").map(n=>+n),B=b.split(".").map(n=>+n);return A[0]===B[0]&&A[1]===B[1]&&A[2]===B[2];}
+
+  // Calculate device status
+  const getNodeStatus = (nodeId: string, ip?: string, gw?: string): "ok"|"warning"|"error"|undefined => {
+    if (nodeId === "LAN1") {
+      if (inSame24(lan1.ip, lanR.lanIp) && lan1.gw === lanR.lanIp) return "ok";
+      if (!inSame24(lan1.ip, lanR.lanIp) || lan1.gw !== lanR.lanIp) return "warning";
+    }
+    if (nodeId === "LAN2") {
+      if (inSame24(lan2.ip, lanR.lanIp) && lan2.gw === lanR.lanIp) return "ok";
+      if (!inSame24(lan2.ip, lanR.lanIp) || lan2.gw !== lanR.lanIp) return "warning";
+    }
+    if (nodeId === "LAN_ROUTER") {
+      if (lanR.gw === fw.ifaces.lan) return "ok";
+      return "warning";
+    }
+    if (nodeId === "FW") {
+      const hasRules = fw.rules && fw.rules.length > 0;
+      const hasSnat = !!fw.nat?.snat && fw.nat.snat.outIface === "wan";
+      if (hasRules && hasSnat) return "ok";
+      if (!hasRules || !hasSnat) return "warning";
+    }
+    return undefined;
+  };
 
   // Build topology nodes/links for the diagram
   const topo = useMemo(()=>{
@@ -37,14 +62,14 @@ export default function Page() {
     const linkFwToWan = !!fw.nat?.snat && fw.nat?.snat?.outIface === "wan";
     return {
       nodes: [
-        { id:"DMZ1", x:110, y:180, label:"dmz1", ip:dmz1.ip, zone:"dmz" },
-        { id:"DMZ2", x:110, y:260, label:"dmz2", ip:dmz2.ip, zone:"dmz" },
-        { id:"FW", x:430, y:220, label:"firewall", ip:fw.ifaces.wan, zone:"wan" },
+        { id:"DMZ1", x:110, y:180, label:"dmz1", ip:dmz1.ip, zone:"dmz", status: getNodeStatus("DMZ1") },
+        { id:"DMZ2", x:110, y:260, label:"dmz2", ip:dmz2.ip, zone:"dmz", status: getNodeStatus("DMZ2") },
+        { id:"FW", x:430, y:220, label:"firewall", ip:fw.ifaces.wan, zone:"wan", status: getNodeStatus("FW") },
         { id:"WAN_ROUTER", x:430, y:100, label:"wan gw", ip:scn.subnets.wan.gw, zone:"wan" },
-        { id:"LAN_ROUTER", x:700, y:120, label:"lan rtr", ip:lanR.lanIp, zone:"lan" },
-        { id:"LAN1", x:700, y:200, label:"lan1", ip:lan1.ip, zone:"lan" },
-        { id:"LAN2", x:700, y:280, label:"lan2", ip:lan2.ip, zone:"lan" },
-        { id:"INTERNET", x:430, y:36, label:"internet", ip:scn.internet.pingTarget, zone:"internet" }
+        { id:"LAN_ROUTER", x:700, y:120, label:"lan rtr", ip:lanR.lanIp, zone:"lan", status: getNodeStatus("LAN_ROUTER") },
+        { id:"LAN1", x:700, y:200, label:"lan1", ip:lan1.ip, zone:"lan", status: getNodeStatus("LAN1") },
+        { id:"LAN2", x:700, y:280, label:"lan2", ip:lan2.ip, zone:"lan", status: getNodeStatus("LAN2") },
+        { id:"INTERNET", x:430, y:36, label:"internet", ip:scn.internet.pingTarget, zone:"internet", status: "ok" as const }
       ],
       links: [
         { from:"DMZ1", to:"FW", ok:true, active:false },                 // stays local only
@@ -68,22 +93,23 @@ export default function Page() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="flex items-center justify-between p-4 border-b bg-white">
-        <div className="font-semibold">Network Connectivity Simulator</div>
+    <main className="min-h-screen relative">
+      <CircuitBackground />
+      <header className="relative z-10 flex items-center justify-between p-4 border-b bg-slate-900/80 backdrop-blur-sm text-white">
+        <div className="font-semibold text-white">Network Connectivity Simulator</div>
         <div className="flex items-center gap-3">
           <MissionTimer minutes={15} onExpire={()=>{}} />
-          <div className="text-sm text-slate-500">{scn.name}</div>
+          <div className="text-sm text-slate-300">{scn.name}</div>
         </div>
       </header>
-      <div className="p-6 grid grid-cols-12 gap-4">
+      <div className="relative z-10 p-6 grid grid-cols-12 gap-4">
         {/* Animated Topology */}
-        <section className="col-span-7 bg-white rounded-xl shadow p-4">
+        <section className="col-span-7 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4">
           <h2 className="font-medium mb-2">Network Topology</h2>
-          <TopologyCanvas nodes={topo.nodes as any} links={topo.links as any} packetPath={packetPath as any}/>
+          <TopologyCanvas nodes={topo.nodes as any} links={topo.links as any} packetPath={packetPath as any} natOverlay={natOverlay}/>
           <div className="mt-2 text-xs text-slate-500">Goal: configure static IPv4, routes, and NAT so {lan1.id} reaches {scn.internet.pingTarget} or resolves {scn.internet.httpHost}.</div>
         </section>
-        <section className="col-span-5 bg-white rounded-xl shadow p-4 flex flex-col">
+        <section className="col-span-5 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4 flex flex-col">
           <div className="flex gap-2 text-sm">
             {(["Configure","Diagnostics","Firewall & NAT"] as Tab[]).map(t => (
               <button key={t} onClick={()=>setActiveTab(t)} className={`px-3 py-1 border rounded ${activeTab===t?"bg-slate-900 text-white":"bg-white"}`}>{t}</button>
@@ -105,9 +131,25 @@ export default function Page() {
           {activeTab === "Diagnostics" && (
             <div className="mt-3 text-sm">
               <NetTerminal exec={(cmd,args)=>{
-                if (cmd==="ping") { const res = pingFromHost(scn, lan1, args[0], fw); setPacketPath(hopsToNodes(res.hops, scn)); return res.success? "PING OK\n"+res.hops.join(" -> "): "PING FAIL: "+(res.reason||"blocked")+"\n"+res.hops.join(" -> "); }
-                if (cmd==="traceroute") { const r = tracerouteFromHost(scn, lan1, args[0], fw); setPacketPath(hopsToNodes(r.hops, scn)); return r.hops.join("\n"); }
-                if (cmd==="nslookup") { const r = nslookupHost(scn, lan1, args[0]); return r.answer? `${args[0]} -> ${r.answer}` : "NXDOMAIN"; }
+                if (cmd==="ping") {
+                  const res = pingFromHost(scn, lan1, args[0], fw);
+                  setPacketPath(hopsToNodes(res.hops, scn));
+                  // Show NAT overlay if SNAT is active
+                  if (fw.nat?.snat && res.hops.includes(fw.ifaces.wan)) {
+                    setNatOverlay({ from: lan1.ip, to: fw.ifaces.wan, visible: true });
+                    setTimeout(() => setNatOverlay(prev => ({ ...prev, visible: false })), 3000);
+                  }
+                  return res.success? "PING OK\n"+res.hops.join(" -> "): "PING FAIL: "+(res.reason||"blocked")+"\n"+res.hops.join(" -> ");
+                }
+                if (cmd==="traceroute") {
+                  const r = tracerouteFromHost(scn, lan1, args[0], fw);
+                  setPacketPath(hopsToNodes(r.hops, scn));
+                  return r.hops.join("\n");
+                }
+                if (cmd==="nslookup") {
+                  const r = nslookupHost(scn, lan1, args[0]);
+                  return r.answer? `${args[0]} -> ${r.answer}` : "NXDOMAIN";
+                }
                 return "unknown command; type 'help'";
               }}/>
             </div>
