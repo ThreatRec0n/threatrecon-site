@@ -324,6 +324,26 @@ export default function Page() {
                 return "unknown command; type 'help'";
               }}/>
               <div className="mt-3 grid grid-cols-2 gap-3">
+                <ObjectivesPanel
+                  title={`Objectives (${preset})`}
+                  items={(() => {
+                    const items = [
+                      { id:"icmplan", text:"ICMP allowed on LAN+WAN", done: !!cFw.rules?.length },
+                      { id:"snat", text:"SNAT 192.168.1.0/24 → FW WAN", done: !!cFw.nat?.snat && cFw.nat!.snat!.srcCidr.endsWith('/24') && cFw.nat!.snat!.toIp===cFw.ifaces.wan },
+                      { id:"reach", text:"LAN1 can reach Internet target", done: isConnected },
+                    ];
+                    if (preset!=="Beginner") items.push({ id:"egress", text:"Default deny egress except required", done: true } as any);
+                    return items as any;
+                  })()} />
+                <StateTable entries={trace? [{ src: cLan1.ip||"—", dst: (trace.args[0]||scn.internet.pingTarget), proto: "ICMP", state: trace.success?"ESTABLISHED":"BLOCKED" }]: []} />
+                <RoutingTable
+                  title="LAN Router Routes"
+                  rows={[{ dest: "192.168.1.0/24", gateway: "—", iface: "lan" }, { dest: "0.0.0.0/0", gateway: cLanR.gw||"—", iface: "lan" }]}
+                />
+                <RoutingTable
+                  title="Firewall Routes"
+                  rows={[{ dest: "10.0.0.0/8", gateway: "—", iface: "dmz" }, { dest: "192.168.1.0/24", gateway: "—", iface: "lan" }, { dest: "0.0.0.0/0", gateway: scn.subnets.wan.gw, iface: "wan" }]}
+                />
                 <ChecklistPanel items={[
                   { id:"lan1", label:"LAN Host committed", ok: !!cLan1.ip, hint:"Commit LAN host" },
                   { id:"lanr", label:"LAN Router committed", ok: !!cLanR.lanIp, hint:"Commit LAN router" },
@@ -340,8 +360,11 @@ export default function Page() {
                   if (cFw.ifaces.wan && !cFw.ifaces.wan.startsWith('203.0.113.')) out.push({id:"wan", msg:"Firewall WAN should be 203.0.113.x"});
                   return out;
                 })()} />
+                <PacketInspector src={cLan1.ip} dst={(trace?.args?.[0]||scn.internet.pingTarget)} translatedSrc={cFw.ifaces.wan && cFw.nat?.snat ? cFw.ifaces.wan : undefined} />
+                <NatTable entries={cFw.nat?.snat && cLan1.ip ? [{ src: cLan1.ip, to: cFw.nat.snat.toIp, iface: cFw.nat.snat.outIface }]: []} />
               </div>
               <div className="mt-3 flex gap-2 text-xs">
+                <button onClick={()=>{ commitLan1(); commitLan2(); commitDmz1(); commitDmz2(); commitLanRouter(); commitFirewall(); }} className="px-3 py-1 border rounded bg-slate-900 text-white">Commit All</button>
                 <button onClick={()=>{
                   const blob = new Blob([JSON.stringify({ cLan1,cLan2,cDmz1,cDmz2,cLanR,cFw }, null, 2)], {type:'application/json'});
                   const url = URL.createObjectURL(blob);
@@ -358,6 +381,11 @@ export default function Page() {
                     } catch {}
                   }} />
                 </label>
+                <button onClick={()=>{
+                  if (cLanR.gw) setCLanR(r=>({ ...r, gw: "192.168.1.254" }));
+                  else if (cFw.ifaces.wan) setCFw(f=>({ ...f, ifaces:{...f.ifaces, wan: "203.0.114.2"}}));
+                  else setCLan1(h=>({ ...h, gw: "192.168.2.1" }));
+                }} className="px-2 py-1 border rounded">Break Something</button>
               </div>
             </div>
           )}
