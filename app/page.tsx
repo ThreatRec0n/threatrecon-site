@@ -35,23 +35,12 @@ export default function Page() {
 
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
 
-  // Oxygen depletion system
-  useEffect(() => {
-    if (hasEscaped || isConnected) return;
-    
-    const interval = setInterval(() => {
-      setOxygenLevel(prev => {
-        const newLevel = Math.max(0, prev - 0.05); // Deplete slowly
-        if (newLevel <= 0) {
-          // Game over
-          return 0;
-        }
-        return newLevel;
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [hasEscaped, isConnected]);
+  // Sync oxygen level with timer (controlled by MissionTimer)
+  const handleTimeUpdate = (remainingPercent: number) => {
+    if (!hasEscaped && !isConnected) {
+      setOxygenLevel(remainingPercent);
+    }
+  };
 
   // Check for successful connection
   useEffect(() => {
@@ -175,7 +164,7 @@ export default function Page() {
       <header className="relative z-10 flex items-center justify-between p-4 border-b bg-slate-900/80 backdrop-blur-sm text-white">
         <div className="font-semibold text-white">🚪 Escape Room: Network Configuration</div>
         <div className="flex items-center gap-3">
-          <MissionTimer minutes={Math.floor(oxygenLevel / 6.67)} onExpire={handleOxygenDepleted} />
+          <MissionTimer minutes={15} onExpire={handleOxygenDepleted} onTimeUpdate={handleTimeUpdate} />
           <div className="text-sm text-slate-300">Connect to Internet to Unlock Door</div>
         </div>
       </header>
