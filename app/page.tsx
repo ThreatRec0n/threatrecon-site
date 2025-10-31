@@ -15,6 +15,9 @@ import OxygenMeter from "@/components/OxygenMeter";
 import IPRangeGuide from "@/components/IPRangeGuide";
 import NetworkInfo from "@/components/NetworkInfo";
 import CommitBar from "@/components/ui/CommitBar";
+import ChecklistPanel from "@/components/ChecklistPanel";
+import LintPanel from "@/components/LintPanel";
+import RuleTraceModal from "@/components/RuleTraceModal";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -85,6 +88,8 @@ export default function Page() {
   const [oxygenLevel, setOxygenLevel] = useState(100);
   const [isConnected, setIsConnected] = useState(false);
   const [hasEscaped, setHasEscaped] = useState(false);
+  const [preset, setPreset] = useState<"Beginner"|"Intermediate"|"Advanced">("Beginner");
+  const [trace, setTrace] = useState<{ command: string; args: string[]; hops: string[]; success: boolean; reason?: string }|null>(null);
 
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
 
@@ -108,6 +113,17 @@ export default function Page() {
     const interval = setInterval(checkConnection, 2000);
     return () => clearInterval(interval);
   }, [scn, cLan1, cFw, cLanR]);
+
+  // Keyboard: Ctrl+Enter commit all if valid
+  useEffect(()=>{
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        commitLan1(); commitLan2(); commitDmz1(); commitDmz2(); commitLanRouter(); commitFirewall();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return ()=>window.removeEventListener("keydown", handler);
+  },[]);
 
   function inSame24(a:string,b:string){const A=a.split(".").map(n=>+n),B=b.split(".").map(n=>+n);return A[0]===B[0]&&A[1]===B[1]&&A[2]===B[2];}
 
@@ -255,6 +271,14 @@ export default function Page() {
           <div className="mt-3">
             <HintPanel getHints={getHints}/>
           </div>
+          <div className="mt-2 flex items-center gap-2 text-xs">
+            <span className="text-slate-600">Preset:</span>
+            <select value={preset} onChange={e=>setPreset(e.target.value as any)} className="border rounded px-2 py-1">
+              <option>Beginner</option>
+              <option>Intermediate</option>
+              <option>Advanced</option>
+            </select>
+          </div>
           {activeTab === "Configure" && (
             <div className="mt-3 space-y-4">
               <IPRangeGuide />
@@ -284,11 +308,13 @@ export default function Page() {
                     setNatOverlay({ from: cLan1.ip, to: cFw.ifaces.wan, visible: true });
                     setTimeout(() => setNatOverlay(prev => ({ ...prev, visible: false })), 3000);
                   }
+                  setTrace({ command: "ping", args, hops: res.hops, success: res.success, reason: res.reason });
                   return res.success? "PING OK\n"+res.hops.join(" -> "): "PING FAIL: "+(res.reason||"blocked")+"\n"+res.hops.join(" -> ");
                 }
                 if (cmd==="traceroute") {
                   const r = tracerouteFromHost(scn, cLan1, args[0] || scn.internet.pingTarget, cFw, cLanR);
                   setPacketPath(hopsToNodes(r.hops, scn, cLanR, cLan1.ip, cFw));
+                  setTrace({ command: "traceroute", args, hops: r.hops, success: r.reached });
                   return r.hops.join("\n");
                 }
                 if (cmd==="nslookup") {
@@ -297,6 +323,42 @@ export default function Page() {
                 }
                 return "unknown command; type 'help'";
               }}/>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <ChecklistPanel items={[
+                  { id:"lan1", label:"LAN Host committed", ok: !!cLan1.ip, hint:"Commit LAN host" },
+                  { id:"lanr", label:"LAN Router committed", ok: !!cLanR.lanIp, hint:"Commit LAN router" },
+                  { id:"fwlan", label:"Firewall LAN committed", ok: !!cFw.ifaces.lan, hint:"Commit Firewall LAN" },
+                  { id:"fwwan", label:"Firewall WAN committed", ok: !!cFw.ifaces.wan, hint:"Commit Firewall WAN (203.0.113.x)" },
+                  { id:"snat", label:"SNAT configured /24", ok: !!cFw.nat?.snat && cFw.nat!.snat!.srcCidr.endsWith('/24'), hint:"Set SNAT 192.168.1.0/24 → FW WAN" },
+                ]} />
+                <LintPanel items={(()=>{
+                  const out: {id:string;msg:string}[] = [];
+                  const same24 = (a?:string,b?:string)=>!!a&&!!b&&a.split('.').slice(0,3).join('.')===b.split('.').slice(0,3).join('.');
+                  if (cLan1.ip && cLan1.gw && !same24(cLan1.ip,cLan1.gw)) out.push({id:"gw", msg:"LAN Host gateway not in same /24 as host"});
+                  if (cLanR.lanIp && !(cLanR.lanIp.startsWith('192.168.'))) out.push({id:"lanrip", msg:"LAN Router should be 192.168.x.x"});
+                  if (cFw.ifaces.dmz && !cFw.ifaces.dmz.startsWith('10.')) out.push({id:"dmz", msg:"Firewall DMZ should be 10.x.x.x"});
+                  if (cFw.ifaces.wan && !cFw.ifaces.wan.startsWith('203.0.113.')) out.push({id:"wan", msg:"Firewall WAN should be 203.0.113.x"});
+                  return out;
+                })()} />
+              </div>
+              <div className="mt-3 flex gap-2 text-xs">
+                <button onClick={()=>{
+                  const blob = new Blob([JSON.stringify({ cLan1,cLan2,cDmz1,cDmz2,cLanR,cFw }, null, 2)], {type:'application/json'});
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = 'net-config.json'; a.click();
+                  URL.revokeObjectURL(url);
+                }} className="px-2 py-1 border rounded">Export Config</button>
+                <label className="px-2 py-1 border rounded cursor-pointer">
+                  Import
+                  <input type="file" accept="application/json" className="hidden" onChange={async (e)=>{
+                    const f = e.target.files?.[0]; if(!f) return; const txt = await f.text();
+                    try { const j = JSON.parse(txt);
+                      setCLan1(j.cLan1||cLan1); setCLan2(j.cLan2||cLan2); setCDmz1(j.cDmz1||cDmz1); setCDmz2(j.cDmz2||cDmz2); setCLanR(j.cLanR||cLanR); setCFw(j.cFw||cFw);
+                    } catch {}
+                  }} />
+                </label>
+              </div>
             </div>
           )}
           {activeTab === "Firewall & NAT" && (
@@ -306,6 +368,7 @@ export default function Page() {
           )}
         </section>
       </div>
+      <RuleTraceModal trace={trace} onClose={()=>setTrace(null)} />
     </main>
   );
 }
