@@ -14,6 +14,7 @@ import EscapeStory from "@/components/EscapeStory";
 import OxygenMeter from "@/components/OxygenMeter";
 import IPRangeGuide from "@/components/IPRangeGuide";
 import NetworkInfo from "@/components/NetworkInfo";
+import CommitBar from "@/components/ui/CommitBar";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -62,6 +63,20 @@ export default function Page() {
     lanIp: "",
     gw: ""
   });
+  // COMMITTED state (diagram and simulation consume these)
+  const [cLan1, setCLan1] = useState<Host>({ id:"lan1", nic:"ens0", ip:"", mask:"", gw:"", role:"browser" });
+  const [cLan2, setCLan2] = useState<Host>({ id:"lan2", nic:"ens1", ip:"", mask:"", gw:"" });
+  const [cDmz1, setCDmz1] = useState<Host>({ id:"dmz1", nic:"ens0", ip:"", mask:"", gw:"" });
+  const [cDmz2, setCDmz2] = useState<Host>({ id:"dmz2", nic:"ens1", ip:"", mask:"", gw:"" });
+  const [cLanR, setCLanR] = useState({ id:"lan-r1", lanIp:"", gw:"" });
+  const [cFw, setCFw] = useState<Firewall>({ id:"fw1", ifaces:{ dmz:"", lan:"", wan:"" }, nat:{}, rules:[] });
+
+  const commitLan1 = () => setCLan1({ ...lan1 });
+  const commitLan2 = () => setCLan2({ ...lan2 });
+  const commitDmz1 = () => setCDmz1({ ...dmz1 });
+  const commitDmz2 = () => setCDmz2({ ...dmz2 });
+  const commitLanRouter = () => setCLanR({ ...lanR });
+  const commitFirewall = () => setCFw({ ...fw });
   const [logs, setLogs] = useState<string[]>([]);
   const [output, setOutput] = useState<string>("");
   const [packetPath, setPacketPath] = useState<Array<any>>([]);
@@ -80,11 +95,11 @@ export default function Page() {
     }
   };
 
-  // Check for successful connection
+  // Check for successful connection (uses COMMITTED config)
   useEffect(() => {
     const checkConnection = () => {
-      if (!lan1.ip || !fw.ifaces.lan || !fw.ifaces.wan || !lanR.lanIp) return; // Wait for basic config
-      const res = pingFromHost(scn, lan1, scn.internet.pingTarget, fw, lanR);
+      if (!cLan1.ip || !cFw.ifaces.lan || !cFw.ifaces.wan || !cLanR.lanIp) return; // Wait for basic config
+      const res = pingFromHost(scn, cLan1, scn.internet.pingTarget, cFw, cLanR);
       if (res.success) {
         setIsConnected(true);
       }
@@ -92,31 +107,31 @@ export default function Page() {
 
     const interval = setInterval(checkConnection, 2000);
     return () => clearInterval(interval);
-  }, [scn, lan1, fw, lanR]);
+  }, [scn, cLan1, cFw, cLanR]);
 
   function inSame24(a:string,b:string){const A=a.split(".").map(n=>+n),B=b.split(".").map(n=>+n);return A[0]===B[0]&&A[1]===B[1]&&A[2]===B[2];}
 
   // Calculate device status - check if configured and valid
   const getNodeStatus = (nodeId: string, ip?: string, gw?: string): "ok"|"warning"|"error"|undefined => {
     if (nodeId === "LAN1") {
-      if (!lan1.ip || !lanR.lanIp) return "error"; // Not configured
-      if (inSame24(lan1.ip, lanR.lanIp) && lan1.gw === lanR.lanIp) return "ok";
+      if (!cLan1.ip || !cLanR.lanIp) return "error"; // Not configured
+      if (inSame24(cLan1.ip, cLanR.lanIp) && cLan1.gw === cLanR.lanIp) return "ok";
       return "warning"; // Configured but incorrect
     }
     if (nodeId === "LAN2") {
-      if (!lan2.ip || !lanR.lanIp) return undefined; // Optional device
-      if (inSame24(lan2.ip, lanR.lanIp) && lan2.gw === lanR.lanIp) return "ok";
+      if (!cLan2.ip || !cLanR.lanIp) return undefined; // Optional device
+      if (inSame24(cLan2.ip, cLanR.lanIp) && cLan2.gw === cLanR.lanIp) return "ok";
       return "warning";
     }
     if (nodeId === "LAN_ROUTER") {
-      if (!lanR.lanIp || !fw.ifaces.lan) return "error";
-      if (lanR.gw === fw.ifaces.lan) return "ok";
+      if (!cLanR.lanIp || !cFw.ifaces.lan) return "error";
+      if (cLanR.gw === cFw.ifaces.lan) return "ok";
       return "warning";
     }
     if (nodeId === "FW") {
-      if (!fw.ifaces.lan || !fw.ifaces.wan) return "error";
-      const hasRules = fw.rules && fw.rules.length > 0;
-      const hasSnat = !!fw.nat?.snat && fw.nat.snat.outIface === "wan";
+      if (!cFw.ifaces.lan || !cFw.ifaces.wan) return "error";
+      const hasRules = cFw.rules && cFw.rules.length > 0;
+      const hasSnat = !!cFw.nat?.snat && cFw.nat.snat.outIface === "wan";
       if (hasRules && hasSnat) return "ok";
       if (!hasRules || !hasSnat) return "warning";
     }
@@ -126,31 +141,31 @@ export default function Page() {
   // Build topology nodes/links for the diagram
   const topo = useMemo(()=>{
     // Determine which links are currently valid (only show when configured)
-    const linkHostToLanRouter = lan1.ip && lanR.lanIp && inSame24(lan1.ip, lanR.lanIp) && lan1.gw === lanR.lanIp;
-    const linkLanRouterToFw = lanR.gw && fw.ifaces.lan && lanR.gw === fw.ifaces.lan;
-    const linkFwToWan = !!fw.nat?.snat && fw.nat?.snat?.outIface === "wan" && fw.ifaces.wan;
+    const linkHostToLanRouter = cLan1.ip && cLanR.lanIp && inSame24(cLan1.ip, cLanR.lanIp) && cLan1.gw === cLanR.lanIp;
+    const linkLanRouterToFw = cLanR.gw && cFw.ifaces.lan && cLanR.gw === cFw.ifaces.lan;
+    const linkFwToWan = !!cFw.nat?.snat && cFw.nat?.snat?.outIface === "wan" && cFw.ifaces.wan;
     return {
       nodes: [
-        { id:"DMZ1", x:110, y:180, label:"dmz1", ip:dmz1.ip || "Not configured", zone:"dmz", status: getNodeStatus("DMZ1") },
-        { id:"DMZ2", x:110, y:260, label:"dmz2", ip:dmz2.ip || "Not configured", zone:"dmz", status: getNodeStatus("DMZ2") },
-        { id:"FW", x:430, y:220, label:"firewall", ip:fw.ifaces.wan || "Not configured", zone:"wan", status: getNodeStatus("FW") },
+        { id:"DMZ1", x:110, y:180, label:"dmz1", ip:cDmz1.ip || "—", zone:"dmz", status: getNodeStatus("DMZ1") },
+        { id:"DMZ2", x:110, y:260, label:"dmz2", ip:cDmz2.ip || "—", zone:"dmz", status: getNodeStatus("DMZ2") },
+        { id:"FW", x:430, y:220, label:"firewall", ip:cFw.ifaces.wan || "—", zone:"wan", status: getNodeStatus("FW") },
         { id:"WAN_ROUTER", x:430, y:100, label:"wan gw", ip:scn.subnets.wan.gw, zone:"wan" },
-        { id:"LAN_ROUTER", x:700, y:120, label:"lan rtr", ip:lanR.lanIp || "Not configured", zone:"lan", status: getNodeStatus("LAN_ROUTER") },
-        { id:"LAN1", x:700, y:200, label:"lan1", ip:lan1.ip || "Not configured", zone:"lan", status: getNodeStatus("LAN1") },
-        { id:"LAN2", x:700, y:280, label:"lan2", ip:lan2.ip || "Not configured", zone:"lan", status: getNodeStatus("LAN2") },
+        { id:"LAN_ROUTER", x:700, y:120, label:"lan rtr", ip:cLanR.lanIp || "—", zone:"lan", status: getNodeStatus("LAN_ROUTER") },
+        { id:"LAN1", x:700, y:200, label:"lan1", ip:cLan1.ip || "—", zone:"lan", status: getNodeStatus("LAN1") },
+        { id:"LAN2", x:700, y:280, label:"lan2", ip:cLan2.ip || "—", zone:"lan", status: getNodeStatus("LAN2") },
         { id:"INTERNET", x:430, y:36, label:"internet", ip:scn.internet.pingTarget, zone:"internet", status: "ok" as const }
       ],
       links: [
-        { from:"DMZ1", to:"FW", ok:!!dmz1.ip && !!fw.ifaces.dmz, active:false },
-        { from:"DMZ2", to:"FW", ok:!!dmz2.ip && !!fw.ifaces.dmz, active:false },
-        { from:"LAN1", to:"LAN_ROUTER", ok:linkHostToLanRouter, active:linkHostToLanRouter },
-        { from:"LAN2", to:"LAN_ROUTER", ok:lan2.ip && lanR.lanIp && inSame24(lan2.ip, lanR.lanIp) && lan2.gw===lanR.lanIp, active:false },
-        { from:"LAN_ROUTER", to:"FW", ok:linkLanRouterToFw, active:linkLanRouterToFw },
-        { from:"FW", to:"WAN_ROUTER", ok:linkFwToWan, active:linkFwToWan },
+        { from:"DMZ1", to:"FW", ok:!!cDmz1.ip && !!cFw.ifaces.dmz, active:!!cDmz1.ip && !!cFw.ifaces.dmz },
+        { from:"DMZ2", to:"FW", ok:!!cDmz2.ip && !!cFw.ifaces.dmz, active:!!cDmz2.ip && !!cFw.ifaces.dmz },
+        { from:"LAN1", to:"LAN_ROUTER", ok:!!linkHostToLanRouter, active:!!linkHostToLanRouter },
+        { from:"LAN2", to:"LAN_ROUTER", ok:!!(cLan2.ip && cLanR.lanIp && inSame24(cLan2.ip, cLanR.lanIp) && cLan2.gw===cLanR.lanIp), active:!!(cLan2.ip && cLanR.lanIp && inSame24(cLan2.ip, cLanR.lanIp) && cLan2.gw===cLanR.lanIp) },
+        { from:"LAN_ROUTER", to:"FW", ok:!!linkLanRouterToFw, active:!!linkLanRouterToFw },
+        { from:"FW", to:"WAN_ROUTER", ok:!!linkFwToWan, active:!!linkFwToWan },
         { from:"WAN_ROUTER", to:"INTERNET", ok:linkFwToWan, active:false }
       ]
     };
-  }, [dmz1, dmz2, fw, lan1, lan2, lanR, failed, scn]);
+  }, [cDmz1, cDmz2, cFw, cLan1, cLan2, cLanR, failed, scn]);
 
   const getHints = () => {
     return [
@@ -248,12 +263,12 @@ export default function Page() {
                 <NetworkInfo subnet="wan" requiredRange="203.0.113.x /24" description="WAN/Internet - use provided public range" />
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <DeviceConfig title="LAN Host (browser)" host={lan1} onChange={setLan1} hint="Use 192.168.1.x range" />
-                <DeviceConfig title="LAN Host 2" host={lan2} onChange={setLan2} hint="Optional - same range as LAN Host 1" />
-                <DeviceConfig title="DMZ Host 1" host={dmz1} onChange={setDmz1} hint="Use 10.x.x.x range" />
-                <DeviceConfig title="DMZ Host 2" host={dmz2} onChange={setDmz2} hint="Optional - same range as DMZ Host 1" />
-                <LanRouterConfig lanR={lanR} onChange={setLanR} />
-                <FirewallConfig fw={fw} onChange={setFw} />
+                <DeviceConfig title="LAN Host (browser)" host={lan1} onChange={setLan1} hint="Use 192.168.1.x range" committedIp={cLan1.ip} onCommit={commitLan1} />
+                <DeviceConfig title="LAN Host 2" host={lan2} onChange={setLan2} hint="Optional - same range as LAN Host 1" committedIp={cLan2.ip} onCommit={commitLan2} />
+                <DeviceConfig title="DMZ Host 1" host={dmz1} onChange={setDmz1} hint="Use 10.x.x.x range" committedIp={cDmz1.ip} onCommit={commitDmz1} />
+                <DeviceConfig title="DMZ Host 2" host={dmz2} onChange={setDmz2} hint="Optional - same range as DMZ Host 1" committedIp={cDmz2.ip} onCommit={commitDmz2} />
+                <LanRouterConfig lanR={lanR} onChange={setLanR} committed={!!cLanR.lanIp} onCommit={commitLanRouter} />
+                <FirewallConfig fw={fw} onChange={setFw} committed={!!(cFw.ifaces.dmz||cFw.ifaces.lan||cFw.ifaces.wan)} onCommit={commitFirewall} />
               </div>
             </div>
           )}
@@ -261,22 +276,22 @@ export default function Page() {
             <div className="mt-3 text-sm">
               <NetTerminal exec={(cmd,args)=>{
                 if (cmd==="ping") {
-                  const res = pingFromHost(scn, lan1, args[0] || scn.internet.pingTarget, fw, lanR);
-                  setPacketPath(hopsToNodes(res.hops, scn, lanR, lan1.ip, fw));
+                  const res = pingFromHost(scn, cLan1, args[0] || scn.internet.pingTarget, cFw, cLanR);
+                  setPacketPath(hopsToNodes(res.hops, scn, cLanR, cLan1.ip, cFw));
                   // Show NAT overlay if SNAT is active
-                  if (fw.nat?.snat && res.hops.includes(fw.ifaces.wan)) {
-                    setNatOverlay({ from: lan1.ip, to: fw.ifaces.wan, visible: true });
+                  if (cFw.nat?.snat && res.hops.includes(cFw.ifaces.wan)) {
+                    setNatOverlay({ from: cLan1.ip, to: cFw.ifaces.wan, visible: true });
                     setTimeout(() => setNatOverlay(prev => ({ ...prev, visible: false })), 3000);
                   }
                   return res.success? "PING OK\n"+res.hops.join(" -> "): "PING FAIL: "+(res.reason||"blocked")+"\n"+res.hops.join(" -> ");
                 }
                 if (cmd==="traceroute") {
-                  const r = tracerouteFromHost(scn, lan1, args[0] || scn.internet.pingTarget, fw, lanR);
-                  setPacketPath(hopsToNodes(r.hops, scn, lanR, lan1.ip, fw));
+                  const r = tracerouteFromHost(scn, cLan1, args[0] || scn.internet.pingTarget, cFw, cLanR);
+                  setPacketPath(hopsToNodes(r.hops, scn, cLanR, cLan1.ip, cFw));
                   return r.hops.join("\n");
                 }
                 if (cmd==="nslookup") {
-                  const r = nslookupHost(scn, lan1, args[0]);
+                  const r = nslookupHost(scn, cLan1, args[0]);
                   return r.answer? `${args[0]} -> ${r.answer}` : "NXDOMAIN";
                 }
                 return "unknown command; type 'help'";
@@ -294,7 +309,7 @@ export default function Page() {
   );
 }
 
-function DeviceConfig({ title, host, onChange, hint }: { title: string; host: any; onChange: (h: any) => void; hint?: string }) {
+function DeviceConfig({ title, host, onChange, hint, committedIp, onCommit }: { title: string; host: any; onChange: (h: any) => void; hint?: string; committedIp?: string; onCommit?: ()=>void }) {
   const isValid = (ip: string) => {
     if (!ip) return false;
     const parts = ip.split(".");
@@ -320,20 +335,22 @@ function DeviceConfig({ title, host, onChange, hint }: { title: string; host: an
       <Labeled v="IP Address" value={host.ip} onChange={v=>onChange({...host, ip:v})} showValidation={isValid} ipClass={getIpClass} />
       <Labeled v="Subnet Mask" value={host.mask} onChange={v=>onChange({...host, mask:v})} placeholder="255.255.255.0" />
       <Labeled v="Gateway" value={host.gw} onChange={v=>onChange({...host, gw:v})} showValidation={isValid} />
+      <CommitBar committed={!!committedIp} onCommit={() => onCommit && onCommit()} />
     </div>
   );
 }
-function LanRouterConfig({ lanR, onChange }:{ lanR:any; onChange:(r:any)=>void }) {
+function LanRouterConfig({ lanR, onChange, committed, onCommit }:{ lanR:any; onChange:(r:any)=>void; committed?: boolean; onCommit?: ()=>void }) {
   return (
     <div className="p-3 border rounded bg-white/90">
       <div className="font-medium mb-2 text-sm">LAN Router</div>
       <div className="text-[10px] text-slate-500 mb-2 italic">Use 192.168.1.x range (e.g., 192.168.1.254)</div>
       <Labeled v="LAN IP" value={lanR.lanIp} onChange={v=>onChange({...lanR, lanIp:v})}/>
       <Labeled v="Gateway (to Firewall)" value={lanR.gw} onChange={v=>onChange({...lanR, gw:v})} placeholder="Must match Firewall LAN IP" />
+      <CommitBar committed={!!committed} onCommit={() => onCommit && onCommit()} />
     </div>
   );
 }
-function FirewallConfig({ fw, onChange }:{ fw:any; onChange:(f:any)=>void }) {
+function FirewallConfig({ fw, onChange, committed, onCommit }:{ fw:any; onChange:(f:any)=>void; committed?: boolean; onCommit?: ()=>void }) {
   return (
     <div className="p-3 border rounded col-span-2 bg-white/90">
       <div className="font-medium mb-2 text-sm">Firewall Interfaces</div>
@@ -343,6 +360,7 @@ function FirewallConfig({ fw, onChange }:{ fw:any; onChange:(f:any)=>void }) {
         <Labeled v="LAN Interface" value={fw.ifaces.lan} onChange={(v)=>onChange({...fw, ifaces:{...fw.ifaces, lan:v}})} placeholder="192.168.1.1" />
         <Labeled v="WAN Interface" value={fw.ifaces.wan} onChange={(v)=>onChange({...fw, ifaces:{...fw.ifaces, wan:v}})} placeholder="203.0.113.2" />
       </div>
+      <CommitBar committed={!!committed} onCommit={() => onCommit && onCommit()} />
     </div>
   );
 }
