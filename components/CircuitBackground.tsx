@@ -1,107 +1,86 @@
 "use client";
 import React, { useEffect, useRef } from "react";
 
+/**
+ * Animated circuit-board style background.
+ * Safe for SSR and strict TS: guards canvas/context, cancels RAF, and handles resize.
+ */
 export default function CircuitBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return; // ref not mounted
+
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return; // context not available
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
+    const setSize = () => {
+      const w = canvas.clientWidth || canvas.parentElement?.clientWidth || window.innerWidth;
+      const h = canvas.clientHeight || canvas.parentElement?.clientHeight || window.innerHeight;
+      canvas.width = Math.max(1, Math.floor(w));
+      canvas.height = Math.max(1, Math.floor(h));
+    };
+    setSize();
 
-    // Circuit board nodes and connections
-    const nodes: Array<{ x: number; y: number; glow: number; pulse: number }> = [];
-    const connections: Array<{ from: number; to: number; active: number }> = [];
+    let raf = 0;
+    let tick = 0;
 
-    // Generate nodes
-    for (let i = 0; i < 40; i++) {
-      nodes.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        glow: Math.random(),
-        pulse: Math.random() * Math.PI * 2
-      });
-    }
-
-    // Generate connections between nearby nodes
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[i].x - nodes[j].x;
-        const dy = nodes[i].y - nodes[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 200 && Math.random() > 0.7) {
-          connections.push({ from: i, to: j, active: Math.random() });
-        }
-      }
-    }
-
-    let frame = 0;
-    function animate() {
+    const animate = () => {
+      // Guard in case component unmounted between frames
+      if (!canvasRef.current) return;
+      // Clear with slight opacity for glow trail
       ctx.fillStyle = "rgba(15, 23, 42, 0.95)";
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      frame += 0.01;
+      // Simple moving nodes + links
+      const cols = 14;
+      const rows = 8;
+      const cellW = canvas.width / cols;
+      const cellH = canvas.height / rows;
 
-      // Draw connections
-      connections.forEach(conn => {
-        const from = nodes[conn.from];
-        const to = nodes[conn.to];
-        const pulse = (Math.sin(frame * 2 + conn.active * 5) + 1) * 0.3 + 0.4;
-        
-        const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
-        gradient.addColorStop(0, `rgba(56, 189, 248, ${0.1 * pulse})`);
-        gradient.addColorStop(1, `rgba(34, 211, 238, ${0.1 * pulse})`);
-        
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 1;
+      // Grid glow
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
+      ctx.lineWidth = 1;
+      for (let c = 0; c <= cols; c++) {
         ctx.beginPath();
-        ctx.moveTo(from.x, from.y);
-        ctx.lineTo(to.x, to.y);
+        ctx.moveTo(Math.floor(c * cellW) + 0.5, 0);
+        ctx.lineTo(Math.floor(c * cellW) + 0.5, canvas.height);
         ctx.stroke();
-      });
-
-      // Draw nodes
-      nodes.forEach((node, i) => {
-        node.pulse += 0.02;
-        const glowIntensity = (Math.sin(node.pulse) + 1) * 0.3 + 0.2;
-        const size = 2 + glowIntensity * 2;
-
-        // Outer glow
-        const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, size * 4);
-        gradient.addColorStop(0, `rgba(56, 189, 248, ${0.6 * glowIntensity})`);
-        gradient.addColorStop(0.5, `rgba(34, 211, 238, ${0.3 * glowIntensity})`);
-        gradient.addColorStop(1, "rgba(56, 189, 248, 0)");
-        
-        ctx.fillStyle = gradient;
+      }
+      for (let r = 0; r <= rows; r++) {
         ctx.beginPath();
-        ctx.arc(node.x, node.y, size * 4, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(0, Math.floor(r * cellH) + 0.5);
+        ctx.lineTo(canvas.width, Math.floor(r * cellH) + 0.5);
+        ctx.stroke();
+      }
 
-        // Core
-        ctx.fillStyle = i % 10 === 0 ? "rgba(168, 85, 247, 0.8)" : "rgba(56, 189, 248, 0.9)";
+      // Pulsing "packets"
+      const pulses = 24;
+      for (let i = 0; i < pulses; i++) {
+        const x = ((i * 83 + tick * 2) % (canvas.width + 40)) - 20;
+        const y = Math.sin((i * 17 + tick) * 0.05) * 10 + canvas.height * ((i % rows) / rows + 0.06);
         ctx.beginPath();
-        ctx.arc(node.x, node.y, size, 0, Math.PI * 2);
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(16, 185, 129, 0.9)";
         ctx.fill();
-      });
+      }
 
-      requestAnimationFrame(animate);
-    }
+      tick++;
+      raf = requestAnimationFrame(animate);
+    };
+    raf = requestAnimationFrame(animate);
 
-    animate();
+    const onResize = () => {
+      setSize();
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 -z-10"
-      style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}
-    />
-  );
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
 }
-
