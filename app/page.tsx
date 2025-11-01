@@ -412,6 +412,7 @@ export default function Page() {
     );
   }
 
+  // Main render
   return (
     <main className="min-h-screen relative">
       <CircuitBackground />
@@ -677,6 +678,7 @@ export default function Page() {
               <NatFirewallPanel fw={fw} onChange={setFw}/>
             </div>
           )}
+          </div>
         </section>
       </div>
       <RuleTraceModal trace={trace} onClose={()=>setTrace(null)} />
@@ -757,7 +759,7 @@ function DeviceConfig({ title, host, onChange, hint, committedIp, onCommit }: { 
     if (first >= 128 && first <= 191) return "Class B (172.x.x.x)";
     if (first >= 192 && first <= 223) return "Class C (192.x.x.x)";
     return "Public/Other";
-  };
+  }
 
   return (
     <div className="p-3 border rounded bg-white/90">
