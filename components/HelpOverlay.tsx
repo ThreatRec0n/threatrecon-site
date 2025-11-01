@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 
-export default function HelpOverlay({ open, onClose }: { open: boolean; onClose: ()=>void }) {
-  if (!open) return null;
+export default function HelpOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: ()=>void }) {
+  if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
       <div className="w-[720px] max-w-[95%] rounded-xl border bg-white p-5 shadow-2xl">

@@ -45,6 +45,8 @@ import ConceptMastery from "@/components/ConceptMastery";
 import LearningPath from "@/components/LearningPath";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import AchievementGallery from "@/components/AchievementGallery";
+import CollapsibleSection from "@/components/CollapsibleSection";
+import DeviceEditModal, { type DeviceType } from "@/components/DeviceEditModal";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -154,6 +156,7 @@ export default function Page() {
     streakMaster: false,
     perfectionist: false,
   });
+  const [editingDevice, setEditingDevice] = useState<{type: "firewall"|"lan-router"|"wan-router"|"lan-host"|"dmz-host"; nodeId: string} | null>(null);
 
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
 
@@ -459,35 +462,52 @@ export default function Page() {
           addLog(`⚠️ ${e.msg}`);
         }
       }} />
-      <div className="relative z-10 p-6 grid grid-cols-12 gap-4">
+      <div className="relative z-10 p-3 grid grid-cols-12 gap-3" style={{ maxHeight: 'calc(100vh - 120px)', overflow: 'hidden' }}>
         {/* Animated Topology */}
-        <section className="col-span-7 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4">
-          <h2 className="font-medium mb-2">Network Topology</h2>
-          <TopologyCanvas nodes={topo.nodes as any} links={topo.links as any} packetPath={packetPath as any} natOverlay={natOverlay}/>
+        <section className="col-span-7 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-3 flex flex-col" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+          <h2 className="font-medium mb-2 text-sm">Network Topology</h2>
+          <div className="flex-1 min-h-0">
+            <TopologyCanvas 
+              nodes={topo.nodes as any} 
+              links={topo.links as any} 
+              packetPath={packetPath as any} 
+              natOverlay={natOverlay}
+              onNodeClick={(nodeId) => {
+                if (nodeId === "FW") setEditingDevice({ type: "firewall", nodeId: "FW" });
+                else if (nodeId === "LAN_ROUTER") setEditingDevice({ type: "lan-router", nodeId: "LAN_ROUTER" });
+                else if (nodeId === "WAN_ROUTER") setEditingDevice({ type: "wan-router", nodeId: "WAN_ROUTER" });
+                else if (nodeId === "LAN1") setEditingDevice({ type: "lan-host", nodeId: "LAN1" });
+                else if (nodeId === "LAN2") setEditingDevice({ type: "lan-host", nodeId: "LAN2" });
+                else if (nodeId === "DMZ1") setEditingDevice({ type: "dmz-host", nodeId: "DMZ1" });
+                else if (nodeId === "DMZ2") setEditingDevice({ type: "dmz-host", nodeId: "DMZ2" });
+              }}
+            />
+          </div>
           <div className="mt-2 text-xs text-slate-500 space-y-1">
             <div>
               <span className="font-semibold text-red-400">⚠️ OBJECTIVE:</span> Configure all network devices with correct static IPs, gateways, firewall rules, and NAT to establish Internet connectivity.
             </div>
             <div className="text-slate-400">
-              The door unlocks when {lan1.id} successfully reaches {scn.internet.pingTarget}. 
-              <span className="font-mono text-slate-600"> Use private IP ranges (10.x, 172.x, 192.x) - see IP Range Guide above.</span>
+              The door unlocks when {cLan1.id} successfully reaches {scn.internet.pingTarget}.
+              <span className="font-mono text-slate-600"> Use private IP ranges (10.x, 172.x, 192.x).</span>
             </div>
-            {oxygenLevel < 30 && <span className="block mt-1 text-red-400 animate-pulse">⚡ CRITICAL: Oxygen running low! Configure faster!</span>}
+            {oxygenLevel < 30 && <span className="block mt-1 text-red-400 animate-pulse">⚡ CRITICAL: Oxygen running low!</span>}
           </div>
         </section>
-        <section className="col-span-5 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-4 flex flex-col">
-          <div className="flex gap-2 text-sm">
+
+        {/* Right panel - Compact Layout */}
+        <section className="col-span-5 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-3 flex flex-col overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+          <div className="flex gap-1.5 text-xs mb-2 sticky top-0 bg-white/95 backdrop-blur-sm z-10 pb-2">
             {(["Configure","Diagnostics","Firewall & NAT"] as Tab[]).map(t => (
-              <button key={t} onClick={()=>setActiveTab(t)} className={`px-3 py-1 border rounded ${activeTab===t?"bg-slate-900 text-white":"bg-white"}`}>{t}</button>
+              <button key={t} onClick={()=>setActiveTab(t)} className={`px-2 py-1 border rounded flex-1 ${activeTab===t?"bg-slate-900 text-white":"bg-white hover:bg-slate-50"}`}>{t}</button>
             ))}
           </div>
-          <div className="mt-3">
-            <HintPanel getHints={getHints}/>
-          </div>
-          <div className="mt-2 space-y-2">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-600">Difficulty:</span>
-              <span className={`px-2 py-1 rounded font-semibold ${
+          
+          {/* Compact Tools Bar */}
+          <div className="mb-2 grid grid-cols-3 gap-1.5 text-[10px]">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border bg-slate-50">
+              <span className="text-slate-600">Level:</span>
+              <span className={`px-1 rounded font-semibold ${
                 preset === "Beginner" ? "bg-emerald-100 text-emerald-800" :
                 preset === "Intermediate" ? "bg-blue-100 text-blue-800" :
                 "bg-red-100 text-red-800"
@@ -496,45 +516,65 @@ export default function Page() {
               </span>
             </div>
             <PracticeModeToggle enabled={practiceMode} onToggle={setPracticeMode} />
-            <SubnetCalculator />
-            <CommonMistakes />
-            <ErrorTimeline errors={errorHistory} />
-            <ChallengeScenario selected={selectedChallenge} onSelect={setSelectedChallenge} />
-            <LearningPath steps={[
-              { id: "1", title: "Configure LAN Host IP and gateway", done: !!cLan1.ip && !!cLan1.gw, next: !cLan1.ip },
-              { id: "2", title: "Configure LAN Router", done: !!cLanR.lanIp && cLanR.gw === cFw.ifaces.lan, next: !!cLan1.ip && !cLanR.lanIp },
-              { id: "3", title: "Configure Firewall interfaces", done: !!cFw.ifaces.lan && !!cFw.ifaces.wan, next: !!cLanR.lanIp && !cFw.ifaces.lan },
-              { id: "4", title: "Create firewall rules", done: !!cFw.rules && cFw.rules.length >= 2, next: !!cFw.ifaces.wan && (!cFw.rules || cFw.rules.length < 2) },
-              { id: "5", title: "Configure SNAT", done: !!cFw.nat?.snat && cFw.nat.snat.srcCidr.endsWith('/24'), next: !!cFw.rules && cFw.rules.length >= 2 && !cFw.nat?.snat },
-              { id: "6", title: "Test connectivity", done: isConnected, next: !!cFw.nat?.snat && !isConnected },
-            ]} />
-            <ConceptMastery concepts={[
-              { id: "subnetting", name: "Subnetting", mastered: conceptProgress.subnetting === 100, progress: conceptProgress.subnetting },
-              { id: "routing", name: "Routing", mastered: conceptProgress.routing === 100, progress: conceptProgress.routing },
-              { id: "nat", name: "NAT", mastered: conceptProgress.nat === 100, progress: conceptProgress.nat },
-              { id: "firewall", name: "Firewall Rules", mastered: conceptProgress.firewall === 100, progress: conceptProgress.firewall },
-            ]} />
-          </div>
-          {activeTab === "Configure" && (
-            <div className="mt-3 space-y-4">
-              <IPRangeGuide />
-              <div className="grid grid-cols-3 gap-2 text-xs mb-3">
-                <NetworkInfo subnet="lan" requiredRange="192.168.x.x /24" description="Internal LAN network - use Class C private range" />
-                <NetworkInfo subnet="dmz" requiredRange="10.x.x.x /24" description="DMZ network - use Class A private range" />
-                <NetworkInfo subnet="wan" requiredRange="203.0.113.x /24" description="WAN/Internet - use provided public range" />
+            <div className="flex items-center justify-center px-1.5 py-0.5 rounded border bg-slate-50">
+              <ProgressRing progress={completionProgress} label="" />
             </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <DeviceConfig title="LAN Host (browser)" host={lan1} onChange={setLan1} hint="Use 192.168.1.x range" committedIp={cLan1.ip} onCommit={commitLan1} />
-                <DeviceConfig title="LAN Host 2" host={lan2} onChange={setLan2} hint="Optional - same range as LAN Host 1" committedIp={cLan2.ip} onCommit={commitLan2} />
-                <DeviceConfig title="DMZ Host 1" host={dmz1} onChange={setDmz1} hint="Use 10.x.x.x range" committedIp={cDmz1.ip} onCommit={commitDmz1} />
-                <DeviceConfig title="DMZ Host 2" host={dmz2} onChange={setDmz2} hint="Optional - same range as DMZ Host 1" committedIp={cDmz2.ip} onCommit={commitDmz2} />
-                <LanRouterConfig lanR={lanR} onChange={setLanR} committed={!!cLanR.lanIp} onCommit={commitLanRouter} />
-                <FirewallConfig fw={fw} onChange={setFw} committed={!!(cFw.ifaces.dmz||cFw.ifaces.lan||cFw.ifaces.wan)} onCommit={commitFirewall} />
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-1.5">
+            <HintPanel getHints={getHints}/>
+            
+            <CollapsibleSection title="Tools & Help" icon="🛠️" defaultOpen={false}>
+              <div className="space-y-1.5">
+                <SubnetCalculator />
+                <CommonMistakes />
+                <ErrorTimeline errors={errorHistory} />
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Learning & Progress" icon="📚" defaultOpen={false}>
+              <div className="space-y-1.5">
+                <ChallengeScenario selected={selectedChallenge} onSelect={setSelectedChallenge} />
+                <LearningPath steps={[
+                  { id: "1", title: "Configure LAN Host IP and gateway", done: !!cLan1.ip && !!cLan1.gw, next: !cLan1.ip },
+                  { id: "2", title: "Configure LAN Router", done: !!cLanR.lanIp && cLanR.gw === cFw.ifaces.lan, next: !!cLan1.ip && !cLanR.lanIp },
+                  { id: "3", title: "Configure Firewall interfaces", done: !!cFw.ifaces.lan && !!cFw.ifaces.wan, next: !!cLanR.lanIp && !cFw.ifaces.lan },
+                  { id: "4", title: "Create firewall rules", done: !!cFw.rules && cFw.rules.length >= 2, next: !!cFw.ifaces.wan && (!cFw.rules || cFw.rules.length < 2) },
+                  { id: "5", title: "Configure SNAT", done: !!cFw.nat?.snat && cFw.nat.snat.srcCidr.endsWith('/24'), next: !!cFw.rules && cFw.rules.length >= 2 && !cFw.nat?.snat },
+                  { id: "6", title: "Test connectivity", done: isConnected, next: !!cFw.nat?.snat && !isConnected },
+                ]} />
+                <ConceptMastery concepts={[
+                  { id: "subnetting", name: "Subnetting", mastered: conceptProgress.subnetting === 100, progress: conceptProgress.subnetting },
+                  { id: "routing", name: "Routing", mastered: conceptProgress.routing === 100, progress: conceptProgress.routing },
+                  { id: "nat", name: "NAT", mastered: conceptProgress.nat === 100, progress: conceptProgress.nat },
+                  { id: "firewall", name: "Firewall Rules", mastered: conceptProgress.firewall === 100, progress: conceptProgress.firewall },
+                ]} />
+              </div>
+            </CollapsibleSection>
+            
+          {activeTab === "Configure" && (
+            <div className="space-y-2">
+              <CollapsibleSection title="IP Range Guide" icon="📋" defaultOpen={false}>
+                <IPRangeGuide />
+                <div className="grid grid-cols-3 gap-1.5 text-xs mt-2">
+                  <NetworkInfo subnet="lan" requiredRange="192.168.x.x /24" description="LAN - Class C" />
+                  <NetworkInfo subnet="dmz" requiredRange="10.x.x.x /24" description="DMZ - Class A" />
+                  <NetworkInfo subnet="wan" requiredRange="203.0.113.x /24" description="WAN - Public" />
+                </div>
+              </CollapsibleSection>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs">
+                <div className="font-semibold text-blue-900 mb-1">💡 Click devices in the topology diagram to configure</div>
+                <div className="text-blue-700 space-y-0.5">
+                  <div>• Firewall: Click to set DMZ, LAN, WAN interfaces</div>
+                  <div>• LAN Router: Click to set LAN IP + Gateway</div>
+                  <div>• WAN Router: Click to set WAN IP + Gateway</div>
+                  <div>• Hosts: Click to set IP, Mask, Gateway</div>
+                </div>
               </div>
             </div>
           )}
           {activeTab === "Diagnostics" && (
-            <div className="mt-3 text-sm">
+            <div className="space-y-2 text-sm">
               <NetTerminal exec={(cmd,args)=>{
                 if (cmd==="ping") {
                   const res = pingFromHost(scn, cLan1, args[0] || scn.internet.pingTarget, cFw, cLanR);
@@ -563,103 +603,137 @@ export default function Page() {
                 }
                 return "unknown command; type 'help'";
               }}/>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <ObjectivesPanel
-                  title={`Objectives (${preset})`}
-                  items={(() => {
-                    const items = [
-                      { id:"icmplan", text:"ICMP allowed on LAN+WAN", done: !!cFw.rules?.length },
-                      { id:"snat", text:"SNAT 192.168.1.0/24 → FW WAN", done: !!cFw.nat?.snat && cFw.nat!.snat!.srcCidr.endsWith('/24') && cFw.nat!.snat!.toIp===cFw.ifaces.wan },
-                      { id:"reach", text:"LAN1 can reach Internet target", done: isConnected },
-                    ];
-                    if (preset!=="Beginner") items.push({ id:"egress", text:"Default deny egress except required", done: true } as any);
-                    return items as any;
-                  })()} />
-                <StateTable entries={trace? [{ src: cLan1.ip||"—", dst: (trace.args[0]||scn.internet.pingTarget), proto: "ICMP", state: trace.success?"ESTABLISHED":"BLOCKED" }]: []} />
-                <RoutingTable
-                  title="LAN Router Routes"
-                  rows={[{ dest: "192.168.1.0/24", gateway: "—", iface: "lan" }, { dest: "0.0.0.0/0", gateway: cLanR.gw||"—", iface: "lan" }]}
-                />
-                <RoutingTable
-                  title="Firewall Routes"
-                  rows={[{ dest: "10.0.0.0/8", gateway: "—", iface: "dmz" }, { dest: "192.168.1.0/24", gateway: "—", iface: "lan" }, { dest: "0.0.0.0/0", gateway: scn.subnets.wan.gw, iface: "wan" }]}
-                />
-                <ChecklistPanel items={[
-                  { id:"lan1", label:"LAN Host committed", ok: !!cLan1.ip, hint:"Commit LAN host" },
-                  { id:"lanr", label:"LAN Router committed", ok: !!cLanR.lanIp, hint:"Commit LAN router" },
-                  { id:"fwlan", label:"Firewall LAN committed", ok: !!cFw.ifaces.lan, hint:"Commit Firewall LAN" },
-                  { id:"fwwan", label:"Firewall WAN committed", ok: !!cFw.ifaces.wan, hint:"Commit Firewall WAN (203.0.113.x)" },
-                  { id:"snat", label:"SNAT configured /24", ok: !!cFw.nat?.snat && cFw.nat!.snat!.srcCidr.endsWith('/24'), hint:"Set SNAT 192.168.1.0/24 → FW WAN" },
-                ]} />
-                <LintPanel items={(()=>{
-                  const out: {id:string;msg:string}[] = [];
-                  const same24 = (a?:string,b?:string)=>!!a&&!!b&&a.split('.').slice(0,3).join('.')===b.split('.').slice(0,3).join('.');
-                  if (cLan1.ip && cLan1.gw && !same24(cLan1.ip,cLan1.gw)) out.push({id:"gw", msg:"LAN Host gateway not in same /24 as host"});
-                  if (cLanR.lanIp && !(cLanR.lanIp.startsWith('192.168.'))) out.push({id:"lanrip", msg:"LAN Router should be 192.168.x.x"});
-                  if (cFw.ifaces.dmz && !cFw.ifaces.dmz.startsWith('10.')) out.push({id:"dmz", msg:"Firewall DMZ should be 10.x.x.x"});
-                  if (cFw.ifaces.wan && !cFw.ifaces.wan.startsWith('203.0.113.')) out.push({id:"wan", msg:"Firewall WAN should be 203.0.113.x"});
-                  return out;
-                })()} />
-                <EnhancedPacketInspector 
-                  src={cLan1.ip} 
-                  dst={(trace?.args?.[0]||scn.internet.pingTarget)} 
-                  translatedSrc={cFw.ifaces.wan && cFw.nat?.snat ? cFw.ifaces.wan : undefined}
-                  hops={trace?.hops}
-                />
-                <PacketFlowAnim hops={trace?.hops?.map((h,i)=>({
-                  ip: h,
-                  label: i===0?"LAN Host":i===1?"LAN Router":i===2?"Firewall":i===3?"WAN":"Internet",
-                  headers: { 
-                    src: i===0?cLan1.ip:undefined, 
-                    dst: i===trace.hops.length-1?scn.internet.pingTarget:undefined, 
-                    ttl: 64-i,
-                    proto: "ICMP",
-                    size: 64 + (i * 8)
-                  }
-                })) || []} />
-                <NatTable entries={cFw.nat?.snat && cLan1.ip ? [{ src: cLan1.ip, to: cFw.nat.snat.toIp, iface: cFw.nat.snat.outIface }]: []} />
+              <div className="space-y-1.5">
+                <CollapsibleSection title="Objectives" icon="🎯" defaultOpen={false}>
+                  <ObjectivesPanel
+                    title={`Objectives (${preset})`}
+                    items={(() => {
+                      const items = [
+                        { id:"icmplan", text:"ICMP allowed on LAN+WAN", done: !!cFw.rules?.length },
+                        { id:"snat", text:"SNAT 192.168.1.0/24 → FW WAN", done: !!cFw.nat?.snat && cFw.nat!.snat!.srcCidr.endsWith('/24') && cFw.nat!.snat!.toIp===cFw.ifaces.wan },
+                        { id:"reach", text:"LAN1 can reach Internet target", done: isConnected },
+                      ];
+                      if (preset!=="Beginner") items.push({ id:"egress", text:"Default deny egress except required", done: true } as any);
+                      return items as any;
+                    })()} 
+                  />
+                </CollapsibleSection>
+                <CollapsibleSection title="Checklist" icon="✓" defaultOpen={false}>
+                  <ChecklistPanel items={[
+                    { id:"lan1", label:"LAN Host committed", ok: !!cLan1.ip, hint:"Commit LAN host" },
+                    { id:"lanr", label:"LAN Router committed", ok: !!cLanR.lanIp, hint:"Commit LAN router" },
+                    { id:"fwlan", label:"Firewall LAN committed", ok: !!cFw.ifaces.lan, hint:"Commit Firewall LAN" },
+                    { id:"fwwan", label:"Firewall WAN committed", ok: !!cFw.ifaces.wan, hint:"Commit Firewall WAN" },
+                    { id:"snat", label:"SNAT configured", ok: !!cFw.nat?.snat && cFw.nat!.snat!.srcCidr.endsWith('/24'), hint:"Set SNAT 192.168.1.0/24" },
+                  ]} />
+                </CollapsibleSection>
+                <CollapsibleSection title="Lint & Diagnostics" icon="🔍" defaultOpen={false}>
+                  <div className="space-y-1.5">
+                    <LintPanel items={(()=>{
+                      const out: {id:string;msg:string}[] = [];
+                      const same24 = (a?:string,b?:string)=>!!a&&!!b&&a.split('.').slice(0,3).join('.')===b.split('.').slice(0,3).join('.');
+                      if (cLan1.ip && cLan1.gw && !same24(cLan1.ip,cLan1.gw)) out.push({id:"gw", msg:"LAN Host gateway not in same /24"});
+                      if (cLanR.lanIp && !(cLanR.lanIp.startsWith('192.168.'))) out.push({id:"lanrip", msg:"LAN Router should be 192.168.x.x"});
+                      if (cFw.ifaces.dmz && !cFw.ifaces.dmz.startsWith('10.')) out.push({id:"dmz", msg:"Firewall DMZ should be 10.x.x.x"});
+                      if (cFw.ifaces.wan && !cFw.ifaces.wan.startsWith('203.0.113.')) out.push({id:"wan", msg:"Firewall WAN should be 203.0.113.x"});
+                      return out;
+                    })()} />
+                    <EnhancedPacketInspector 
+                      src={cLan1.ip} 
+                      dst={(trace?.args?.[0]||scn.internet.pingTarget)} 
+                      translatedSrc={cFw.ifaces.wan && cFw.nat?.snat ? cFw.ifaces.wan : undefined}
+                      hops={trace?.hops}
+                    />
+                    <PacketFlowAnim hops={trace?.hops?.map((h,i)=>({
+                      ip: h,
+                      label: i===0?"LAN Host":i===1?"LAN Router":i===2?"Firewall":i===3?"WAN":"Internet",
+                      headers: { 
+                        src: i===0?cLan1.ip:undefined, 
+                        dst: i===trace.hops.length-1?scn.internet.pingTarget:undefined, 
+                        ttl: 64-i,
+                        proto: "ICMP",
+                        size: 64 + (i * 8)
+                      }
+                    })) || []} />
+                    <NatTable entries={cFw.nat?.snat && cLan1.ip ? [{ src: cLan1.ip, to: cFw.nat.snat.toIp, iface: cFw.nat.snat.outIface }]: []} />
+                  </div>
+                </CollapsibleSection>
+                <CollapsibleSection title="Achievements" icon="🏆" defaultOpen={false}>
+                  <AchievementGallery earned={achievements} />
+                </CollapsibleSection>
               </div>
-              <div className="mt-3 flex items-center justify-center gap-4">
-                <ProgressRing progress={completionProgress} label="Complete" />
-              </div>
-              <div className="mt-3">
-                <AchievementGallery earned={achievements} />
-              </div>
-              <div className="mt-3 flex gap-2 text-xs">
-                <button onClick={()=>{ commitLan1(); commitLan2(); commitDmz1(); commitDmz2(); commitLanRouter(); commitFirewall(); }} className="px-3 py-1 border rounded bg-slate-900 text-white">Commit All</button>
-                <button onClick={()=>{
-                  const blob = new Blob([JSON.stringify({ cLan1,cLan2,cDmz1,cDmz2,cLanR,cFw }, null, 2)], {type:'application/json'});
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url; a.download = 'net-config.json'; a.click();
-                  URL.revokeObjectURL(url);
-                }} className="px-2 py-1 border rounded">Export Config</button>
-                <label className="px-2 py-1 border rounded cursor-pointer">
-                  Import
-                  <input type="file" accept="application/json" className="hidden" onChange={async (e)=>{
-                    const f = e.target.files?.[0]; if(!f) return; const txt = await f.text();
-                    try { const j = JSON.parse(txt);
-                      setCLan1(j.cLan1||cLan1); setCLan2(j.cLan2||cLan2); setCDmz1(j.cDmz1||cDmz1); setCDmz2(j.cDmz2||cDmz2); setCLanR(j.cLanR||cLanR); setCFw(j.cFw||cFw);
-                    } catch {}
-                  }} />
-                </label>
+              <div className="mt-2 flex gap-2 text-xs sticky bottom-0 bg-white/95 backdrop-blur-sm pt-2">
+                <button onClick={()=>{ commitLan1(); commitLan2(); commitDmz1(); commitDmz2(); commitLanRouter(); commitFirewall(); }} className="px-3 py-1 border rounded bg-slate-900 text-white hover:bg-slate-800">Commit All (Ctrl+Enter)</button>
                 <button onClick={()=>{
                   if (cLanR.gw) setCLanR(r=>({ ...r, gw: "192.168.1.254" }));
                   else if (cFw.ifaces.wan) setCFw(f=>({ ...f, ifaces:{...f.ifaces, wan: "203.0.114.2"}}));
                   else setCLan1(h=>({ ...h, gw: "192.168.2.1" }));
-                }} className="px-2 py-1 border rounded">Break Something</button>
+                }} className="px-2 py-1 border rounded hover:bg-slate-50">Break Something</button>
               </div>
             </div>
           )}
           {activeTab === "Firewall & NAT" && (
-            <div className="mt-3 text-sm">
+            <div className="text-sm">
               <NatFirewallPanel fw={fw} onChange={setFw}/>
             </div>
           )}
         </section>
       </div>
       <RuleTraceModal trace={trace} onClose={()=>setTrace(null)} />
-      <HelpOverlay open={helpOpen} onClose={()=>setHelpOpen(false)} />
+      <HelpOverlay isOpen={helpOpen} onClose={()=>setHelpOpen(false)} />
+      <DeviceEditModal
+        open={!!editingDevice}
+        device={editingDevice?.type || null}
+        data={(() => {
+          if (!editingDevice) return { type: "firewall" as DeviceType, dmz: "", lan: "", wan: "" };
+          if (editingDevice.type === "firewall") {
+            return { type: "firewall" as DeviceType, dmz: fw.ifaces.dmz || "", lan: fw.ifaces.lan || "", wan: fw.ifaces.wan || "" };
+          }
+          if (editingDevice.type === "lan-router") {
+            return { type: "lan-router" as DeviceType, ip1: lanR.lanIp || "", ip2: lanR.gw || "" };
+          }
+          if (editingDevice.type === "wan-router") {
+            return { type: "wan-router" as DeviceType, ip1: scn.subnets.wan.gw || "", ip2: "" };
+          }
+          if (editingDevice.type === "lan-host") {
+            const host = editingDevice.nodeId === "LAN1" ? lan1 : lan2;
+            return { type: "lan-host" as DeviceType, ip1: host.ip || "", mask: host.mask || "", gw: host.gw || "" };
+          }
+          if (editingDevice.type === "dmz-host") {
+            const host = editingDevice.nodeId === "DMZ1" ? dmz1 : dmz2;
+            return { type: "dmz-host" as DeviceType, ip1: host.ip || "", mask: host.mask || "", gw: host.gw || "" };
+          }
+          return { type: "firewall" as DeviceType, dmz: "", lan: "", wan: "" };
+        })()}
+        onChange={(data) => {
+          if (!editingDevice) return;
+          if (editingDevice.type === "firewall") {
+            setFw({ ...fw, ifaces: { dmz: data.dmz || "", lan: data.lan || "", wan: data.wan || "" } });
+          } else if (editingDevice.type === "lan-router") {
+            setLanR({ ...lanR, lanIp: data.ip1 || "", gw: data.ip2 || "" });
+          } else if (editingDevice.type === "lan-host") {
+            const setter = editingDevice.nodeId === "LAN1" ? setLan1 : setLan2;
+            setter({ ...(editingDevice.nodeId === "LAN1" ? lan1 : lan2), ip: data.ip1 || "", mask: data.mask || "", gw: data.gw || "" });
+          } else if (editingDevice.type === "dmz-host") {
+            const setter = editingDevice.nodeId === "DMZ1" ? setDmz1 : setDmz2;
+            setter({ ...(editingDevice.nodeId === "DMZ1" ? dmz1 : dmz2), ip: data.ip1 || "", mask: data.mask || "", gw: data.gw || "" });
+          }
+        }}
+        onClose={() => setEditingDevice(null)}
+        onCommit={() => {
+          if (!editingDevice) return;
+          if (editingDevice.type === "firewall") commitFirewall();
+          else if (editingDevice.type === "lan-router") commitLanRouter();
+          else if (editingDevice.type === "lan-host") {
+            if (editingDevice.nodeId === "LAN1") commitLan1();
+            else commitLan2();
+          } else if (editingDevice.type === "dmz-host") {
+            if (editingDevice.nodeId === "DMZ1") commitDmz1();
+            else commitDmz2();
+          }
+          setEditingDevice(null);
+        }}
+      />
     </main>
   );
 }
@@ -742,31 +816,31 @@ function Labeled({
     ? (typeof ipClass === "function" ? ipClass(value) : ipClass)
     : "";
   
-  return (
-    <label className="block text-xs mb-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-slate-600 font-medium">{v}</span>
-        {showValidation && value && (
-          <span className={`text-[10px] ${isValid ? "text-green-600" : "text-red-600"}`}>
-            {isValid ? "✓" : "✗ Invalid"}
-          </span>
-        )}
-      </div>
-      <input
-        className={`mt-1 w-full border rounded px-2 py-1 text-sm ${
-          showValidation && value 
-            ? isValid 
-              ? "border-green-300 bg-green-50/50" 
-              : "border-red-300 bg-red-50/50"
-            : "border-slate-300"
-        }`}
-        value={value}
-        onChange={e=>onChange(e.target.value)}
-        placeholder={placeholder || `Enter ${v.toLowerCase()}`}
-      />
-      {classInfo && value && (
-        <div className="text-[9px] text-slate-500 mt-0.5 italic">{classInfo}</div>
-      )}
-    </label>
-  );
-}
+      return (
+        <label className="block text-[10px] mb-1.5">
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-slate-600 font-medium">{v}</span>
+            {showValidation && value && (
+              <span className={`text-[9px] ${isValid ? "text-green-600" : "text-red-600"}`}>
+                {isValid ? "✓" : "✗"}
+              </span>
+            )}
+          </div>
+          <input
+            className={`w-full border rounded px-1.5 py-0.5 text-xs ${
+              showValidation && value
+                ? isValid
+                  ? "border-green-300 bg-green-50/50"
+                  : "border-red-300 bg-red-50/50"
+                : "border-slate-300"
+            }`}
+            value={value}
+            onChange={e=>onChange(e.target.value)}
+            placeholder={placeholder || `Enter ${v.toLowerCase()}`}
+          />
+          {classInfo && value && (
+            <div className="text-[8px] text-slate-500 mt-0.5 italic">{classInfo}</div>
+          )}
+        </label>
+      );
+    }
