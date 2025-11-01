@@ -13,7 +13,10 @@ export type FirewallRule = {
   dst: string; // CIDR or ANY
   inIface?: "dmz" | "lan" | "wan";
 };
+export type NatTranslation = 'masquerade' | 'snat' | 'none';
+
 export type NatConfig = {
+  translation?: NatTranslation; // masquerade = dynamic SNAT to egress iface IP
   snat?: { srcCidr: string; toIp: string; outIface: "wan" | "lan" | "dmz" }
 };
 export type Firewall = {

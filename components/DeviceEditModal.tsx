@@ -127,10 +127,15 @@ export default function DeviceEditModal({
                   <div>
                     <label className="block text-xs font-medium mb-1">IP Address 2 / Gateway</label>
                     <input
-                      value={data.ip2 || ""}
-                      onChange={(e) => onChange({ ...data, ip2: e.target.value })}
+                      name={device === "wan-router" ? "wan-gateway" : "ip2"}
+                      value={typeof data.ip2 === 'string' ? data.ip2 : ''}
+                      onChange={(e) => onChange({ ...(data ?? {}), ip2: e.target.value })}
                       placeholder={hints.ip2 || "Gateway"}
                       className="w-full border rounded px-2 py-1.5 text-sm"
+                      readOnly={false}
+                      disabled={false}
+                      autoComplete="off"
+                      inputMode="numeric"
                     />
                   </div>
                 </>

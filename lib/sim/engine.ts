@@ -137,34 +137,47 @@ export function pingFromHost(
     return { success: false, hops, reason: "firewall rules must ALLOW ICMP on LAN ingress and WAN egress" };
   }
 
-  // 4) SNAT must be configured correctly
-  if (!fw.nat?.snat) {
-    return { success: false, hops, reason: "SNAT must be configured for Internet access" };
+  // 4) NAT must be configured correctly (SNAT or Masquerade)
+  const translation = fw.nat?.translation || (fw.nat?.snat ? 'snat' : 'masquerade');
+  
+  if (translation === 'none' || (!fw.nat?.snat && translation !== 'masquerade')) {
+    return { success: false, hops, reason: "NAT must be configured (SNAT or Masquerade) for Internet access" };
   }
-  if (!isValidCidr(fw.nat.snat.srcCidr)) {
-    return { success: false, hops, reason: "SNAT source CIDR must be valid (e.g., 192.168.1.0/24)" };
-  }
-  // Enforce mask /24 for simplicity in this training scenario
-  if (!fw.nat.snat.srcCidr.endsWith("/24")) {
-    return { success: false, hops, reason: "SNAT source must be a /24 network in this scenario" };
-  }
-  if (!isValidIp(fw.nat.snat.toIp)) {
-    return { success: false, hops, reason: "SNAT translate-to IP must be valid" };
-  }
-  if (fw.nat.snat.outIface !== "wan") {
-    return { success: false, hops, reason: "SNAT must use WAN interface" };
-  }
-  // Verify SNAT source CIDR matches host subnet
-  if (!subnetContains(fw.nat.snat.srcCidr, host.ip)) {
-    return { success: false, hops, reason: "SNAT source CIDR must include host IP" };
-  }
-  // Firewall WAN interface must be configured
-  if (!fw.ifaces.wan || !isValidIp(fw.ifaces.wan)) {
-    return { success: false, hops, reason: "firewall WAN interface must be configured and valid" };
-  }
-  // Verify SNAT translate-to matches firewall WAN IP
-  if (fw.nat.snat.toIp !== fw.ifaces.wan) {
-    return { success: false, hops, reason: "SNAT must translate to firewall WAN IP" };
+  
+  // For masquerade, use egress interface IP dynamically
+  if (translation === 'masquerade') {
+    // Masquerade uses the WAN interface IP as the source
+    if (!fw.ifaces.wan || !isValidIp(fw.ifaces.wan)) {
+      return { success: false, hops, reason: "firewall WAN interface must be configured for masquerade" };
+    }
+    // Masquerade doesn't require explicit source CIDR matching, but we can validate the interface
+  } else if (translation === 'snat' && fw.nat?.snat) {
+    // Static SNAT validation
+    if (!isValidCidr(fw.nat.snat.srcCidr)) {
+      return { success: false, hops, reason: "SNAT source CIDR must be valid (e.g., 192.168.1.0/24)" };
+    }
+    // Enforce mask /24 for simplicity in this training scenario
+    if (!fw.nat.snat.srcCidr.endsWith("/24")) {
+      return { success: false, hops, reason: "SNAT source must be a /24 network in this scenario" };
+    }
+    if (!isValidIp(fw.nat.snat.toIp)) {
+      return { success: false, hops, reason: "SNAT translate-to IP must be valid" };
+    }
+    if (fw.nat.snat.outIface !== "wan") {
+      return { success: false, hops, reason: "SNAT must use WAN interface" };
+    }
+    // Verify SNAT source CIDR matches host subnet
+    if (!subnetContains(fw.nat.snat.srcCidr, host.ip)) {
+      return { success: false, hops, reason: "SNAT source CIDR must include host IP" };
+    }
+    // Firewall WAN interface must be configured
+    if (!fw.ifaces.wan || !isValidIp(fw.ifaces.wan)) {
+      return { success: false, hops, reason: "firewall WAN interface must be configured and valid" };
+    }
+    // Verify SNAT translate-to matches firewall WAN IP
+    if (fw.nat.snat.toIp !== fw.ifaces.wan) {
+      return { success: false, hops, reason: "SNAT must translate to firewall WAN IP" };
+    }
   }
   hops.push(fw.ifaces.wan);
 

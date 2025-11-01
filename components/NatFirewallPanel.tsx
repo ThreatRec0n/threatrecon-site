@@ -90,6 +90,7 @@ export default function NatFirewallPanel({
           rules: [...(fw.rules || []), ruleData],
           nat: {
             ...(fw.nat || {}),
+            translation: 'snat',
             snat: {
               srcCidr: form.src || "192.168.1.0/24",
               toIp: form.translateTo,
@@ -188,6 +189,29 @@ export default function NatFirewallPanel({
               </select>
             </label>
             <label className="col-span-1">
+              <div className="text-[11px] uppercase tracking-wide text-slate-500">Translation / Type</div>
+              <select
+                value={fw.nat?.translation || (fw.nat?.snat ? 'snat' : 'masquerade')}
+                onChange={(e) => {
+                  const translation = e.target.value as 'masquerade' | 'snat' | 'none';
+                  onChange({
+                    ...fw,
+                    nat: {
+                      ...(fw.nat || {}),
+                      translation,
+                      // Clear snat if switching to masquerade or none
+                      snat: translation === 'snat' ? fw.nat?.snat : undefined,
+                    },
+                  });
+                }}
+                className="border rounded px-2 py-1 w-full"
+              >
+                <option value="masquerade">Masquerade (dynamic)</option>
+                <option value="snat">Source NAT (static)</option>
+                <option value="none">None</option>
+              </select>
+            </label>
+            <label className="col-span-1">
               <div className="text-[11px] uppercase tracking-wide text-slate-500">Protocol</div>
               <select
                 value={form.protocol}
@@ -236,15 +260,34 @@ export default function NatFirewallPanel({
                 placeholder="80,443,any"
               />
             </label>
-            <label className="col-span-2">
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">Translate To (SNAT/DNAT)</div>
-              <input
-                value={form.translateTo || ""}
-                onChange={(e) => setForm({ ...form, translateTo: e.target.value })}
-                className="border rounded px-2 py-1 w-full"
-                placeholder="e.g., 203.0.113.2"
-              />
-            </label>
+            {(fw.nat?.translation === 'snat' || (!fw.nat?.translation && fw.nat?.snat)) && (
+              <label className="col-span-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">NAT Address (for static SNAT)</div>
+                <input
+                  value={form.translateTo || fw.nat?.snat?.toIp || ""}
+                  onChange={(e) => {
+                    setForm({ ...form, translateTo: e.target.value });
+                    // Also update nat config immediately
+                    if (e.target.value) {
+                      onChange({
+                        ...fw,
+                        nat: {
+                          ...(fw.nat || {}),
+                          translation: 'snat',
+                          snat: {
+                            srcCidr: form.src || "192.168.1.0/24",
+                            toIp: e.target.value,
+                            outIface: form.iface || "wan",
+                          },
+                        },
+                      });
+                    }
+                  }}
+                  className="border rounded px-2 py-1 w-full"
+                  placeholder="e.g., 203.0.113.2"
+                />
+              </label>
+            )}
             <label className="flex items-center gap-2 col-span-2">
               <input
                 type="checkbox"
@@ -343,12 +386,22 @@ export default function NatFirewallPanel({
         </div>
       </div>
 
-      {/* SNAT Configuration */}
-      {fw.nat?.snat && (
+      {/* NAT Configuration Summary */}
+      {(fw.nat?.translation === 'masquerade' || fw.nat?.snat || (!fw.nat?.translation && fw.nat?.snat)) && (
         <div className="p-3 border rounded-lg bg-emerald-50/50 backdrop-blur">
-          <div className="font-medium mb-2 text-sm">Active SNAT</div>
+          <div className="font-medium mb-2 text-sm">
+            Active NAT: {fw.nat?.translation === 'masquerade' ? 'Masquerade (dynamic)' : 
+                         fw.nat?.translation === 'snat' ? 'Source NAT (static)' : 
+                         fw.nat?.snat ? 'Source NAT (static)' : 'None'}
+          </div>
           <div className="text-xs text-slate-600">
-            <span className="font-mono">{fw.nat.snat.srcCidr}</span> → <span className="font-mono">{fw.nat.snat.toIp}</span> (out: {fw.nat.snat.outIface})
+            {fw.nat?.translation === 'masquerade' ? (
+              <span>Masquerade → using egress interface IP (WAN: <span className="font-mono">{fw.ifaces.wan}</span>)</span>
+            ) : fw.nat?.snat ? (
+              <>
+                <span className="font-mono">{fw.nat.snat.srcCidr}</span> → <span className="font-mono">{fw.nat.snat.toIp}</span> (out: {fw.nat.snat.outIface})
+              </>
+            ) : null}
           </div>
         </div>
       )}
