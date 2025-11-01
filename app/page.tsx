@@ -57,7 +57,7 @@ export default function Page() {
   // Initialize with empty IPs - users must configure everything
   const [fw, setFw] = useState<Firewall>({
     id: "fw1",
-    ifaces: { dmz: "", lan: "", wan: "" },
+    ifaces: { dmz: "", lan: "", wan: "", gw_dmz: "", gw_lan: "", gw_wan: "" },
     nat: { translation: undefined },
     rules: []
   });
@@ -101,7 +101,7 @@ export default function Page() {
   const [cDmz1, setCDmz1] = useState<Host>({ id:"dmz1", nic:"ens0", ip:"", mask:"", gw:"" });
   const [cDmz2, setCDmz2] = useState<Host>({ id:"dmz2", nic:"ens1", ip:"", mask:"", gw:"" });
   const [cLanR, setCLanR] = useState({ id:"lan-r1", lanIp:"", gw:"" });
-  const [cFw, setCFw] = useState<Firewall>({ id:"fw1", ifaces:{ dmz:"", lan:"", wan:"" }, nat:{ translation: undefined }, rules:[] });
+  const [cFw, setCFw] = useState<Firewall>({ id:"fw1", ifaces:{ dmz:"", lan:"", wan:"", gw_dmz:"", gw_lan:"", gw_wan:"" }, nat:{ translation: undefined }, rules:[] });
 
   const isValidIp = (ip?: string) => {
     if (!ip) return false;
@@ -316,7 +316,7 @@ export default function Page() {
         { id:"DMZ1", x:110, y:180, label:"dmz1", ip:cDmz1.ip || "—", zone:"dmz", status: getNodeStatus("DMZ1") },
         { id:"DMZ2", x:110, y:260, label:"dmz2", ip:cDmz2.ip || "—", zone:"dmz", status: getNodeStatus("DMZ2") },
         { id:"FW", x:430, y:220, label:"firewall", ip:cFw.ifaces.wan || "—", zone:"wan", status: getNodeStatus("FW") },
-        { id:"WAN_ROUTER", x:430, y:100, label:"wan gw", ip:scn.subnets.wan.gw, zone:"wan" },
+        { id:"WAN_ROUTER", x:430, y:100, label:"wan gw", ip:"", zone:"wan" },
         { id:"LAN_ROUTER", x:700, y:120, label:"lan rtr", ip:cLanR.lanIp || "—", zone:"lan", status: getNodeStatus("LAN_ROUTER") },
         { id:"LAN1", x:700, y:200, label:"lan1", ip:cLan1.ip || "—", zone:"lan", status: getNodeStatus("LAN1") },
         { id:"LAN2", x:700, y:280, label:"lan2", ip:cLan2.ip || "—", zone:"lan", status: getNodeStatus("LAN2") },
@@ -689,14 +689,14 @@ export default function Page() {
         data={(() => {
           if (!editingDevice) return { type: "firewall" as DeviceType, dmz: "", lan: "", wan: "" };
           if (editingDevice.type === "firewall") {
-            return { type: "firewall" as DeviceType, dmz: fw.ifaces.dmz || "", lan: fw.ifaces.lan || "", wan: fw.ifaces.wan || "" };
+            return { type: "firewall" as DeviceType, dmz: fw.ifaces.dmz || "", lan: fw.ifaces.lan || "", wan: fw.ifaces.wan || "", gw: fw.ifaces.gw_wan || "" };
           }
           if (editingDevice.type === "lan-router") {
-            return { type: "lan-router" as DeviceType, ip1: lanR.lanIp || "", ip2: lanR.gw || "" };
+            return { type: "lan-router" as DeviceType, ip1: lanR.lanIp || "", ip2: "", gw: lanR.gw || "" };
           }
           if (editingDevice.type === "wan-router") {
-            // WAN Router: ip1 is the WAN IP, ip2 is the gateway (should be editable)
-            return { type: "wan-router" as DeviceType, ip1: scn.subnets.wan.gw || "", ip2: scn.subnets.wan.gw || "" };
+            // WAN Router: ip1 is the WAN IP, ip2 is optional, gw is separate gateway field
+            return { type: "wan-router" as DeviceType, ip1: "", ip2: "", gw: "" };
           }
           if (editingDevice.type === "lan-host") {
             const host = editingDevice.nodeId === "LAN1" ? lan1 : lan2;
@@ -711,12 +711,11 @@ export default function Page() {
         onChange={(data) => {
           if (!editingDevice) return;
           if (editingDevice.type === "firewall") {
-            setFw({ ...fw, ifaces: { dmz: data.dmz || "", lan: data.lan || "", wan: data.wan || "" } });
+            setFw({ ...fw, ifaces: { dmz: data.dmz || "", lan: data.lan || "", wan: data.wan || "", gw_dmz: data.gw || "", gw_lan: "", gw_wan: data.gw || "" } });
           } else if (editingDevice.type === "lan-router") {
-            setLanR({ ...lanR, lanIp: data.ip1 || "", gw: data.ip2 || "" });
+            setLanR({ ...lanR, lanIp: data.ip1 || "", gw: data.gw || data.ip2 || "" });
           } else if (editingDevice.type === "wan-router") {
-            // WAN Router state update - currently no separate state, but handle in onChange for future extensibility
-            // The gateway (ip2) should be editable but may not have separate state management yet
+            // WAN Router state - will be handled through DeviceEditModal with DHCP support
           } else if (editingDevice.type === "lan-host") {
             const setter = editingDevice.nodeId === "LAN1" ? setLan1 : setLan2;
             setter({ ...(editingDevice.nodeId === "LAN1" ? lan1 : lan2), ip: data.ip1 || "", mask: data.mask || "", gw: data.gw || "" });

@@ -13,6 +13,7 @@ type DeviceData = {
   ip2?: string;
   mask?: string;
   gw?: string;
+  dhcpOn?: 'ip1'|'ip2'|null;
 };
 
 export default function DeviceEditModal({ 
@@ -110,6 +111,15 @@ export default function DeviceEditModal({
                       className="w-full border rounded px-2 py-1.5 text-sm"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Gateway</label>
+                    <input
+                      value={data.gw || ""}
+                      onChange={(e) => onChange({ ...data, gw: e.target.value })}
+                      placeholder="e.g. 203.0.113.1"
+                      className="w-full border rounded px-2 py-1.5 text-sm"
+                    />
+                  </div>
                 </>
               )}
               
@@ -119,23 +129,60 @@ export default function DeviceEditModal({
                     <label className="block text-xs font-medium mb-1">IP Address 1</label>
                     <input
                       value={data.ip1 || ""}
-                      onChange={(e) => onChange({ ...data, ip1: e.target.value })}
+                      onChange={(e) => onChange({ ...data, ip1: e.target.value, dhcpOn: data.dhcpOn === 'ip1' ? null : data.dhcpOn })}
                       placeholder={hints.ip1 || "IP address"}
                       className="w-full border rounded px-2 py-1.5 text-sm"
+                      disabled={data.dhcpOn === 'ip1'}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1">IP Address 2 / Gateway</label>
+                    <label className="block text-xs font-medium mb-1">IP Address 2</label>
                     <input
-                      name={device === "wan-router" ? "wan-gateway" : "ip2"}
-                      value={typeof data.ip2 === 'string' ? data.ip2 : ''}
-                      onChange={(e) => onChange({ ...(data ?? {}), ip2: e.target.value })}
-                      placeholder={hints.ip2 || "Gateway"}
+                      value={data.ip2 || ""}
+                      onChange={(e) => onChange({ ...data, ip2: e.target.value, dhcpOn: data.dhcpOn === 'ip2' ? null : data.dhcpOn })}
+                      placeholder={hints.ip2 || "Optional"}
                       className="w-full border rounded px-2 py-1.5 text-sm"
-                      readOnly={false}
-                      disabled={false}
-                      autoComplete="off"
-                      inputMode="numeric"
+                      disabled={data.dhcpOn === 'ip2'}
+                    />
+                  </div>
+                  {device === "wan-router" && (
+                    <>
+                      <div className="text-[11px] text-slate-400">DHCP (auto-assign TEST-NET-3):</div>
+                      <div className="flex gap-3 text-xs">
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="radio"
+                            checked={data.dhcpOn === null}
+                            onChange={() => onChange({ ...data, dhcpOn: null })}
+                          />
+                          None
+                        </label>
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="radio"
+                            checked={data.dhcpOn === 'ip1'}
+                            onChange={() => onChange({ ...data, dhcpOn: 'ip1', ip1: '203.0.113.2' })}
+                          />
+                          IP1 via DHCP
+                        </label>
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="radio"
+                            checked={data.dhcpOn === 'ip2'}
+                            onChange={() => onChange({ ...data, dhcpOn: 'ip2', ip2: '203.0.113.3' })}
+                          />
+                          IP2 via DHCP
+                        </label>
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Gateway</label>
+                    <input
+                      value={data.gw || ""}
+                      onChange={(e) => onChange({ ...data, gw: e.target.value })}
+                      placeholder="e.g. 203.0.113.1"
+                      className="w-full border rounded px-2 py-1.5 text-sm"
                     />
                   </div>
                 </>

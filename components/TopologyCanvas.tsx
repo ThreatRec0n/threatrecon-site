@@ -89,7 +89,7 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
             {n.status === "error" && <text x="3" y="9" className="fill-white text-[8px] font-bold">✕</text>}
             {n.status === "ok" && <text x="4" y="9" className="fill-white text-[8px] font-bold">✓</text>}
             <text x="10" y="14" className="fill-slate-700 text-[10px]">{n.label}</text>
-            {n.ip && <text x="10" y="26" className="fill-slate-500 text-[10px]">{n.ip}</text>}
+            {n.ip && n.ip.trim().length > 0 && n.ip !== "—" && <text x="10" y="26" className="fill-slate-500 text-[10px]">{n.ip}</text>}
           </g>
         );
       })}
