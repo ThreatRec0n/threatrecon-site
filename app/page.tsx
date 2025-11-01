@@ -29,6 +29,22 @@ import ErrorCounter from "@/components/ErrorCounter";
 import RandomEvent from "@/components/RandomEvent";
 import AchievementBadge from "@/components/AchievementBadge";
 import DifficultySelect from "@/components/DifficultySelect";
+import SubnetCalculator from "@/components/SubnetCalculator";
+import StreakCounter from "@/components/StreakCounter";
+import CommonMistakes from "@/components/CommonMistakes";
+import ErrorTimeline from "@/components/ErrorTimeline";
+import PostGameReport from "@/components/PostGameReport";
+import PracticeModeToggle from "@/components/PracticeModeToggle";
+import PacketFlowAnim from "@/components/PacketFlowAnim";
+import ProgressRing from "@/components/ProgressRing";
+import ChallengeScenario from "@/components/ChallengeScenario";
+import EnhancedPacketInspector from "@/components/EnhancedPacketInspector";
+import LockoutOverlay from "@/components/LockoutOverlay";
+import ScreenEffects from "@/components/ScreenEffects";
+import ConceptMastery from "@/components/ConceptMastery";
+import LearningPath from "@/components/LearningPath";
+import KeyboardShortcuts from "@/components/KeyboardShortcuts";
+import AchievementGallery from "@/components/AchievementGallery";
 
 type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
 
@@ -112,25 +128,47 @@ export default function Page() {
   const [trace, setTrace] = useState<{ command: string; args: string[]; hops: string[]; success: boolean; reason?: string }|null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
+  const [errorHistory, setErrorHistory] = useState<Array<{time: number; msg: string; type: string}>>([]);
+  const [streak, setStreak] = useState(0);
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [commits, setCommits] = useState(0);
+  const [pings, setPings] = useState(0);
+  const [startTime] = useState(Date.now());
+  const [showReport, setShowReport] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState<string | undefined>();
+  const [completionProgress, setCompletionProgress] = useState(0);
+  const [lockout, setLockout] = useState(false);
+  const [screenShake, setScreenShake] = useState(false);
+  const [screenFlash, setScreenFlash] = useState<"error" | "success" | undefined>();
+  const [conceptProgress, setConceptProgress] = useState<Record<string, number>>({
+    subnetting: 0,
+    routing: 0,
+    nat: 0,
+    firewall: 0,
+  });
   const [achievements, setAchievements] = useState<Record<string, boolean>>({
     firstCommit: false,
     firstPing: false,
     zeroErrors: false,
     speedRun: false,
+    streakMaster: false,
+    perfectionist: false,
   });
 
   const addLog = (s: string) => setLogs(l => [s, ...l].slice(0, 200));
 
   // Sync oxygen level with timer (controlled by MissionTimer) + error penalty
   const handleTimeUpdate = (remainingPercent: number) => {
-    if (!hasEscaped && !isConnected) {
+    if (!hasEscaped && !isConnected && !practiceMode) {
       const penalty = errorCount > 0 ? Math.min(errorCount * 2, 15) : 0; // Max 15% penalty
       const adjusted = Math.max(0, remainingPercent - penalty);
       setOxygenLevel(adjusted);
+    } else if (practiceMode) {
+      setOxygenLevel(100); // Keep at 100% in practice mode
     }
   };
 
-  // Track achievements
+  // Track achievements and progress
   useEffect(() => {
     if (cLan1.ip && !achievements.firstCommit) {
       setAchievements(a => ({ ...a, firstCommit: true }));
@@ -144,17 +182,59 @@ export default function Page() {
     if (isConnected && oxygenLevel > 80 && !achievements.speedRun) {
       setAchievements(a => ({ ...a, speedRun: true }));
     }
-  }, [cLan1.ip, trace, errorCount, isConnected, oxygenLevel, achievements]);
+    if (streak >= 10 && !achievements.streakMaster) {
+      setAchievements(a => ({ ...a, streakMaster: true }));
+    }
+    if (conceptProgress.subnetting === 100 && conceptProgress.routing === 100 && conceptProgress.nat === 100 && conceptProgress.firewall === 100 && !achievements.perfectionist) {
+      setAchievements(a => ({ ...a, perfectionist: true }));
+    }
+    
+    // Calculate completion progress
+    let progress = 0;
+    if (cLan1.ip) progress += 15;
+    if (cLanR.lanIp) progress += 15;
+    if (cFw.ifaces.lan) progress += 15;
+    if (cFw.ifaces.wan) progress += 15;
+    if (cFw.rules && cFw.rules.length > 0) progress += 20;
+    if (cFw.nat?.snat) progress += 20;
+    setCompletionProgress(progress);
+
+    // Update concept mastery
+    const concepts: Record<string, number> = {
+      subnetting: (cLan1.ip && inSame24(cLan1.ip, cLanR.lanIp) ? 100 : (cLan1.ip ? 50 : 0)),
+      routing: (cLanR.gw === cFw.ifaces.lan ? 100 : (cLanR.gw ? 50 : 0)),
+      nat: (cFw.nat?.snat && cFw.nat.snat.srcCidr.endsWith('/24') ? 100 : (cFw.nat?.snat ? 50 : 0)),
+      firewall: (cFw.rules && cFw.rules.length >= 2 ? 100 : (cFw.rules && cFw.rules.length > 0 ? 50 : 0)),
+    };
+    setConceptProgress(concepts);
+  }, [cLan1.ip, trace, errorCount, isConnected, oxygenLevel, achievements, cLanR.lanIp, cFw, cLanR.gw]);
 
   // Penalize on invalid commit attempts
   const commitWithValidation = (key: string, commitFn: ()=>void, validator: ()=>boolean) => {
     if (!validator()) {
-      setErrorCount(c => c + 1);
-      addLog(`❌ Invalid commit attempt on ${key} - penalty applied`);
+      if (!practiceMode) {
+        const newCount = errorCount + 1;
+        setErrorCount(newCount);
+        setStreak(0);
+        setErrorHistory(h => [...h, { time: Date.now(), msg: `Invalid commit: ${key}`, type: key }]);
+        setScreenShake(true);
+        setScreenFlash("error");
+        setTimeout(() => { setScreenShake(false); setScreenFlash(undefined); }, 300);
+        
+        // Lockout after 3 consecutive errors
+        if (newCount >= 3 && newCount % 3 === 0) {
+          setLockout(true);
+        }
+      }
+      addLog(`❌ Invalid commit attempt on ${key}${practiceMode ? " (practice mode - no penalty)" : " - penalty applied"}`);
       return;
     }
     commitFn();
-    if (errorCount > 0 && validator()) {
+    setCommits(c => c + 1);
+    setStreak(s => s + 1);
+    setScreenFlash("success");
+    setTimeout(() => setScreenFlash(undefined), 300);
+    if (errorCount > 0 && validator() && !practiceMode) {
       // Small reward for correct commit after errors
       setErrorCount(c => Math.max(0, c - 0.5));
     }
@@ -269,6 +349,10 @@ export default function Page() {
   const handleEscape = () => {
     setHasEscaped(true);
     setIsConnected(true);
+    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+    setTimeout(() => {
+      setShowReport(true);
+    }, 2000);
   };
 
   const handleOxygenDepleted = () => {
@@ -334,7 +418,8 @@ export default function Page() {
         <div className="font-semibold text-white">🚪 Escape Room: Network Configuration</div>
         <div className="flex items-center gap-3">
           <ErrorCounter count={errorCount} />
-          <MissionTimer minutes={30} onExpire={handleOxygenDepleted} onTimeUpdate={handleTimeUpdate} />
+          <StreakCounter streak={streak} />
+          <MissionTimer minutes={practiceMode ? 999 : 30} onExpire={practiceMode ? ()=>{} : handleOxygenDepleted} onTimeUpdate={handleTimeUpdate} />
           <div className="text-sm text-slate-300">Connect to Internet to Unlock Door</div>
           <div className="flex gap-1">
             <AchievementBadge id="firstCommit" name="First Commit" earned={achievements.firstCommit} />
@@ -343,12 +428,32 @@ export default function Page() {
             <AchievementBadge id="speedRun" name="Speed Run" earned={achievements.speedRun} />
           </div>
           <ThemeToggle />
-          <button onClick={()=>setHelpOpen(true)} className="px-2 py-1 rounded border text-xs">Help</button>
+          <button onClick={()=>setHelpOpen(true)} className="px-2 py-1 rounded border text-xs">Help (H)</button>
         </div>
       </header>
-      <RandomEvent enabled={!hasEscaped && !isConnected} onEvent={(e) => {
+      <KeyboardShortcuts visible={helpOpen} />
+      {showReport && (
+        <PostGameReport
+          report={{
+            timeSpent: Math.floor((Date.now() - startTime) / 1000),
+            errors: errorCount,
+            commits,
+            pings,
+            success: isConnected,
+            achievements: Object.entries(achievements).filter(([,e])=>e).map(([k])=>k),
+          }}
+          onClose={() => setShowReport(false)}
+        />
+      )}
+      <ScreenEffects shake={screenShake} flash={screenFlash} glow={isConnected} />
+      <LockoutOverlay active={lockout} onComplete={() => setLockout(false)} />
+      <RandomEvent enabled={!hasEscaped && !isConnected && !practiceMode} onEvent={(e) => {
         if (e.severity === "high") {
-          setErrorCount(c => c + 1);
+          if (!practiceMode) {
+            setErrorCount(c => c + 1);
+            setScreenShake(true);
+            setTimeout(() => setScreenShake(false), 300);
+          }
           addLog(`🚨 ${e.msg} - Error penalty applied!`);
         } else {
           addLog(`⚠️ ${e.msg}`);
@@ -379,15 +484,36 @@ export default function Page() {
           <div className="mt-3">
             <HintPanel getHints={getHints}/>
           </div>
-          <div className="mt-2 flex items-center gap-2 text-xs">
-            <span className="text-slate-600">Difficulty:</span>
-            <span className={`px-2 py-1 rounded font-semibold ${
-              preset === "Beginner" ? "bg-emerald-100 text-emerald-800" :
-              preset === "Intermediate" ? "bg-blue-100 text-blue-800" :
-              "bg-red-100 text-red-800"
-            }`}>
-              {preset}
-            </span>
+          <div className="mt-2 space-y-2">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-600">Difficulty:</span>
+              <span className={`px-2 py-1 rounded font-semibold ${
+                preset === "Beginner" ? "bg-emerald-100 text-emerald-800" :
+                preset === "Intermediate" ? "bg-blue-100 text-blue-800" :
+                "bg-red-100 text-red-800"
+              }`}>
+                {preset}
+              </span>
+            </div>
+            <PracticeModeToggle enabled={practiceMode} onToggle={setPracticeMode} />
+            <SubnetCalculator />
+            <CommonMistakes />
+            <ErrorTimeline errors={errorHistory} />
+            <ChallengeScenario selected={selectedChallenge} onSelect={setSelectedChallenge} />
+            <LearningPath steps={[
+              { id: "1", title: "Configure LAN Host IP and gateway", done: !!cLan1.ip && !!cLan1.gw, next: !cLan1.ip },
+              { id: "2", title: "Configure LAN Router", done: !!cLanR.lanIp && cLanR.gw === cFw.ifaces.lan, next: !!cLan1.ip && !cLanR.lanIp },
+              { id: "3", title: "Configure Firewall interfaces", done: !!cFw.ifaces.lan && !!cFw.ifaces.wan, next: !!cLanR.lanIp && !cFw.ifaces.lan },
+              { id: "4", title: "Create firewall rules", done: !!cFw.rules && cFw.rules.length >= 2, next: !!cFw.ifaces.wan && (!cFw.rules || cFw.rules.length < 2) },
+              { id: "5", title: "Configure SNAT", done: !!cFw.nat?.snat && cFw.nat.snat.srcCidr.endsWith('/24'), next: !!cFw.rules && cFw.rules.length >= 2 && !cFw.nat?.snat },
+              { id: "6", title: "Test connectivity", done: isConnected, next: !!cFw.nat?.snat && !isConnected },
+            ]} />
+            <ConceptMastery concepts={[
+              { id: "subnetting", name: "Subnetting", mastered: conceptProgress.subnetting === 100, progress: conceptProgress.subnetting },
+              { id: "routing", name: "Routing", mastered: conceptProgress.routing === 100, progress: conceptProgress.routing },
+              { id: "nat", name: "NAT", mastered: conceptProgress.nat === 100, progress: conceptProgress.nat },
+              { id: "firewall", name: "Firewall Rules", mastered: conceptProgress.firewall === 100, progress: conceptProgress.firewall },
+            ]} />
           </div>
           {activeTab === "Configure" && (
             <div className="mt-3 space-y-4">
@@ -412,12 +538,15 @@ export default function Page() {
               <NetTerminal exec={(cmd,args)=>{
                 if (cmd==="ping") {
                   const res = pingFromHost(scn, cLan1, args[0] || scn.internet.pingTarget, cFw, cLanR);
+                  setPings(p => p + 1);
                   setPacketPath(hopsToNodes(res.hops, scn, cLanR, cLan1.ip, cFw));
                   // Show NAT overlay if SNAT is active
                   if (cFw.nat?.snat && res.hops.includes(cFw.ifaces.wan)) {
                     setNatOverlay({ from: cLan1.ip, to: cFw.ifaces.wan, visible: true });
                     setTimeout(() => setNatOverlay(prev => ({ ...prev, visible: false })), 3000);
                   }
+                  if (res.success) setStreak(s => s + 1);
+                  else if (!practiceMode) setStreak(0);
                   try { new AudioContext().resume().then(()=>{ const a = new (window.AudioContext|| (window as any).webkitAudioContext)(); const o=a.createOscillator(); const g=a.createGain(); o.type='sine'; o.frequency.value = res.success? 880 : 220; o.connect(g); g.connect(a.destination); g.gain.setValueAtTime(0.0001,a.currentTime); g.gain.exponentialRampToValueAtTime(0.1,a.currentTime+0.01); o.start(); o.stop(a.currentTime+0.15); }); } catch {}
                   setTrace({ command: "ping", args, hops: res.hops, success: res.success, reason: res.reason });
                   return res.success? "PING OK\n"+res.hops.join(" -> "): "PING FAIL: "+(res.reason||"blocked")+"\n"+res.hops.join(" -> ");
@@ -471,8 +600,24 @@ export default function Page() {
                   if (cFw.ifaces.wan && !cFw.ifaces.wan.startsWith('203.0.113.')) out.push({id:"wan", msg:"Firewall WAN should be 203.0.113.x"});
                   return out;
                 })()} />
-                <PacketInspector src={cLan1.ip} dst={(trace?.args?.[0]||scn.internet.pingTarget)} translatedSrc={cFw.ifaces.wan && cFw.nat?.snat ? cFw.ifaces.wan : undefined} />
+                <EnhancedPacketInspector 
+                  src={cLan1.ip} 
+                  dst={(trace?.args?.[0]||scn.internet.pingTarget)} 
+                  translatedSrc={cFw.ifaces.wan && cFw.nat?.snat ? cFw.ifaces.wan : undefined}
+                  hops={trace?.hops}
+                />
+                <PacketFlowAnim hops={trace?.hops?.map((h,i)=>({
+                  ip: h,
+                  label: i===0?"LAN Host":i===1?"LAN Router":i===2?"Firewall":i===3?"WAN":"Internet",
+                  headers: { src: i===0?cLan1.ip:undefined, dst: i===trace.hops.length-1?scn.internet.pingTarget:undefined, ttl: 64-i }
+                })) || []} />
                 <NatTable entries={cFw.nat?.snat && cLan1.ip ? [{ src: cLan1.ip, to: cFw.nat.snat.toIp, iface: cFw.nat.snat.outIface }]: []} />
+              </div>
+              <div className="mt-3 flex items-center justify-center gap-4">
+                <ProgressRing progress={completionProgress} label="Complete" />
+              </div>
+              <div className="mt-3">
+                <AchievementGallery earned={achievements} />
               </div>
               <div className="mt-3 flex gap-2 text-xs">
                 <button onClick={()=>{ commitLan1(); commitLan2(); commitDmz1(); commitDmz2(); commitLanRouter(); commitFirewall(); }} className="px-3 py-1 border rounded bg-slate-900 text-white">Commit All</button>
