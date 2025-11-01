@@ -522,7 +522,7 @@ export default function Page() {
                 <NetworkInfo subnet="lan" requiredRange="192.168.x.x /24" description="Internal LAN network - use Class C private range" />
                 <NetworkInfo subnet="dmz" requiredRange="10.x.x.x /24" description="DMZ network - use Class A private range" />
                 <NetworkInfo subnet="wan" requiredRange="203.0.113.x /24" description="WAN/Internet - use provided public range" />
-              </div>
+            </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <DeviceConfig title="LAN Host (browser)" host={lan1} onChange={setLan1} hint="Use 192.168.1.x range" committedIp={cLan1.ip} onCommit={commitLan1} />
                 <DeviceConfig title="LAN Host 2" host={lan2} onChange={setLan2} hint="Optional - same range as LAN Host 1" committedIp={cLan2.ip} onCommit={commitLan2} />
@@ -609,7 +609,13 @@ export default function Page() {
                 <PacketFlowAnim hops={trace?.hops?.map((h,i)=>({
                   ip: h,
                   label: i===0?"LAN Host":i===1?"LAN Router":i===2?"Firewall":i===3?"WAN":"Internet",
-                  headers: { src: i===0?cLan1.ip:undefined, dst: i===trace.hops.length-1?scn.internet.pingTarget:undefined, ttl: 64-i }
+                  headers: { 
+                    src: i===0?cLan1.ip:undefined, 
+                    dst: i===trace.hops.length-1?scn.internet.pingTarget:undefined, 
+                    ttl: 64-i,
+                    proto: "ICMP",
+                    size: 64 + (i * 8)
+                  }
                 })) || []} />
                 <NatTable entries={cFw.nat?.snat && cLan1.ip ? [{ src: cLan1.ip, to: cFw.nat.snat.toIp, iface: cFw.nat.snat.outIface }]: []} />
               </div>
