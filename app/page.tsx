@@ -41,8 +41,9 @@ import ChallengeScenario from "@/components/ChallengeScenario";
 import WanRouterModal from "@/components/modals/WanRouterModal";
 import LanRouterModal from "@/components/modals/LanRouterModal";
 import EnhancedPacketInspector from "@/components/EnhancedPacketInspector";
-import { execCommandFrom, type TopologyState, type SimSource } from "@/lib/sim/engine";
 import type { ExecFn } from "@/components/terminal/DeviceTerminal";
+import { simulatePing, routeExists, linkState, type Topology, type DeviceId } from "@/lib/sim";
+import { isPrivate } from "@/lib/net";
 import LockoutOverlay from "@/components/LockoutOverlay";
 import ScreenEffects from "@/components/ScreenEffects";
 import ConceptMastery from "@/components/ConceptMastery";
@@ -97,53 +98,70 @@ export default function Page() {
   const [lanR, setLanR] = useState({
     id: "lan-r1",
     lanIp: "",
-    gw: ""
+    gw: "",
+    mask: "255.255.255.0"
   });
   // WAN Router state
   const [wanModalOpen, setWanModalOpen] = useState(false);
   const [lanModalOpen, setLanModalOpen] = useState(false);
   const [wan, setWan] = useState<{ ip1: string; ip2: string; gw: string; dhcp: "none"|"ip1"|"ip2" }>({ ip1:"", ip2:"", gw:"", dhcp:"none" });
   
-  const assignDhcpIfNeeded = (v:{ip1:string;ip2:string;gw:string;dhcp:"none"|"ip1"|"ip2"}) => {
-    if (v.dhcp === "ip1") v.ip1 = v.ip1 || "203.0.113.2";
-    if (v.dhcp === "ip2") v.ip2 = v.ip2 || "203.0.113.3";
-    return v;
-  };
-  
-  // Topology state ref for terminal execution
-  const topologyStateRef = React.useRef<TopologyState | null>(null);
   
   // COMMITTED state (diagram and simulation consume these)
   const [cLan1, setCLan1] = useState<Host>({ id:"lan1", nic:"ens0", ip:"", mask:"", gw:"", role:"browser" });
   const [cLan2, setCLan2] = useState<Host>({ id:"lan2", nic:"ens1", ip:"", mask:"", gw:"" });
   const [cDmz1, setCDmz1] = useState<Host>({ id:"dmz1", nic:"ens0", ip:"", mask:"", gw:"" });
   const [cDmz2, setCDmz2] = useState<Host>({ id:"dmz2", nic:"ens1", ip:"", mask:"", gw:"" });
-  const [cLanR, setCLanR] = useState({ id:"lan-r1", lanIp:"", gw:"" });
+  const [cLanR, setCLanR] = useState({ id:"lan-r1", lanIp:"", gw:"", mask: "255.255.255.0" });
   const [cFw, setCFw] = useState<Firewall>({ id:"fw1", ifaces:{ dmz:"", lan:"", wan:"", gw_dmz:"", gw_lan:"", gw_wan:"" }, nat:{ translation: undefined }, rules:[] });
   
-  // Update topology state ref when state changes
-  useEffect(() => {
-    topologyStateRef.current = {
-      scenario: scn,
-      hosts: {
-        lan: [cLan1, cLan2].filter(h => h.id),
-        dmz: [cDmz1, cDmz2].filter(h => h.id)
-      },
-      lanRouter: { lanIp: cLanR.lanIp, gw: cLanR.gw },
-      firewall: cFw,
-      wanRouter: wan.ip1 || wan.ip2 ? wan : undefined
-    };
-  }, [scn, cLan1, cLan2, cDmz1, cDmz2, cLanR, cFw, wan]);
-  
-  // Exec function for terminals
+  // Build topology for new simulator
+  const buildTopology = useMemo((): Topology => ({
+    dmz1: { ip: cDmz1.ip, mask: cDmz1.mask, gw: cDmz1.gw },
+    dmz2: { ip: cDmz2.ip, mask: cDmz2.mask, gw: cDmz2.gw },
+    lan1: { ip: cLan1.ip, mask: cLan1.mask, gw: cLan1.gw },
+    lan2: { ip: cLan2.ip, mask: cLan2.mask, gw: cLan2.gw },
+    lan_rtr: { ip1: cLanR.lanIp, ip2: "", mask: "255.255.255.0", gw: cLanR.gw },
+    fw: { dmz: cFw.ifaces.dmz, lan: cFw.ifaces.lan, wan: cFw.ifaces.wan, natMasq: cFw.nat?.translation === 'masquerade', defaultGw: cFw.ifaces.gw_wan },
+    wan: { ip1: wan.ip1, ip2: wan.ip2, gw: wan.gw, dhcp: wan.dhcp }
+  }), [cDmz1, cDmz2, cLan1, cLan2, cLanR, cFw, wan]);
+
+  // Exec function for terminals - map source IDs
   const exec: ExecFn = async (src, cmd, args) => {
     if (cmd === "help") return ["commands:", "  ping <ip|host>", "  traceroute <ip|host>", "  clear"];
     if (cmd === "clear") return [];
-    if (!topologyStateRef.current) return ["error: topology state not available"];
-    if (cmd === "ping" || cmd === "traceroute") {
-      return execCommandFrom(src, cmd, args, topologyStateRef.current);
+    if (cmd !== "ping" && cmd !== "traceroute") return ["unknown command"];
+    
+    const t = buildTopology;
+    // Map source kind/id to DeviceId
+    let deviceId: DeviceId;
+    if (src.id === "DMZ1" || (src.kind === "dmz" && src.id.toLowerCase() === "dmz1")) deviceId = "dmz1";
+    else if (src.id === "DMZ2" || (src.kind === "dmz" && src.id.toLowerCase() === "dmz2")) deviceId = "dmz2";
+    else if (src.id === "LAN1" || (src.kind === "lan" && src.id.toLowerCase() === "lan1")) deviceId = "lan1";
+    else if (src.id === "LAN2" || (src.kind === "lan" && src.id.toLowerCase() === "lan2")) deviceId = "lan2";
+    else if (src.id === "lan_rtr" || src.id === "LAN_RTR" || (src.kind === "lan" && src.id.includes("rtr"))) deviceId = "lan_rtr";
+    else if (src.id === "firewall" || src.id === "FW" || src.kind === "fw") deviceId = "fw";
+    else if (src.id === "wan_rtr" || src.id === "WAN_ROUTER" || (src.kind === "wan" && src.id.includes("wan"))) deviceId = "wan_gw";
+    else return ["error: unknown source device"];
+    
+    const dst = args[0] || "8.8.8.8";
+    if (cmd === "ping") {
+      return simulatePing(t, deviceId, dst);
+    } else {
+      // traceroute: show hops based on route
+      const route = routeExists(t, deviceId, dst);
+      const lines = [`traceroute to ${dst} (${dst}), 30 hops max`];
+      if (route.ok) {
+        lines.push(`1  ${deviceId}`);
+        if (deviceId === "lan1" || deviceId === "lan2") lines.push(`2  lan_rtr`);
+        if (deviceId === "lan1" || deviceId === "lan2" || deviceId === "lan_rtr") lines.push(`3  fw`);
+        if (route.ok) lines.push(`4  wan_gw`);
+        if (!isPrivate(dst)) lines.push(`5  internet`);
+      } else {
+        lines.push(`* * *  (blocked: ${route.reason})`);
+      }
+      return lines;
     }
-    return ["unknown command"];
   };
 
   const isValidIp = (ip?: string) => {
@@ -350,10 +368,9 @@ export default function Page() {
 
   // Build topology nodes/links for the diagram
   const topo = useMemo(()=>{
-    // Determine which links are currently valid (only show when configured)
-    const linkHostToLanRouter = cLan1.ip && cLanR.lanIp && inSame24(cLan1.ip, cLanR.lanIp) && cLan1.gw === cLanR.lanIp;
-    const linkLanRouterToFw = cLanR.gw && cFw.ifaces.lan && cLanR.gw === cFw.ifaces.lan;
-    const linkFwToWan = !!cFw.nat?.snat && cFw.nat?.snat?.outIface === "wan" && cFw.ifaces.wan;
+    const t = buildTopology;
+    const ls = linkState(t);
+    
     return {
       nodes: [
         { id:"DMZ1", x:110, y:180, label:"DMZ1", ip:cDmz1.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ1"), kind:"laptop" as const },
@@ -363,19 +380,19 @@ export default function Page() {
         { id:"LAN_ROUTER", x:700, y:120, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
         { id:"LAN1", x:700, y:200, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
         { id:"LAN2", x:700, y:280, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
-        { id:"INTERNET", x:430, y:36, label:"INTERNET", ip:scn.internet.pingTarget, zone:"internet", status: "ok" as const, kind:"cloud" as const }
+        { id:"INTERNET", x:430, y:36, label:"INTERNET", ip:undefined, zone:"internet", status: "ok" as const, kind:"cloud" as const }
       ],
       links: [
-        { from:"DMZ1", to:"FW", ok:!!cDmz1.ip && !!cFw.ifaces.dmz, active:!!cDmz1.ip && !!cFw.ifaces.dmz },
-        { from:"DMZ2", to:"FW", ok:!!cDmz2.ip && !!cFw.ifaces.dmz, active:!!cDmz2.ip && !!cFw.ifaces.dmz },
-        { from:"LAN1", to:"LAN_ROUTER", ok:!!linkHostToLanRouter, active:!!linkHostToLanRouter },
-        { from:"LAN2", to:"LAN_ROUTER", ok:!!(cLan2.ip && cLanR.lanIp && inSame24(cLan2.ip, cLanR.lanIp) && cLan2.gw===cLanR.lanIp), active:!!(cLan2.ip && cLanR.lanIp && inSame24(cLan2.ip, cLanR.lanIp) && cLan2.gw===cLanR.lanIp) },
-        { from:"LAN_ROUTER", to:"FW", ok:!!linkLanRouterToFw, active:!!linkLanRouterToFw },
-        { from:"FW", to:"WAN_ROUTER", ok:!!linkFwToWan, active:!!linkFwToWan },
-        { from:"WAN_ROUTER", to:"INTERNET", ok:linkFwToWan, active:false }
+        { from:"DMZ1", to:"FW", ok:ls.dmz_to_fw, active:ls.dmz_to_fw },
+        { from:"DMZ2", to:"FW", ok:ls.dmz_to_fw, active:ls.dmz_to_fw },
+        { from:"LAN1", to:"LAN_ROUTER", ok:ls.lan_to_fw && !!cLan1.ip && !!cLanR.lanIp, active:ls.lan_to_fw && !!cLan1.ip && !!cLanR.lanIp },
+        { from:"LAN2", to:"LAN_ROUTER", ok:ls.lan_to_fw && !!cLan2.ip && !!cLanR.lanIp, active:ls.lan_to_fw && !!cLan2.ip && !!cLanR.lanIp },
+        { from:"LAN_ROUTER", to:"FW", ok:ls.lan_to_fw, active:ls.lan_to_fw },
+        { from:"FW", to:"WAN_ROUTER", ok:ls.fw_to_wan, active:ls.fw_to_wan },
+        { from:"WAN_ROUTER", to:"INTERNET", ok:ls.fw_to_wan, active:false }
       ]
     };
-  }, [cDmz1, cDmz2, cFw, cLan1, cLan2, cLanR, failed, scn]);
+  }, [cDmz1, cDmz2, cFw, cLan1, cLan2, cLanR, wan]);
 
   const getHints = () => {
     const hints: string[] = [
@@ -689,8 +706,7 @@ export default function Page() {
         initial={wan}
         onClose={() => setWanModalOpen(false)}
         onCommit={(v) => {
-          const updated = assignDhcpIfNeeded({ ...v });
-          setWan(updated);
+          setWan({ ...v });
           setWanModalOpen(false);
         }}
         onExec={exec}
@@ -700,7 +716,7 @@ export default function Page() {
         initial={{ ip1: lanR.lanIp, ip2: "", gw: lanR.gw }}
         onClose={() => setLanModalOpen(false)}
         onCommit={(v) => {
-          setLanR({ ...lanR, lanIp: v.ip1, gw: v.gw });
+          setLanR({ ...lanR, lanIp: v.ip1, gw: v.gw, mask: "255.255.255.0" });
           setLanModalOpen(false);
         }}
         onExec={exec}

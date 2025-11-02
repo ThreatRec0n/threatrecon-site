@@ -42,9 +42,9 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
   }
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[420px] rounded-xl border bg-white">
-      <rect x="12" y="52" width="260" height="356" fill="rgba(255,255,255,0.6)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" opacity="0.7" rx="14"/>
-      <rect x="300" y="52" width="260" height="356" fill="rgba(255,255,255,0.6)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" opacity="0.7" rx="14"/>
-      <rect x="588" y="52" width="260" height="356" fill="rgba(255,255,255,0.6)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" opacity="0.7" rx="14"/>
+      <rect x="12" y="52" width="260" height="356" fill="rgba(255,255,255,0.8)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" rx="14"/>
+      <rect x="300" y="52" width="260" height="356" fill="rgba(255,255,255,0.8)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" rx="14"/>
+      <rect x="588" y="52" width="260" height="356" fill="rgba(255,255,255,0.8)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" rx="14"/>
       <text x="22" y="74" className="fill-slate-600 text-[12px]">DMZ</text>
       <text x="310" y="74" className="fill-slate-600 text-[12px]">FIREWALL / WAN</text>
       <text x="598" y="74" className="fill-slate-600 text-[12px]">LAN</text>
@@ -73,9 +73,9 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
             {/* Main line */}
             <line
               x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-              stroke={baseColor}
+              stroke={l.ok ? "#0ea5e9" : "#ef4444"}
               strokeWidth="3"
-              strokeDasharray={dash}
+              strokeDasharray={l.ok ? "0" : "6,6"}
               opacity={opacity}
             />
           </g>

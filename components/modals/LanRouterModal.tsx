@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import DeviceTerminal, { ExecFn } from "@/components/terminal/DeviceTerminal";
+import { isValidIp, isPrivate, sameSubnet } from "@/lib/net";
 
 type Props = {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export default function LanRouterModal({ isOpen, onClose, onCommit, initial, onE
   const [ip1, setIp1] = useState<string>("");
   const [ip2, setIp2] = useState<string>("");
   const [gw, setGw] = useState<string>("");
+  const [mask, setMask] = useState<string>("255.255.255.0");
 
   // hydrate once when opened
   useEffect(() => {
@@ -28,8 +30,10 @@ export default function LanRouterModal({ isOpen, onClose, onCommit, initial, onE
 
   if (!isOpen) return null;
 
-  const isIp = (s: string) => /^(\d{1,3}\.){3}\d{1,3}$/.test(s);
-  const valid = (ip1 === "" || isIp(ip1)) && (ip2 === "" || isIp(ip2)) && (gw === "" || isIp(gw));
+  // Validation: ip1 must be RFC1918, gateway in same subnet, ip2 optional
+  const valid = isValidIp(ip1) && isPrivate(ip1) && 
+    isValidIp(gw) && sameSubnet(ip1, mask, gw) &&
+    (ip2 === "" || isValidIp(ip2));
 
   const commit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +61,14 @@ export default function LanRouterModal({ isOpen, onClose, onCommit, initial, onE
           value={ip2}
           onChange={(e)=>setIp2(e.target.value)}
           placeholder="Optional"
+        />
+        <label className="block text-xs font-medium">Subnet Mask</label>
+        <input
+          data-testid="lan-mask"
+          className="w-full rounded-md border px-3 py-2 outline-none focus:ring"
+          value={mask}
+          onChange={(e)=>setMask(e.target.value)}
+          placeholder="255.255.255.0"
         />
         <label className="block text-xs font-medium">Gateway</label>
         <input

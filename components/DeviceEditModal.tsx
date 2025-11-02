@@ -36,14 +36,7 @@ export default function DeviceEditModal({
 }) {
   if (!open || !device) return null;
 
-  const isValidIp = (ip?: string) => {
-    if (!ip) return false;
-    const parts = ip.split(".");
-    return parts.length === 4 && parts.every(p => {
-      const n = parseInt(p, 10);
-      return !isNaN(n) && n >= 0 && n <= 255 && p === String(n);
-    });
-  };
+  // Validation will be handled by parent via onCommit
 
   const getTitle = () => {
     if (device === "firewall") return "Firewall Interfaces";
