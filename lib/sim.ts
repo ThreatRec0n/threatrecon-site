@@ -88,8 +88,21 @@ export function routeExists(t: Topology, src: DeviceId, dstIp: string): {ok:bool
   const sip = hostIp(src);
   if(!isValidIp(sip||'')) return {ok:false, reason:'Source has no IP'};
   
-  // Same-subnet success - allow direct communication without gateway
-  if(sameSubnet(sip!, dstIp, mask(src)!)) return {ok:true};
+  // Same-subnet success - allow direct communication without gateway (L2 adjacency)
+  // If both source and destination are on same subnet, they can communicate directly
+  if(sameSubnet(sip!, dstIp, mask(src)!)) {
+    // Check if destination IP matches any device IP - if so, device should be committed
+    const dstIsDevice = (dstIp === t.dmz1.ip && t.dmz1.committed) || 
+                        (dstIp === t.dmz2.ip && t.dmz2.committed) ||
+                        (dstIp === t.lan1.ip && t.lan1.committed) ||
+                        (dstIp === t.lan2.ip && t.lan2.committed) ||
+                        (dstIp === t.lan_rtr.ip1 && t.lan_rtr.committed);
+    
+    // If destination is a configured device or is a valid IP on same subnet, allow
+    if(dstIsDevice || isValidIp(dstIp)) {
+      return {ok:true};
+    }
+  }
   
   // Default route pathing - only needed for different subnets
   // LAN/DMZ -> FW

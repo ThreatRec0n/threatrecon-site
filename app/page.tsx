@@ -192,7 +192,7 @@ export default function Page() {
   const commitLan2 = () => commitWithValidation("LAN2", () => setCLan2({ ...lan2 }), () => !lan2.ip || (isValidIp(lan2.ip) && isValidIp(lan2.gw)));
   const commitDmz1 = () => commitWithValidation("DMZ1", () => setCDmz1({ ...dmz1 }), () => isValidIp(dmz1.ip) && isValidIp(dmz1.gw));
   const commitDmz2 = () => commitWithValidation("DMZ2", () => setCDmz2({ ...dmz2 }), () => !dmz2.ip || (isValidIp(dmz2.ip) && isValidIp(dmz2.gw)));
-  const commitLanRouter = () => commitWithValidation("LAN_ROUTER", () => setCLanR({ ...lanR, ip2: lanR.ip2 || "" }), () => isValidIp(lanR.lanIp) && lanR.lanIp.startsWith("192.168.") && isValidIp(lanR.gw));
+  const commitLanRouter = () => commitWithValidation("LAN_ROUTER", () => setCLanR({ ...cLanR, ...lanR, lanIp: lanR.lanIp, ip2: lanR.ip2 || "", gw: lanR.gw, mask: lanR.mask || "255.255.255.0" }), () => isValidIp(lanR.lanIp) && lanR.lanIp.startsWith("192.168.") && isValidIp(lanR.gw));
   const commitFirewall = () => commitWithValidation("FW", () => setCFw({ ...fw }), () => isValidIp(fw.ifaces.lan) && isValidIp(fw.ifaces.wan) && fw.ifaces.dmz?.startsWith("10."));
   const [logs, setLogs] = useState<string[]>([]);
   const [output, setOutput] = useState<string>("");
@@ -409,8 +409,8 @@ export default function Page() {
         { id:"FW", x:460, y:360, label:"FIREWALL", ip:cFw.ifaces.wan || undefined, zone:"wan", status: getNodeStatus("FW"), kind:"firewall" as const },
         { id:"WAN_ROUTER", x:460, y:160, label:"WAN GW", ip:wanIp || undefined, zone:"wan", kind:"router" as const },
         { id:"LAN_ROUTER", x:720, y:240, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
-        { id:"LAN1", x:650, y:360, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
-        { id:"LAN2", x:790, y:360, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
+        { id:"LAN1", x:600, y:360, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
+        { id:"LAN2", x:840, y:360, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
         { id:"INTERNET", x:460, y:80, label:"INTERNET", ip:undefined, zone:"internet", status: "ok" as const, kind:"cloud" as const }
       ],
       links: [
@@ -430,11 +430,29 @@ export default function Page() {
           active:lanPeer.ok, 
           color:lanPeer.ok ? 'blue' : (cLan1.ip && cLan2.ip && sameSubnet(cLan1.ip, cLan2.ip, cLan1.mask || "255.255.255.0") ? 'gray' : 'gray')
         },
-        // LAN hosts to router (always show when configured)
-        { from:"LAN1", to:"LAN_ROUTER", ok:!!cLan1.ip && !!cLanR.lanIp && sameSubnet(cLan1.ip, cLanR.lanIp, cLan1.mask || "255.255.255.0"), active:!!cLan1.ip && !!cLanR.lanIp, color:'blue' },
-        { from:"LAN2", to:"LAN_ROUTER", ok:!!cLan2.ip && !!cLanR.lanIp && sameSubnet(cLan2.ip, cLanR.lanIp, cLan2.mask || "255.255.255.0"), active:!!cLan2.ip && !!cLanR.lanIp, color:'blue' },
-        // LAN router to firewall
-        { from:"LAN_ROUTER", to:"FW", ok:ls.lan_to_fw, active:ls.lan_to_fw, color:ls.lan_to_fw ? 'blue' : 'gray' },
+        // LAN hosts to router - show when both have IPs and are in same subnet
+        { 
+          from:"LAN1", 
+          to:"LAN_ROUTER", 
+          ok:!!cLan1.ip && !!cLanR.lanIp && isValidIp(cLan1.ip) && isValidIp(cLanR.lanIp) && sameSubnet(cLan1.ip, cLanR.lanIp, cLan1.mask || "255.255.255.0"), 
+          active:!!cLan1.ip && !!cLanR.lanIp && sameSubnet(cLan1.ip, cLanR.lanIp, cLan1.mask || "255.255.255.0"), 
+          color: (!!cLan1.ip && !!cLanR.lanIp && sameSubnet(cLan1.ip, cLanR.lanIp, cLan1.mask || "255.255.255.0")) ? 'blue' : 'gray' 
+        },
+        { 
+          from:"LAN2", 
+          to:"LAN_ROUTER", 
+          ok:!!cLan2.ip && !!cLanR.lanIp && isValidIp(cLan2.ip) && isValidIp(cLanR.lanIp) && sameSubnet(cLan2.ip, cLanR.lanIp, cLan2.mask || "255.255.255.0"), 
+          active:!!cLan2.ip && !!cLanR.lanIp && sameSubnet(cLan2.ip, cLanR.lanIp, cLan2.mask || "255.255.255.0"), 
+          color: (!!cLan2.ip && !!cLanR.lanIp && sameSubnet(cLan2.ip, cLanR.lanIp, cLan2.mask || "255.255.255.0")) ? 'blue' : 'gray' 
+        },
+        // LAN router to firewall - show when router gateway matches firewall LAN IP
+        { 
+          from:"LAN_ROUTER", 
+          to:"FW", 
+          ok:!!cLanR.lanIp && !!cLanR.gw && !!cFw.ifaces.lan && cLanR.gw === cFw.ifaces.lan && isValidIp(cLanR.lanIp) && isValidIp(cFw.ifaces.lan), 
+          active:!!cLanR.lanIp && !!cLanR.gw && !!cFw.ifaces.lan && cLanR.gw === cFw.ifaces.lan, 
+          color: (!!cLanR.lanIp && !!cLanR.gw && !!cFw.ifaces.lan && cLanR.gw === cFw.ifaces.lan) ? 'blue' : 'gray' 
+        },
         // Firewall to WAN router (subnet match only, gateway optional for L2)
         { from:"FW", to:"WAN_ROUTER", ok:fwToWanOk, active:fwToWanOk, color:fwToWanOk ? 'blue' : 'gray' },
         // Internet link - red when path is via_internet
@@ -778,14 +796,22 @@ export default function Page() {
       />
       <LanRouterModal
         isOpen={lanModalOpen}
-        initial={{ ip1: lanR.lanIp, ip2: lanR.ip2 || "", gw: lanR.gw }}
+        initial={{ ip1: cLanR.lanIp || lanR.lanIp, ip2: cLanR.ip2 || lanR.ip2 || "", gw: cLanR.gw || lanR.gw }}
         onClose={() => setLanModalOpen(false)}
         onCommit={(v) => {
-          // Preserve ip2 even if empty - keep it as a string in state, never drop the key
+          // Update draft state first
           setLanR({ 
             ...lanR, 
             lanIp: v.ip1, 
             ip2: v.ip2 || "", // Keep ip2 as string, even if empty
+            gw: v.gw, 
+            mask: "255.255.255.0" 
+          });
+          // Then commit immediately to save ip2
+          setCLanR({ 
+            ...cLanR,
+            lanIp: v.ip1, 
+            ip2: v.ip2 || "", // Preserve ip2 value
             gw: v.gw, 
             mask: "255.255.255.0" 
           });
