@@ -6,13 +6,13 @@ export type NatRule = {
   id: string;
   direction: "outbound" | "inbound";
   iface: "dmz" | "lan" | "wan";
-  type: "SNAT" | "DNAT" | "PASS";
+  type: "snat" | "dnat" | "masquerade";
   protocol: "any" | "tcp" | "udp" | "icmp";
   src: string;
   dst: string;
   srcPort?: string;
   dstPort?: string;
-  translateTo?: string; // for SNAT/DNAT
+  target?: string; // for snat/dnat (renamed from translateTo)
   enabled: boolean;
 };
 
@@ -33,13 +33,13 @@ export default function NatFirewallPanel({
     id: "",
     direction: "outbound",
     iface: "wan",
-    type: "SNAT",
+    type: "snat",
     protocol: "any",
     src: "",
     dst: "",
     srcPort: "",
     dstPort: "",
-    translateTo: "",
+    target: "",
     enabled: true,
   });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -49,13 +49,13 @@ export default function NatFirewallPanel({
       id: "",
       direction: "outbound",
       iface: "wan",
-      type: "SNAT",
+      type: "snat",
       protocol: "any",
       src: "",
       dst: "",
       srcPort: "",
       dstPort: "",
-      translateTo: "",
+      target: "",
       enabled: true,
     });
 
@@ -83,8 +83,8 @@ export default function NatFirewallPanel({
     } else {
       onChange({ ...fw, rules: [...(fw.rules || []), ruleData] });
       
-      // Also set SNAT if type is SNAT
-      if (form.type === "SNAT" && form.translateTo) {
+      // Also set NAT config if type is SNAT or Masquerade
+      if (form.type === "snat" && form.target) {
         onChange({
           ...fw,
           rules: [...(fw.rules || []), ruleData],
@@ -93,9 +93,18 @@ export default function NatFirewallPanel({
             translation: 'snat',
             snat: {
               srcCidr: form.src || "192.168.1.0/24",
-              toIp: form.translateTo,
+              toIp: form.target,
               outIface: form.iface,
             },
+          },
+        });
+      } else if (form.type === "masquerade") {
+        onChange({
+          ...fw,
+          rules: [...(fw.rules || []), ruleData],
+          nat: {
+            ...(fw.nat || {}),
+            translation: 'masquerade',
           },
         });
       } else {
@@ -121,13 +130,13 @@ export default function NatFirewallPanel({
       id: String(idx),
       direction: r.inIface === "wan" ? "outbound" : "inbound",
       iface: r.inIface || "wan",
-      type: fw.nat?.snat && r.src.includes("192.168.1") ? "SNAT" : "PASS",
+      type: fw.nat?.translation === 'masquerade' ? "masquerade" : (fw.nat?.snat && r.src.includes("192.168.1") ? "snat" : "dnat"),
       protocol: r.proto === "ANY" ? "any" : (r.proto.toLowerCase() as "tcp" | "udp" | "icmp"),
       src: r.src,
       dst: r.dst,
       srcPort: "",
       dstPort: "",
-      translateTo: fw.nat?.snat?.toIp || "",
+      target: fw.nat?.snat?.toIp || "",
       enabled: r.action === "ALLOW",
     });
   };
@@ -171,9 +180,9 @@ export default function NatFirewallPanel({
                 onChange={(e) => setForm({ ...form, iface: e.target.value as NatRule["iface"] })}
                 className="border rounded px-2 py-1 w-full"
               >
-                <option value="dmz">DMZ</option>
-                <option value="lan">LAN</option>
                 <option value="wan">WAN</option>
+                <option value="lan">LAN</option>
+                <option value="dmz">DMZ</option>
               </select>
             </label>
             <label className="col-span-1">
@@ -260,29 +269,17 @@ export default function NatFirewallPanel({
                 placeholder="80,443,any"
               />
             </label>
-            {(fw.nat?.translation === 'snat' || (!fw.nat?.translation && fw.nat?.snat)) && (
+            {form.type === "masquerade" && (
               <label className="col-span-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">NAT Address (for static SNAT)</div>
+                <div className="text-xs text-slate-500 italic">Masquerade: Uses egress interface address</div>
+              </label>
+            )}
+            {(form.type === "snat" || form.type === "dnat") && (
+              <label className="col-span-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">Target (for SNAT/DNAT)</div>
                 <input
-                  value={form.translateTo || fw.nat?.snat?.toIp || ""}
-                  onChange={(e) => {
-                    setForm({ ...form, translateTo: e.target.value });
-                    // Also update nat config immediately
-                    if (e.target.value) {
-                      onChange({
-                        ...fw,
-                        nat: {
-                          ...(fw.nat || {}),
-                          translation: 'snat',
-                          snat: {
-                            srcCidr: form.src || "192.168.1.0/24",
-                            toIp: e.target.value,
-                            outIface: form.iface || "wan",
-                          },
-                        },
-                      });
-                    }
-                  }}
+                  value={form.target || ""}
+                  onChange={(e) => setForm({ ...form, target: e.target.value })}
                   className="border rounded px-2 py-1 w-full"
                   placeholder="e.g., 203.0.113.2"
                 />

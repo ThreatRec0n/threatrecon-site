@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ensure modals are interactive */
+.modal input, .modal button, .modal label { pointer-events: auto; }
+
+/* Prevent accidental overlay blocking */
+[data-blur-overlay] { pointer-events: none; }
+
 html,body { height: 100%; }
 :root.dark body {
   height: 100%;

@@ -38,6 +38,8 @@ import PracticeModeToggle from "@/components/PracticeModeToggle";
 import PacketFlowAnim from "@/components/PacketFlowAnim";
 import ProgressRing from "@/components/ProgressRing";
 import ChallengeScenario from "@/components/ChallengeScenario";
+import WanRouterModal from "@/components/modals/WanRouterModal";
+import LanRouterModal from "@/components/modals/LanRouterModal";
 import EnhancedPacketInspector from "@/components/EnhancedPacketInspector";
 import LockoutOverlay from "@/components/LockoutOverlay";
 import ScreenEffects from "@/components/ScreenEffects";
@@ -95,6 +97,16 @@ export default function Page() {
     lanIp: "",
     gw: ""
   });
+  // WAN Router state
+  const [wanModalOpen, setWanModalOpen] = useState(false);
+  const [lanModalOpen, setLanModalOpen] = useState(false);
+  const [wan, setWan] = useState<{ ip1: string; ip2: string; gw: string; dhcp: "none"|"ip1"|"ip2" }>({ ip1:"", ip2:"", gw:"", dhcp:"none" });
+  
+  const assignDhcpIfNeeded = (v:{ip1:string;ip2:string;gw:string;dhcp:"none"|"ip1"|"ip2"}) => {
+    if (v.dhcp === "ip1") v.ip1 = v.ip1 || "203.0.113.2";
+    if (v.dhcp === "ip2") v.ip2 = v.ip2 || "203.0.113.3";
+    return v;
+  };
   // COMMITTED state (diagram and simulation consume these)
   const [cLan1, setCLan1] = useState<Host>({ id:"lan1", nic:"ens0", ip:"", mask:"", gw:"", role:"browser" });
   const [cLan2, setCLan2] = useState<Host>({ id:"lan2", nic:"ens1", ip:"", mask:"", gw:"" });
@@ -316,7 +328,7 @@ export default function Page() {
         { id:"DMZ1", x:110, y:180, label:"dmz1", ip:cDmz1.ip || "—", zone:"dmz", status: getNodeStatus("DMZ1") },
         { id:"DMZ2", x:110, y:260, label:"dmz2", ip:cDmz2.ip || "—", zone:"dmz", status: getNodeStatus("DMZ2") },
         { id:"FW", x:430, y:220, label:"firewall", ip:cFw.ifaces.wan || "—", zone:"wan", status: getNodeStatus("FW") },
-        { id:"WAN_ROUTER", x:430, y:100, label:"wan gw", ip:"", zone:"wan" },
+        { id:"WAN_ROUTER", x:430, y:100, label:"wan gw", ip:wan.ip1 || wan.ip2 || "", zone:"wan" },
         { id:"LAN_ROUTER", x:700, y:120, label:"lan rtr", ip:cLanR.lanIp || "—", zone:"lan", status: getNodeStatus("LAN_ROUTER") },
         { id:"LAN1", x:700, y:200, label:"lan1", ip:cLan1.ip || "—", zone:"lan", status: getNodeStatus("LAN1") },
         { id:"LAN2", x:700, y:280, label:"lan2", ip:cLan2.ip || "—", zone:"lan", status: getNodeStatus("LAN2") },
@@ -475,8 +487,8 @@ export default function Page() {
               natOverlay={natOverlay}
               onNodeClick={(nodeId) => {
                 if (nodeId === "FW") setEditingDevice({ type: "firewall", nodeId: "FW" });
-                else if (nodeId === "LAN_ROUTER") setEditingDevice({ type: "lan-router", nodeId: "LAN_ROUTER" });
-                else if (nodeId === "WAN_ROUTER") setEditingDevice({ type: "wan-router", nodeId: "WAN_ROUTER" });
+                else if (nodeId === "LAN_ROUTER") setLanModalOpen(true);
+                else if (nodeId === "WAN_ROUTER") setWanModalOpen(true);
                 else if (nodeId === "LAN1") setEditingDevice({ type: "lan-host", nodeId: "LAN1" });
                 else if (nodeId === "LAN2") setEditingDevice({ type: "lan-host", nodeId: "LAN2" });
                 else if (nodeId === "DMZ1") setEditingDevice({ type: "dmz-host", nodeId: "DMZ1" });
@@ -737,6 +749,25 @@ export default function Page() {
             else commitDmz2();
           }
           setEditingDevice(null);
+        }}
+      />
+      <WanRouterModal
+        isOpen={wanModalOpen}
+        initial={wan}
+        onClose={() => setWanModalOpen(false)}
+        onCommit={(v) => {
+          const updated = assignDhcpIfNeeded({ ...v });
+          setWan(updated);
+          setWanModalOpen(false);
+        }}
+      />
+      <LanRouterModal
+        isOpen={lanModalOpen}
+        initial={{ ip1: lanR.lanIp, ip2: "", gw: lanR.gw }}
+        onClose={() => setLanModalOpen(false)}
+        onCommit={(v) => {
+          setLanR({ ...lanR, lanIp: v.ip1, gw: v.gw });
+          setLanModalOpen(false);
         }}
       />
     </main>
