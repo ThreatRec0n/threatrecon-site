@@ -109,15 +109,15 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
                   opacity="0.7"
                 />
               )}
-              <foreignObject x="4" y="4" width="24" height="24" className="text-slate-700 dark:text-slate-200">
+              <foreignObject x="0" y="0" width="32" height="32" className="text-slate-700 dark:text-slate-200">
                 <div 
-                  className="w-full h-full transition-transform hover:scale-[1.05]"
-                  style={{ filter: isUp && hasStatus ? 'drop-shadow(0 0 6px rgba(56,189,248,.7))' : 'none' }}
+                  className="w-full h-full transition-transform hover:scale-[1.1] flex items-center justify-center"
+                  style={{ filter: isUp && hasStatus ? 'drop-shadow(0 0 8px rgba(56,189,248,.8))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.1))' }}
                 >
                   {iconSrc ? (
-                    <img src={iconSrc} alt={n.label} className="w-full h-full" />
+                    <img src={iconSrc} alt={n.label} className="w-7 h-7 object-contain" />
                   ) : (
-                    <div className="w-full h-full rounded bg-slate-300"></div>
+                    <div className="w-7 h-7 rounded bg-slate-300"></div>
                   )}
                 </div>
               </foreignObject>
