@@ -9,8 +9,13 @@ export const ipToInt = (ip: string) =>
 export const isValidMask = (s: string) => {
   if (!isValidIp(s)) return false;
   const n = ipToInt(s);
+  if (n === 0 || n === 0xFFFFFFFF) return false; // Can't be all 0s or all 1s
   // mask must be contiguous 1s then 0s
-  return n !== 0 && ((~((~n + 1) | n)) >>> 0) === 0;
+  // For valid mask: invert, add 1, result should be a power of 2 (only one bit set)
+  const inverted = (~n) >>> 0;
+  const plusOne = (inverted + 1) >>> 0;
+  // Check if plusOne is a power of 2: (x & (x - 1)) === 0
+  return plusOne !== 0 && (plusOne & (plusOne - 1)) === 0;
 };
 
 export const isPrivate = (ip: string) => {

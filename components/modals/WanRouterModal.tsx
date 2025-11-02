@@ -128,7 +128,7 @@ export default function WanRouterModal({ isOpen, onClose, onCommit, initial, onE
           <details className="mt-3 rounded-md bg-slate-900/60 border border-slate-800" open>
             <summary className="cursor-pointer text-xs px-3 py-2 text-slate-300">Terminal</summary>
             <div className="p-2">
-              <DeviceTerminal source={{kind:"wan", id:"wan_rtr"}} onExec={onExec} />
+              <DeviceTerminal source={{kind:"wan", id:"wan_gw"}} onExec={onExec} />
             </div>
           </details>
         )}
