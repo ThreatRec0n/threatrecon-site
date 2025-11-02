@@ -19,7 +19,7 @@ export function canPing(a: Host, b: Host, context: Topology): {ok: boolean, path
   if (!a.committed || !b.committed) return { ok: false };
   
   // Local link: same subnet
-  if (sameSubnet(a.ip, a.mask, b.ip)) return { ok: true, path: 'local' };
+  if (sameSubnet(a.ip, b.ip, a.mask)) return { ok: true, path: 'local' };
 
   // step 1: host has a valid default gateway in its subnet
   if (!gwInSubnet(a.ip, a.mask, a.gw)) return { ok: false };
@@ -32,22 +32,22 @@ export function canPing(a: Host, b: Host, context: Topology): {ok: boolean, path
 
   // Check if host can reach firewall (on LAN side, DMZ side, or WAN side)
   const aToFw =
-    (isValidIp(lanSide.ip) && sameSubnet(a.ip, a.mask, lanSide.ip)) ||
-    (isValidIp(dmzSide.ip) && sameSubnet(a.ip, a.mask, dmzSide.ip));
+    (isValidIp(lanSide.ip) && sameSubnet(a.ip, lanSide.ip, a.mask)) ||
+    (isValidIp(dmzSide.ip) && sameSubnet(a.ip, dmzSide.ip, a.mask));
 
   if (!aToFw) return { ok: false };
 
   // step 3: routing through fw to target subnet or internet
   // If target is in same subnet as firewall DMZ or LAN interfaces, route via firewall
-  if ((isValidIp(dmzSide.ip) && sameSubnet(b.ip, b.mask || '255.255.255.0', dmzSide.ip)) || 
-      (isValidIp(lanSide.ip) && sameSubnet(b.ip, b.mask || '255.255.255.0', lanSide.ip))) {
+  if ((isValidIp(dmzSide.ip) && sameSubnet(b.ip, dmzSide.ip, b.mask || '255.255.255.0')) || 
+      (isValidIp(lanSide.ip) && sameSubnet(b.ip, lanSide.ip, b.mask || '255.255.255.0'))) {
     return { ok: true, path: 'via_fw' };
   }
 
   // internet reachability
   const wanRtr = context.wan;
   const wanIp = wanRtr.dhcp === 'ip1' ? '172.31.0.1' : (wanRtr.dhcp === 'ip2' ? '203.0.113.3' : (wanRtr.ip1 || wanRtr.ip2));
-  const fwToWan = isValidIp(wanSide.ip) && isValidIp(wanIp||'') && sameSubnet(wanSide.ip, '255.255.255.0', wanIp);
+  const fwToWan = isValidIp(wanSide.ip) && isValidIp(wanIp||'') && sameSubnet(wanSide.ip, wanIp, '255.255.255.0');
   const natOn = context.fw.natMasq;
   if (fwToWan && natOn) return { ok: true, path: 'via_internet' };
 
@@ -60,7 +60,7 @@ export function linkState(t: Topology){
   return {
     dmz_to_fw: isValidIp(t.dmz1.gw||'') || isValidIp(t.dmz2.gw||''),
     lan_to_fw: isValidIp(t.lan_rtr.gw||'') && isValidIp(t.fw.lan||''),
-    fw_to_wan: isValidIp(t.fw.wan||'') && isValidIp(wanIp||'') && sameSubnet(t.fw.wan||'', '255.255.255.0', wanIp)
+    fw_to_wan: isValidIp(t.fw.wan||'') && isValidIp(wanIp||'') && sameSubnet(t.fw.wan||'', wanIp, '255.255.255.0')
   };
 }
 
@@ -89,7 +89,7 @@ export function routeExists(t: Topology, src: DeviceId, dstIp: string): {ok:bool
   if(!isValidIp(sip||'')) return {ok:false, reason:'Source has no IP'};
   
   // Same-subnet success
-  if(sameSubnet(sip!, mask(src)!, dstIp)) return {ok:true};
+  if(sameSubnet(sip!, dstIp, mask(src)!)) return {ok:true};
   
   // Default route pathing
   // LAN/DMZ -> FW

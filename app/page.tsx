@@ -386,7 +386,7 @@ export default function Page() {
     
     // Check firewall to WAN router connection (subnet match)
     const wanIp = wan.dhcp === "ip1" ? "172.31.0.1" : (wan.dhcp === "ip2" ? "203.0.113.3" : (wan.ip1 || wan.ip2 || ""));
-    const fwToWanOk = isValidIp(cFw.ifaces.wan || "") && isValidIp(wanIp) && sameSubnet(cFw.ifaces.wan || "", "255.255.255.0", wanIp);
+    const fwToWanOk = isValidIp(cFw.ifaces.wan || "") && isValidIp(wanIp) && sameSubnet(cFw.ifaces.wan || "", wanIp, "255.255.255.0");
     
     return {
       nodes: [
@@ -405,8 +405,8 @@ export default function Page() {
         // LAN peers - show blue line only after successful ping
         { from:"LAN1", to:"LAN2", ok:lanPeer.ok, active:lanPeer.ok, color:lanPeer.ok ? 'blue' : 'gray' },
         // LAN hosts to router (always show when configured)
-        { from:"LAN1", to:"LAN_ROUTER", ok:!!cLan1.ip && !!cLanR.lanIp && sameSubnet(cLan1.ip, cLan1.mask || "255.255.255.0", cLanR.lanIp), active:!!cLan1.ip && !!cLanR.lanIp, color:'blue' },
-        { from:"LAN2", to:"LAN_ROUTER", ok:!!cLan2.ip && !!cLanR.lanIp && sameSubnet(cLan2.ip, cLan2.mask || "255.255.255.0", cLanR.lanIp), active:!!cLan2.ip && !!cLanR.lanIp, color:'blue' },
+        { from:"LAN1", to:"LAN_ROUTER", ok:!!cLan1.ip && !!cLanR.lanIp && sameSubnet(cLan1.ip, cLanR.lanIp, cLan1.mask || "255.255.255.0"), active:!!cLan1.ip && !!cLanR.lanIp, color:'blue' },
+        { from:"LAN2", to:"LAN_ROUTER", ok:!!cLan2.ip && !!cLanR.lanIp && sameSubnet(cLan2.ip, cLanR.lanIp, cLan2.mask || "255.255.255.0"), active:!!cLan2.ip && !!cLanR.lanIp, color:'blue' },
         // LAN router to firewall
         { from:"LAN_ROUTER", to:"FW", ok:ls.lan_to_fw, active:ls.lan_to_fw, color:ls.lan_to_fw ? 'blue' : 'gray' },
         // Firewall to WAN router (subnet match only, gateway optional for L2)

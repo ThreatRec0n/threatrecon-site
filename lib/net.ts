@@ -1,42 +1,45 @@
-export const ipToInt = (ip: string) => ip.split('.').reduce((a,b)=> (a<<8) + (+b), 0) >>> 0;
+// lib/net.ts
 
-export const maskToInt = (m: string) => ipToInt(m);
+export const isValidIp = (s: string) =>
+  /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/.test(s);
 
-export const validOctet = (v: string) => /^\d+$/.test(v) && +v >= 0 && +v <= 255;
+export const ipToInt = (ip: string) =>
+  ip.split(".").reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
 
-export const isValidIp = (s?: string) => !!s && /^(\d{1,3}\.){3}\d{1,3}$/.test(s) && s.split('.').every(validOctet);
-
-export const sameSubnet = (ip1: string, mask: string, ip2: string) =>
-  (ipToInt(ip1) & maskToInt(mask)) === (ipToInt(ip2) & maskToInt(mask));
+export const isValidMask = (s: string) => {
+  if (!isValidIp(s)) return false;
+  const n = ipToInt(s);
+  // mask must be contiguous 1s then 0s
+  return n !== 0 && ((~((~n + 1) | n)) >>> 0) === 0;
+};
 
 export const isPrivate = (ip: string) => {
+  if (!isValidIp(ip)) return false;
   const n = ipToInt(ip);
-  return (n>>>24)===10 || (n>>>20)===0xAC1 || (n>>>16)===0xC0A8;
+  const inRange = (a: number, b: number) => n >= a && n <= b;
+  return (
+    inRange(ipToInt("10.0.0.0"), ipToInt("10.255.255.255")) ||
+    inRange(ipToInt("172.16.0.0"), ipToInt("172.31.255.255")) ||
+    inRange(ipToInt("192.168.0.0"), ipToInt("192.168.255.255"))
+  );
 };
+
+export const sameSubnet = (a: string, b: string, mask: string) => {
+  const m = ipToInt(mask);
+  return (ipToInt(a) & m) === (ipToInt(b) & m);
+};
+
+export const gwInSubnet = (ip: string, mask: string, gw?: string) =>
+  !!gw && isValidIp(gw) && sameSubnet(ip, gw, mask);
+
+export const emptyToUndef = (s?: string) =>
+  s && s.trim() !== "" ? s.trim() : undefined;
 
 export const isTestNetOrPublic = (ip: string) => {
   if (!isValidIp(ip)) return false;
   const n = ipToInt(ip);
   // TEST-NET-1 192.0.2.0/24, TEST-NET-2 198.51.100.0/24, TEST-NET-3 203.0.113.0/24
-  const inRange = (base: string)=> (ipToInt(base)>>>8) === (n>>>8);
+  const inRange = (base: string) => (ipToInt(base) >>> 8) === (n >>> 8);
   return inRange('203.0.113.0') || inRange('198.51.100.0') || inRange('192.0.2.0') || (!isPrivate(ip));
-};
-
-// Helper to convert empty strings to undefined (for optional fields)
-export const emptyToUndef = (s: string | undefined): string | undefined => 
-  s && s.trim() !== '' ? s.trim() : undefined;
-
-// Check if gateway is in subnet
-export const gwInSubnet = (ip: string, mask: string, gw?: string): boolean => {
-  return !!gw && isValidIp(gw) && sameSubnet(ip, mask, gw);
-};
-
-// Validate subnet mask format
-export const isValidMask = (mask: string): boolean => {
-  if (!isValidIp(mask)) return false;
-  const m = maskToInt(mask);
-  // Check if mask is contiguous (all 1s followed by all 0s)
-  const inverted = (~m) >>> 0;
-  return (m & (inverted + 1)) === 0 || m === 0xFFFFFFFF;
 };
 

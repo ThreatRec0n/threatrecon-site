@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import DeviceTerminal, { ExecFn } from "@/components/terminal/DeviceTerminal";
-import { isValidIp, isPrivate, sameSubnet, emptyToUndef, isValidMask } from "@/lib/net";
+import { isValidIp, isValidMask, isPrivate, gwInSubnet, emptyToUndef } from "@/lib/net";
 
 type Props = {
   isOpen: boolean;
@@ -30,18 +30,22 @@ export default function LanRouterModal({ isOpen, onClose, onCommit, initial, onE
 
   if (!isOpen) return null;
 
-  // Validation: ip1 must be RFC1918, valid mask, gateway in same subnet, ip2 optional
+  // Validation: ip1 must be RFC1918, valid mask, gateway optional but if present must be in subnet, ip2 optional
   const ip1Valid = isValidIp(ip1) && isPrivate(ip1);
   const maskValid = isValidMask(mask);
-  const gwValid = isValidIp(gw) && gwInSubnet(ip1, mask, gw);
+  const gwValid = gw === "" || (isValidIp(gw) && gwInSubnet(ip1, mask, gw));
   const ip2Valid = ip2 === "" || isValidIp(ip2);
   const valid = ip1Valid && maskValid && gwValid && ip2Valid;
 
   const commit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid) return;
-    // Preserve ip2 even if empty - keep it as string in state, only coerce to undefined when writing to store
-    onCommit({ ip1: ip1.trim(), ip2: (ip2 ?? '').trim(), gw: gw.trim() });
+    // Normalize empties to prevent field disappearing issues
+    onCommit({ 
+      ip1: ip1.trim(),
+      ip2: emptyToUndef(ip2) ?? "",
+      gw: emptyToUndef(gw) ?? ""
+    });
     onClose();
   };
 
@@ -83,7 +87,7 @@ export default function LanRouterModal({ isOpen, onClose, onCommit, initial, onE
           onChange={(e)=>setGw(e.target.value)}
           placeholder="e.g. 192.168.1.1"
         />
-        {gw && !gwValid && <div className="text-xs text-red-600 mt-0.5">Invalid gateway or gateway must be in same subnet as IP1</div>}
+        {gw && !gwValid && <div className="text-xs text-red-600 mt-0.5">Invalid gateway or gateway must be in same subnet as IP1 (gateway can be blank)</div>}
         {onExec && (
           <details className="mt-3 rounded-md bg-slate-900/60 border border-slate-800" open>
             <summary className="cursor-pointer text-xs px-3 py-2 text-slate-300">Terminal</summary>
