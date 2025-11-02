@@ -62,10 +62,10 @@ export default function WanRouterModal({ isOpen, onClose, onCommit, initial, onE
   const commit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid) return;
-    // Normalize empties to prevent field disappearing issues
+    // Always preserve ip2 value, even if empty - never drop it
     onCommit({ 
       ip1: dhcp === "ip1" ? "172.31.0.1" : ip1.trim(), 
-      ip2: dhcp === "ip2" ? "203.0.113.3" : (emptyToUndef(ip2) ?? ""), 
+      ip2: dhcp === "ip2" ? "203.0.113.3" : ip2.trim(), // Keep as string, don't use emptyToUndef here
       gw: emptyToUndef(gw) ?? "", 
       dhcp 
     });

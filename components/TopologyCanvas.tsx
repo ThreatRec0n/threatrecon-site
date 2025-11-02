@@ -51,11 +51,18 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
       {links.map((l,idx)=>{
         const a = map[l.from], b = map[l.to];
         if(!a || !b) return null;
-        // Local = blue, Internet = green, blocked = red
+        // Determine line style: solid for active connections, dashed for same-network but not pingable
+        const isPeerLink = (l.from === "DMZ1" && l.to === "DMZ2") || (l.from === "DMZ2" && l.to === "DMZ1") ||
+                          (l.from === "LAN1" && l.to === "LAN2") || (l.from === "LAN2" && l.to === "LAN1");
         const internet = (l.from==="FW" && (l.to==="WAN_ROUTER" || l.to==="INTERNET")) || l.to==="INTERNET";
-        const baseColor = l.ok ? (internet ? "#16a34a" : "#0ea5e9") : "#ef4444";
-        const dash = l.ok ? "0" : "6,6";
-        const opacity = l.active ? 1 : 0.5;
+        
+        // For peer links: solid blue if pingable, dashed gray if on same network but not pingable
+        // For other links: solid if ok, dashed if not
+        const useDash = isPeerLink 
+          ? !l.active && l.ok  // Dotted if same network but not yet pingable
+          : !l.ok;              // Dotted if not connected
+        const lineColor = l.color === 'blue' ? "#0ea5e9" : l.color === 'red' ? "#ef4444" : "#9ca3af";
+        const opacity = l.active ? 1 : (isPeerLink && l.ok ? 0.6 : 0.5);
         
         return (
           <g key={idx}>
@@ -63,9 +70,9 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
             {l.active && (
               <line
                 x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                stroke={baseColor}
+                stroke={lineColor}
                 strokeWidth="8"
-                strokeDasharray={dash}
+                strokeDasharray="0"
                 opacity={0.3}
                 className="animate-pulse"
               />
@@ -73,9 +80,9 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
             {/* Main line */}
             <line
               x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-              stroke={l.color === 'blue' ? "#0ea5e9" : l.color === 'red' ? "#ef4444" : "#9ca3af"}
+              stroke={lineColor}
               strokeWidth="3"
-              strokeDasharray={l.ok ? "0" : "6,6"}
+              strokeDasharray={useDash ? "6,6" : "0"}
               opacity={opacity}
             />
           </g>

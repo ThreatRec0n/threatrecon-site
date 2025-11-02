@@ -145,7 +145,21 @@ export default function Page() {
     else if (src.id === "wan_rtr" || src.id === "WAN_ROUTER" || (src.kind === "wan" && src.id.includes("wan"))) deviceId = "wan_gw";
     else return ["error: unknown source device"];
     
-    const dst = args[0] || "8.8.8.8";
+    // Resolve destination - could be IP or device name
+    let dst = args[0] || "8.8.8.8";
+    if (!isValidIp(dst)) {
+      // Try to resolve device names to IPs
+      if (dst.toUpperCase() === "DMZ1" || dst.toLowerCase() === "dmz1") dst = cDmz1.ip || "";
+      else if (dst.toUpperCase() === "DMZ2" || dst.toLowerCase() === "dmz2") dst = cDmz2.ip || "";
+      else if (dst.toUpperCase() === "LAN1" || dst.toLowerCase() === "lan1") dst = cLan1.ip || "";
+      else if (dst.toUpperCase() === "LAN2" || dst.toLowerCase() === "lan2") dst = cLan2.ip || "";
+      else if (dst.toUpperCase() === "LAN_RTR" || dst.toLowerCase() === "lan_rtr") dst = cLanR.lanIp || "";
+    }
+    
+    if (!dst || !isValidIp(dst)) {
+      return [`error: invalid destination "${args[0] || '8.8.8.8'}"`];
+    }
+    
     if (cmd === "ping") {
       return simulatePing(t, deviceId, dst);
     } else {
@@ -395,15 +409,27 @@ export default function Page() {
         { id:"FW", x:460, y:360, label:"FIREWALL", ip:cFw.ifaces.wan || undefined, zone:"wan", status: getNodeStatus("FW"), kind:"firewall" as const },
         { id:"WAN_ROUTER", x:460, y:160, label:"WAN GW", ip:wanIp || undefined, zone:"wan", kind:"router" as const },
         { id:"LAN_ROUTER", x:720, y:240, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
-        { id:"LAN1", x:720, y:360, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
-        { id:"LAN2", x:840, y:360, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
+        { id:"LAN1", x:680, y:360, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
+        { id:"LAN2", x:780, y:360, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
         { id:"INTERNET", x:460, y:80, label:"INTERNET", ip:undefined, zone:"internet", status: "ok" as const, kind:"cloud" as const }
       ],
       links: [
-        // DMZ peers - show blue line only after successful ping
-        { from:"DMZ1", to:"DMZ2", ok:dmzPeer.ok, active:dmzPeer.ok, color:dmzPeer.ok ? 'blue' : 'gray' },
-        // LAN peers - show blue line only after successful ping
-        { from:"LAN1", to:"LAN2", ok:lanPeer.ok, active:lanPeer.ok, color:lanPeer.ok ? 'blue' : 'gray' },
+        // DMZ peers - show connection if on same network (dotted if not pingable, solid if pingable)
+        { 
+          from:"DMZ1", 
+          to:"DMZ2", 
+          ok:dmzPeer.ok || (cDmz1.ip && cDmz2.ip && sameSubnet(cDmz1.ip, cDmz2.ip, cDmz1.mask || "255.255.255.0")), 
+          active:dmzPeer.ok, 
+          color:dmzPeer.ok ? 'blue' : (cDmz1.ip && cDmz2.ip && sameSubnet(cDmz1.ip, cDmz2.ip, cDmz1.mask || "255.255.255.0") ? 'gray' : 'gray')
+        },
+        // LAN peers - show connection if on same network (dotted if not pingable, solid if pingable)
+        { 
+          from:"LAN1", 
+          to:"LAN2", 
+          ok:lanPeer.ok || (cLan1.ip && cLan2.ip && sameSubnet(cLan1.ip, cLan2.ip, cLan1.mask || "255.255.255.0")), 
+          active:lanPeer.ok, 
+          color:lanPeer.ok ? 'blue' : (cLan1.ip && cLan2.ip && sameSubnet(cLan1.ip, cLan2.ip, cLan1.mask || "255.255.255.0") ? 'gray' : 'gray')
+        },
         // LAN hosts to router (always show when configured)
         { from:"LAN1", to:"LAN_ROUTER", ok:!!cLan1.ip && !!cLanR.lanIp && sameSubnet(cLan1.ip, cLanR.lanIp, cLan1.mask || "255.255.255.0"), active:!!cLan1.ip && !!cLanR.lanIp, color:'blue' },
         { from:"LAN2", to:"LAN_ROUTER", ok:!!cLan2.ip && !!cLanR.lanIp && sameSubnet(cLan2.ip, cLanR.lanIp, cLan2.mask || "255.255.255.0"), active:!!cLan2.ip && !!cLanR.lanIp, color:'blue' },

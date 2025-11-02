@@ -40,10 +40,10 @@ export default function LanRouterModal({ isOpen, onClose, onCommit, initial, onE
   const commit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid) return;
-    // Normalize empties to prevent field disappearing issues
+    // Always preserve ip2 value, even if empty - never drop it
     onCommit({ 
       ip1: ip1.trim(),
-      ip2: emptyToUndef(ip2) ?? "",
+      ip2: ip2.trim(), // Keep as string, don't use emptyToUndef here
       gw: emptyToUndef(gw) ?? ""
     });
     onClose();

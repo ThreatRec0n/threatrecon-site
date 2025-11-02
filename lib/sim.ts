@@ -88,10 +88,10 @@ export function routeExists(t: Topology, src: DeviceId, dstIp: string): {ok:bool
   const sip = hostIp(src);
   if(!isValidIp(sip||'')) return {ok:false, reason:'Source has no IP'};
   
-  // Same-subnet success
+  // Same-subnet success - allow direct communication without gateway
   if(sameSubnet(sip!, dstIp, mask(src)!)) return {ok:true};
   
-  // Default route pathing
+  // Default route pathing - only needed for different subnets
   // LAN/DMZ -> FW
   const srcGw = (():string|undefined=>{
     if(src==='lan1'||src==='lan2') return t.lan_rtr.gw;
@@ -102,7 +102,8 @@ export function routeExists(t: Topology, src: DeviceId, dstIp: string): {ok:bool
     return undefined;
   })();
   
-  if(!isValidIp(srcGw||'')) return {ok:false, reason:'Missing gateway'};
+  // Gateway only required for cross-subnet routing
+  if(!isValidIp(srcGw||'')) return {ok:false, reason:'Missing gateway for cross-subnet routing'};
   
   // FW to WAN / Internet
   const goingInternet = !isPrivate(dstIp);
