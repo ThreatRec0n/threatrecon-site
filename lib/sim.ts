@@ -46,8 +46,8 @@ export function canPing(a: Host, b: Host, context: Topology): {ok: boolean, path
 
   // internet reachability
   const wanRtr = context.wan;
-  const wanIp = wanRtr.dhcp === 'ip1' ? '172.31.0.1' : (wanRtr.dhcp === 'ip2' ? '203.0.113.3' : (wanRtr.ip1 || wanRtr.ip2));
-  const fwToWan = isValidIp(wanSide.ip) && isValidIp(wanIp||'') && sameSubnet(wanSide.ip, wanIp, '255.255.255.0');
+  const wanIp = wanRtr.dhcp === 'ip1' ? '172.31.0.1' : (wanRtr.dhcp === 'ip2' ? '203.0.113.3' : (wanRtr.ip1 || wanRtr.ip2 || ''));
+  const fwToWan = isValidIp(wanSide.ip) && isValidIp(wanIp) && sameSubnet(wanSide.ip, wanIp, '255.255.255.0');
   const natOn = context.fw.natMasq;
   if (fwToWan && natOn) return { ok: true, path: 'via_internet' };
 
@@ -56,11 +56,11 @@ export function canPing(a: Host, b: Host, context: Topology): {ok: boolean, path
 
 export function linkState(t: Topology){
   // Whether to draw solid lines (connected) or dashed (not configured)
-  const wanIp = t.wan.dhcp === 'ip1' ? '172.31.0.1' : (t.wan.dhcp === 'ip2' ? '203.0.113.3' : (t.wan.ip1 || t.wan.ip2));
+  const wanIp = t.wan.dhcp === 'ip1' ? '172.31.0.1' : (t.wan.dhcp === 'ip2' ? '203.0.113.3' : (t.wan.ip1 || t.wan.ip2 || ''));
   return {
     dmz_to_fw: isValidIp(t.dmz1.gw||'') || isValidIp(t.dmz2.gw||''),
     lan_to_fw: isValidIp(t.lan_rtr.gw||'') && isValidIp(t.fw.lan||''),
-    fw_to_wan: isValidIp(t.fw.wan||'') && isValidIp(wanIp||'') && sameSubnet(t.fw.wan||'', wanIp, '255.255.255.0')
+    fw_to_wan: isValidIp(t.fw.wan||'') && isValidIp(wanIp) && sameSubnet(t.fw.wan||'', wanIp, '255.255.255.0')
   };
 }
 
