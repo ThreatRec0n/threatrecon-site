@@ -386,7 +386,7 @@ export default function Page() {
     const t = buildTopology;
     const ls = linkState(t);
     
-    // Create Host objects for canPing checks
+    // Create Host objects for canPing checks - committed status only matters for cross-subnet routing
     const dmz1Host: SimHost = { ip: cDmz1.ip || "", mask: cDmz1.mask || "255.255.255.0", gw: cDmz1.gw, committed: !!cDmz1.ip };
     const dmz2Host: SimHost = { ip: cDmz2.ip || "", mask: cDmz2.mask || "255.255.255.0", gw: cDmz2.gw, committed: !!cDmz2.ip };
     const lan1Host: SimHost = { ip: cLan1.ip || "", mask: cLan1.mask || "255.255.255.0", gw: cLan1.gw, committed: !!cLan1.ip };

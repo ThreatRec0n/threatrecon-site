@@ -16,10 +16,14 @@ export type PathCheck = 'local' | 'via_fw' | 'via_internet';
 export type Host = { ip: string, mask: string, gw?: string, committed: boolean };
 
 export function canPing(a: Host, b: Host, context: Topology): {ok: boolean, path?: PathCheck} {
-  if (!a.committed || !b.committed) return { ok: false };
+  // For same-subnet communication (L2), both just need valid IPs - no gateway or committed status required
+  // This is true L2 adjacency - devices can ARP and communicate directly on the same network segment
+  if (isValidIp(a.ip) && isValidIp(b.ip) && sameSubnet(a.ip, b.ip, a.mask)) {
+    return { ok: true, path: 'local' };
+  }
   
-  // Local link: same subnet
-  if (sameSubnet(a.ip, b.ip, a.mask)) return { ok: true, path: 'local' };
+  // For cross-subnet routing, both must be committed and have proper gateway
+  if (!a.committed || !b.committed) return { ok: false };
 
   // step 1: host has a valid default gateway in its subnet
   if (!gwInSubnet(a.ip, a.mask, a.gw)) return { ok: false };
@@ -90,16 +94,11 @@ export function routeExists(t: Topology, src: DeviceId, dstIp: string): {ok:bool
   
   // Same-subnet success - allow direct communication without gateway (L2 adjacency)
   // If both source and destination are on same subnet, they can communicate directly
+  // This is true L2 communication - no routing needed, just subnet matching
   if(sameSubnet(sip!, dstIp, mask(src)!)) {
-    // Check if destination IP matches any device IP - if so, device should be committed
-    const dstIsDevice = (dstIp === t.dmz1.ip && t.dmz1.committed) || 
-                        (dstIp === t.dmz2.ip && t.dmz2.committed) ||
-                        (dstIp === t.lan1.ip && t.lan1.committed) ||
-                        (dstIp === t.lan2.ip && t.lan2.committed) ||
-                        (dstIp === t.lan_rtr.ip1 && t.lan_rtr.committed);
-    
-    // If destination is a configured device or is a valid IP on same subnet, allow
-    if(dstIsDevice || isValidIp(dstIp)) {
+    // For same-subnet communication, just need valid IP addresses
+    // Gateway is NOT required for L2 adjacency - devices can ARP and communicate directly
+    if(isValidIp(dstIp)) {
       return {ok:true};
     }
   }
