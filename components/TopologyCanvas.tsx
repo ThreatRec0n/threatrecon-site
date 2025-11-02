@@ -41,7 +41,7 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
     }
   }
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[420px] rounded-xl border bg-white">
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[420px] rounded-xl border bg-white overflow-visible" style={{ maxWidth: '100%' }}>
       <rect x="12" y="52" width="260" height="356" fill="rgba(255,255,255,0.8)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" rx="14"/>
       <rect x="300" y="52" width="260" height="356" fill="rgba(255,255,255,0.8)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" rx="14"/>
       <rect x="588" y="52" width="260" height="356" fill="rgba(255,255,255,0.8)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" rx="14"/>

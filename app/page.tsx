@@ -404,14 +404,14 @@ export default function Page() {
     
     return {
       nodes: [
-        { id:"DMZ1", x:160, y:300, label:"DMZ1", ip:cDmz1.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ1"), kind:"laptop" as const },
-        { id:"DMZ2", x:160, y:420, label:"DMZ2", ip:cDmz2.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ2"), kind:"laptop" as const },
-        { id:"FW", x:460, y:360, label:"FIREWALL", ip:cFw.ifaces.wan || undefined, zone:"wan", status: getNodeStatus("FW"), kind:"firewall" as const },
-        { id:"WAN_ROUTER", x:460, y:160, label:"WAN GW", ip:wanIp || undefined, zone:"wan", kind:"router" as const },
-        { id:"LAN_ROUTER", x:720, y:240, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
-        { id:"LAN1", x:600, y:360, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
-        { id:"LAN2", x:840, y:360, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
-        { id:"INTERNET", x:460, y:80, label:"INTERNET", ip:undefined, zone:"internet", status: "ok" as const, kind:"cloud" as const }
+        { id:"DMZ1", x:142, y:200, label:"DMZ1", ip:cDmz1.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ1"), kind:"laptop" as const },
+        { id:"DMZ2", x:142, y:280, label:"DMZ2", ip:cDmz2.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ2"), kind:"laptop" as const },
+        { id:"FW", x:430, y:240, label:"FIREWALL", ip:cFw.ifaces.wan || undefined, zone:"wan", status: getNodeStatus("FW"), kind:"firewall" as const },
+        { id:"WAN_ROUTER", x:430, y:160, label:"WAN GW", ip:wanIp || undefined, zone:"wan", kind:"router" as const },
+        { id:"LAN_ROUTER", x:730, y:240, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
+        { id:"LAN1", x:600, y:340, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
+        { id:"LAN2", x:860, y:340, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
+        { id:"INTERNET", x:430, y:80, label:"INTERNET", ip:undefined, zone:"internet", status: "ok" as const, kind:"cloud" as const }
       ],
       links: [
         // DMZ peers - show connection if on same network (dotted if not pingable, solid if pingable)
@@ -421,6 +421,21 @@ export default function Page() {
           ok:dmzPeer.ok || (cDmz1.ip && cDmz2.ip && sameSubnet(cDmz1.ip, cDmz2.ip, cDmz1.mask || "255.255.255.0")), 
           active:dmzPeer.ok, 
           color:dmzPeer.ok ? 'blue' : (cDmz1.ip && cDmz2.ip && sameSubnet(cDmz1.ip, cDmz2.ip, cDmz1.mask || "255.255.255.0") ? 'gray' : 'gray')
+        },
+        // DMZ devices to firewall - show dotted line connection
+        { 
+          from:"DMZ1", 
+          to:"FW", 
+          ok:!!cDmz1.ip && !!cFw.ifaces.dmz && isValidIp(cDmz1.ip) && isValidIp(cFw.ifaces.dmz) && sameSubnet(cDmz1.ip, cFw.ifaces.dmz, cDmz1.mask || "255.255.255.0"), 
+          active:!!cDmz1.ip && !!cFw.ifaces.dmz && sameSubnet(cDmz1.ip, cFw.ifaces.dmz, cDmz1.mask || "255.255.255.0"), 
+          color: (!!cDmz1.ip && !!cFw.ifaces.dmz && sameSubnet(cDmz1.ip, cFw.ifaces.dmz, cDmz1.mask || "255.255.255.0")) ? 'blue' : 'gray' 
+        },
+        { 
+          from:"DMZ2", 
+          to:"FW", 
+          ok:!!cDmz2.ip && !!cFw.ifaces.dmz && isValidIp(cDmz2.ip) && isValidIp(cFw.ifaces.dmz) && sameSubnet(cDmz2.ip, cFw.ifaces.dmz, cDmz2.mask || "255.255.255.0"), 
+          active:!!cDmz2.ip && !!cFw.ifaces.dmz && sameSubnet(cDmz2.ip, cFw.ifaces.dmz, cDmz2.mask || "255.255.255.0"), 
+          color: (!!cDmz2.ip && !!cFw.ifaces.dmz && sameSubnet(cDmz2.ip, cFw.ifaces.dmz, cDmz2.mask || "255.255.255.0")) ? 'blue' : 'gray' 
         },
         // LAN peers - show connection if on same network (dotted if not pingable, solid if pingable)
         { 
