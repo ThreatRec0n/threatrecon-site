@@ -4,7 +4,7 @@ import React from "react";
 type DeviceKind = 'laptop' | 'router' | 'firewall' | 'cloud';
 type NodeKey = "WAN_ROUTER"|"FW"|"LAN1"|"LAN2"|"LAN_ROUTER"|"DMZ1"|"DMZ2"|"INTERNET";
 type Node = { id: NodeKey; x: number; y: number; label: string; ip?: string; zone?: "lan"|"dmz"|"wan"|"internet"; status?: "ok"|"warning"|"error"; kind?: DeviceKind };
-type Link = { from: NodeKey; to: NodeKey; ok: boolean; active?: boolean };
+type Link = { from: NodeKey; to: NodeKey; ok: boolean; active?: boolean; color?: string };
 export type TopologyProps = {
   nodes: Node[];
   links: Link[];
@@ -73,7 +73,7 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
             {/* Main line */}
             <line
               x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-              stroke={l.ok ? "#0ea5e9" : "#ef4444"}
+              stroke={l.color === 'blue' ? "#0ea5e9" : l.color === 'red' ? "#ef4444" : "#9ca3af"}
               strokeWidth="3"
               strokeDasharray={l.ok ? "0" : "6,6"}
               opacity={opacity}

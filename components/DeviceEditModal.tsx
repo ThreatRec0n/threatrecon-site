@@ -24,7 +24,8 @@ export default function DeviceEditModal({
   onChange, 
   onClose,
   onCommit,
-  onExec
+  onExec,
+  nodeId
 }: { 
   open: boolean; 
   device: DeviceType | null;
@@ -33,6 +34,7 @@ export default function DeviceEditModal({
   onClose: () => void;
   onCommit: () => void;
   onExec?: ExecFn;
+  nodeId?: string;
 }) {
   if (!open || !device) return null;
 
@@ -157,7 +159,7 @@ export default function DeviceEditModal({
                           <input
                             type="radio"
                             checked={data.dhcpOn === 'ip1'}
-                            onChange={() => onChange({ ...data, dhcpOn: 'ip1', ip1: '203.0.113.2' })}
+                            onChange={() => onChange({ ...data, dhcpOn: 'ip1', ip1: '172.31.0.1' })}
                           />
                           IP1 via DHCP
                         </label>
@@ -223,8 +225,12 @@ export default function DeviceEditModal({
                 <div className="p-2">
                   <DeviceTerminal
                     source={{
-                      kind: device === "dmz-host" ? "dmz" : device === "lan-host" ? "lan" : device === "firewall" ? "fw" : "wan",
-                      id: device === "firewall" ? "firewall" : (device === "dmz-host" ? (data.ip1 ? "DMZ1" : "dmz") : (device === "lan-host" ? (data.ip1 ? "LAN1" : "lan") : "wan_rtr"))
+                      kind: device === "dmz-host" ? "dmz" : device === "lan-host" ? "lan" : device === "firewall" ? "fw" : (device === "wan-router" ? "wan" : "lan"),
+                      id: device === "firewall" ? "FW" : 
+                          (device === "dmz-host" ? (nodeId || "DMZ1") : 
+                          (device === "lan-host" ? (nodeId || "LAN1") : 
+                          (device === "wan-router" ? "WAN_ROUTER" : 
+                          (device === "lan-router" ? "LAN_RTR" : "unknown"))))
                     }}
                     onExec={onExec}
                   />

@@ -22,3 +22,21 @@ export const isTestNetOrPublic = (ip: string) => {
   return inRange('203.0.113.0') || inRange('198.51.100.0') || inRange('192.0.2.0') || (!isPrivate(ip));
 };
 
+// Helper to convert empty strings to undefined (for optional fields)
+export const emptyToUndef = (s: string | undefined): string | undefined => 
+  s && s.trim() !== '' ? s.trim() : undefined;
+
+// Check if gateway is in subnet
+export const gwInSubnet = (ip: string, mask: string, gw?: string): boolean => {
+  return !!gw && isValidIp(gw) && sameSubnet(ip, mask, gw);
+};
+
+// Validate subnet mask format
+export const isValidMask = (mask: string): boolean => {
+  if (!isValidIp(mask)) return false;
+  const m = maskToInt(mask);
+  // Check if mask is contiguous (all 1s followed by all 0s)
+  const inverted = (~m) >>> 0;
+  return (m & (inverted + 1)) === 0 || m === 0xFFFFFFFF;
+};
+

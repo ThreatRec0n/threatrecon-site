@@ -42,8 +42,8 @@ import WanRouterModal from "@/components/modals/WanRouterModal";
 import LanRouterModal from "@/components/modals/LanRouterModal";
 import EnhancedPacketInspector from "@/components/EnhancedPacketInspector";
 import type { ExecFn } from "@/components/terminal/DeviceTerminal";
-import { simulatePing, routeExists, linkState, type Topology, type DeviceId } from "@/lib/sim";
-import { isPrivate } from "@/lib/net";
+import { simulatePing, routeExists, linkState, canPing, type Topology, type DeviceId, type Host as SimHost, type PathCheck } from "@/lib/sim";
+import { isPrivate, sameSubnet, gwInSubnet, emptyToUndef, isValidIp, isValidMask } from "@/lib/net";
 import LockoutOverlay from "@/components/LockoutOverlay";
 import ScreenEffects from "@/components/ScreenEffects";
 import ConceptMastery from "@/components/ConceptMastery";
@@ -98,6 +98,7 @@ export default function Page() {
   const [lanR, setLanR] = useState({
     id: "lan-r1",
     lanIp: "",
+    ip2: "",
     gw: "",
     mask: "255.255.255.0"
   });
@@ -112,18 +113,18 @@ export default function Page() {
   const [cLan2, setCLan2] = useState<Host>({ id:"lan2", nic:"ens1", ip:"", mask:"", gw:"" });
   const [cDmz1, setCDmz1] = useState<Host>({ id:"dmz1", nic:"ens0", ip:"", mask:"", gw:"" });
   const [cDmz2, setCDmz2] = useState<Host>({ id:"dmz2", nic:"ens1", ip:"", mask:"", gw:"" });
-  const [cLanR, setCLanR] = useState({ id:"lan-r1", lanIp:"", gw:"", mask: "255.255.255.0" });
+  const [cLanR, setCLanR] = useState({ id:"lan-r1", lanIp:"", ip2:"", gw:"", mask: "255.255.255.0" });
   const [cFw, setCFw] = useState<Firewall>({ id:"fw1", ifaces:{ dmz:"", lan:"", wan:"", gw_dmz:"", gw_lan:"", gw_wan:"" }, nat:{ translation: undefined }, rules:[] });
   
   // Build topology for new simulator
   const buildTopology = useMemo((): Topology => ({
-    dmz1: { ip: cDmz1.ip, mask: cDmz1.mask, gw: cDmz1.gw },
-    dmz2: { ip: cDmz2.ip, mask: cDmz2.mask, gw: cDmz2.gw },
-    lan1: { ip: cLan1.ip, mask: cLan1.mask, gw: cLan1.gw },
-    lan2: { ip: cLan2.ip, mask: cLan2.mask, gw: cLan2.gw },
-    lan_rtr: { ip1: cLanR.lanIp, ip2: "", mask: "255.255.255.0", gw: cLanR.gw },
-    fw: { dmz: cFw.ifaces.dmz, lan: cFw.ifaces.lan, wan: cFw.ifaces.wan, natMasq: cFw.nat?.translation === 'masquerade', defaultGw: cFw.ifaces.gw_wan },
-    wan: { ip1: wan.ip1, ip2: wan.ip2, gw: wan.gw, dhcp: wan.dhcp }
+    dmz1: { ip: cDmz1.ip, mask: cDmz1.mask || "255.255.255.0", gw: cDmz1.gw, committed: !!cDmz1.ip },
+    dmz2: { ip: cDmz2.ip, mask: cDmz2.mask || "255.255.255.0", gw: cDmz2.gw, committed: !!cDmz2.ip },
+    lan1: { ip: cLan1.ip, mask: cLan1.mask || "255.255.255.0", gw: cLan1.gw, committed: !!cLan1.ip },
+    lan2: { ip: cLan2.ip, mask: cLan2.mask || "255.255.255.0", gw: cLan2.gw, committed: !!cLan2.ip },
+    lan_rtr: { ip1: cLanR.lanIp, ip2: cLanR.ip2 || "", mask: cLanR.mask || "255.255.255.0", gw: cLanR.gw, committed: !!cLanR.lanIp },
+    fw: { dmz: cFw.ifaces.dmz, lan: cFw.ifaces.lan, wan: cFw.ifaces.wan, natMasq: cFw.nat?.translation === 'masquerade', defaultGw: cFw.ifaces.gw_wan, committed: !!(cFw.ifaces.lan && cFw.ifaces.wan) },
+    wan: { ip1: wan.dhcp === "ip1" ? "172.31.0.1" : wan.ip1, ip2: wan.dhcp === "ip2" ? "203.0.113.3" : wan.ip2, gw: wan.gw, dhcp: wan.dhcp, committed: !!(wan.ip1 || wan.ip2 || wan.dhcp !== "none") }
   }), [cDmz1, cDmz2, cLan1, cLan2, cLanR, cFw, wan]);
 
   // Exec function for terminals - map source IDs
@@ -177,7 +178,7 @@ export default function Page() {
   const commitLan2 = () => commitWithValidation("LAN2", () => setCLan2({ ...lan2 }), () => !lan2.ip || (isValidIp(lan2.ip) && isValidIp(lan2.gw)));
   const commitDmz1 = () => commitWithValidation("DMZ1", () => setCDmz1({ ...dmz1 }), () => isValidIp(dmz1.ip) && isValidIp(dmz1.gw));
   const commitDmz2 = () => commitWithValidation("DMZ2", () => setCDmz2({ ...dmz2 }), () => !dmz2.ip || (isValidIp(dmz2.ip) && isValidIp(dmz2.gw)));
-  const commitLanRouter = () => commitWithValidation("LAN_ROUTER", () => setCLanR({ ...lanR }), () => isValidIp(lanR.lanIp) && lanR.lanIp.startsWith("192.168.") && isValidIp(lanR.gw));
+  const commitLanRouter = () => commitWithValidation("LAN_ROUTER", () => setCLanR({ ...lanR, ip2: lanR.ip2 || "" }), () => isValidIp(lanR.lanIp) && lanR.lanIp.startsWith("192.168.") && isValidIp(lanR.gw));
   const commitFirewall = () => commitWithValidation("FW", () => setCFw({ ...fw }), () => isValidIp(fw.ifaces.lan) && isValidIp(fw.ifaces.wan) && fw.ifaces.dmz?.startsWith("10."));
   const [logs, setLogs] = useState<string[]>([]);
   const [output, setOutput] = useState<string>("");
@@ -371,28 +372,50 @@ export default function Page() {
     const t = buildTopology;
     const ls = linkState(t);
     
+    // Create Host objects for canPing checks
+    const dmz1Host: SimHost = { ip: cDmz1.ip || "", mask: cDmz1.mask || "255.255.255.0", gw: cDmz1.gw, committed: !!cDmz1.ip };
+    const dmz2Host: SimHost = { ip: cDmz2.ip || "", mask: cDmz2.mask || "255.255.255.0", gw: cDmz2.gw, committed: !!cDmz2.ip };
+    const lan1Host: SimHost = { ip: cLan1.ip || "", mask: cLan1.mask || "255.255.255.0", gw: cLan1.gw, committed: !!cLan1.ip };
+    const lan2Host: SimHost = { ip: cLan2.ip || "", mask: cLan2.mask || "255.255.255.0", gw: cLan2.gw, committed: !!cLan2.ip };
+    const internetHost: SimHost = { ip: "8.8.8.8", mask: "255.255.255.255", committed: true };
+    
+    // Check peer links
+    const dmzPeer = canPing(dmz1Host, dmz2Host, t);
+    const lanPeer = canPing(lan1Host, lan2Host, t);
+    const internetPath = canPing(lan1Host, internetHost, t);
+    
+    // Check firewall to WAN router connection (subnet match)
+    const wanIp = wan.dhcp === "ip1" ? "172.31.0.1" : (wan.dhcp === "ip2" ? "203.0.113.3" : (wan.ip1 || wan.ip2 || ""));
+    const fwToWanOk = isValidIp(cFw.ifaces.wan || "") && isValidIp(wanIp) && sameSubnet(cFw.ifaces.wan || "", "255.255.255.0", wanIp);
+    
     return {
       nodes: [
-        { id:"DMZ1", x:110, y:180, label:"DMZ1", ip:cDmz1.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ1"), kind:"laptop" as const },
-        { id:"DMZ2", x:110, y:260, label:"DMZ2", ip:cDmz2.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ2"), kind:"laptop" as const },
-        { id:"FW", x:430, y:220, label:"FIREWALL", ip:cFw.ifaces.wan || undefined, zone:"wan", status: getNodeStatus("FW"), kind:"firewall" as const },
-        { id:"WAN_ROUTER", x:430, y:100, label:"WAN GW", ip:wan.ip1 || wan.ip2 || undefined, zone:"wan", kind:"router" as const },
-        { id:"LAN_ROUTER", x:700, y:120, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
-        { id:"LAN1", x:700, y:200, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
-        { id:"LAN2", x:700, y:280, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
-        { id:"INTERNET", x:430, y:36, label:"INTERNET", ip:undefined, zone:"internet", status: "ok" as const, kind:"cloud" as const }
+        { id:"DMZ1", x:160, y:300, label:"DMZ1", ip:cDmz1.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ1"), kind:"laptop" as const },
+        { id:"DMZ2", x:160, y:420, label:"DMZ2", ip:cDmz2.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ2"), kind:"laptop" as const },
+        { id:"FW", x:460, y:360, label:"FIREWALL", ip:cFw.ifaces.wan || undefined, zone:"wan", status: getNodeStatus("FW"), kind:"firewall" as const },
+        { id:"WAN_ROUTER", x:460, y:160, label:"WAN GW", ip:wanIp || undefined, zone:"wan", kind:"router" as const },
+        { id:"LAN_ROUTER", x:720, y:240, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
+        { id:"LAN1", x:720, y:360, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
+        { id:"LAN2", x:840, y:360, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
+        { id:"INTERNET", x:460, y:80, label:"INTERNET", ip:undefined, zone:"internet", status: "ok" as const, kind:"cloud" as const }
       ],
       links: [
-        { from:"DMZ1", to:"FW", ok:ls.dmz_to_fw, active:ls.dmz_to_fw },
-        { from:"DMZ2", to:"FW", ok:ls.dmz_to_fw, active:ls.dmz_to_fw },
-        { from:"LAN1", to:"LAN_ROUTER", ok:ls.lan_to_fw && !!cLan1.ip && !!cLanR.lanIp, active:ls.lan_to_fw && !!cLan1.ip && !!cLanR.lanIp },
-        { from:"LAN2", to:"LAN_ROUTER", ok:ls.lan_to_fw && !!cLan2.ip && !!cLanR.lanIp, active:ls.lan_to_fw && !!cLan2.ip && !!cLanR.lanIp },
-        { from:"LAN_ROUTER", to:"FW", ok:ls.lan_to_fw, active:ls.lan_to_fw },
-        { from:"FW", to:"WAN_ROUTER", ok:ls.fw_to_wan, active:ls.fw_to_wan },
-        { from:"WAN_ROUTER", to:"INTERNET", ok:ls.fw_to_wan, active:false }
+        // DMZ peers - show blue line only after successful ping
+        { from:"DMZ1", to:"DMZ2", ok:dmzPeer.ok, active:dmzPeer.ok, color:dmzPeer.ok ? 'blue' : 'gray' },
+        // LAN peers - show blue line only after successful ping
+        { from:"LAN1", to:"LAN2", ok:lanPeer.ok, active:lanPeer.ok, color:lanPeer.ok ? 'blue' : 'gray' },
+        // LAN hosts to router (always show when configured)
+        { from:"LAN1", to:"LAN_ROUTER", ok:!!cLan1.ip && !!cLanR.lanIp && sameSubnet(cLan1.ip, cLan1.mask || "255.255.255.0", cLanR.lanIp), active:!!cLan1.ip && !!cLanR.lanIp, color:'blue' },
+        { from:"LAN2", to:"LAN_ROUTER", ok:!!cLan2.ip && !!cLanR.lanIp && sameSubnet(cLan2.ip, cLan2.mask || "255.255.255.0", cLanR.lanIp), active:!!cLan2.ip && !!cLanR.lanIp, color:'blue' },
+        // LAN router to firewall
+        { from:"LAN_ROUTER", to:"FW", ok:ls.lan_to_fw, active:ls.lan_to_fw, color:ls.lan_to_fw ? 'blue' : 'gray' },
+        // Firewall to WAN router (subnet match only, gateway optional for L2)
+        { from:"FW", to:"WAN_ROUTER", ok:fwToWanOk, active:fwToWanOk, color:fwToWanOk ? 'blue' : 'gray' },
+        // Internet link - red when path is via_internet
+        { from:"WAN_ROUTER", to:"INTERNET", ok:internetPath.ok && internetPath.path === 'via_internet', active:false, color:(internetPath.ok && internetPath.path === 'via_internet') ? 'red' : 'gray' }
       ]
     };
-  }, [cDmz1, cDmz2, cFw, cLan1, cLan2, cLanR, wan]);
+  }, [cDmz1, cDmz2, cFw, cLan1, cLan2, cLanR, wan, buildTopology]);
 
   const getHints = () => {
     const hints: string[] = [
@@ -647,6 +670,7 @@ export default function Page() {
       <DeviceEditModal
         open={!!editingDevice}
         device={editingDevice?.type || null}
+        nodeId={editingDevice?.nodeId}
         onExec={exec}
         data={(() => {
           if (!editingDevice) return { type: "firewall" as DeviceType, dmz: "", lan: "", wan: "" };
@@ -654,11 +678,11 @@ export default function Page() {
             return { type: "firewall" as DeviceType, dmz: fw.ifaces.dmz || "", lan: fw.ifaces.lan || "", wan: fw.ifaces.wan || "", gw: fw.ifaces.gw_wan || "" };
           }
           if (editingDevice.type === "lan-router") {
-            return { type: "lan-router" as DeviceType, ip1: lanR.lanIp || "", ip2: "", gw: lanR.gw || "" };
+            return { type: "lan-router" as DeviceType, ip1: lanR.lanIp || "", ip2: lanR.ip2 || "", gw: lanR.gw || "" };
           }
           if (editingDevice.type === "wan-router") {
-            // WAN Router: ip1 is the WAN IP, ip2 is optional, gw is separate gateway field
-            return { type: "wan-router" as DeviceType, ip1: "", ip2: "", gw: "" };
+            // WAN Router: use current wan state
+            return { type: "wan-router" as DeviceType, ip1: wan.ip1 || "", ip2: wan.ip2 || "", gw: wan.gw || "", dhcpOn: wan.dhcp === "none" ? null : wan.dhcp };
           }
           if (editingDevice.type === "lan-host") {
             const host = editingDevice.nodeId === "LAN1" ? lan1 : lan2;
@@ -675,9 +699,15 @@ export default function Page() {
           if (editingDevice.type === "firewall") {
             setFw({ ...fw, ifaces: { dmz: data.dmz || "", lan: data.lan || "", wan: data.wan || "", gw_dmz: data.gw || "", gw_lan: "", gw_wan: data.gw || "" } });
           } else if (editingDevice.type === "lan-router") {
-            setLanR({ ...lanR, lanIp: data.ip1 || "", gw: data.gw || data.ip2 || "" });
+            setLanR({ ...lanR, lanIp: data.ip1 || "", ip2: data.ip2 || "", gw: data.gw || "" });
           } else if (editingDevice.type === "wan-router") {
-            // WAN Router state - will be handled through DeviceEditModal with DHCP support
+            // WAN Router state - handle DHCP and preserve ip2
+            setWan({ 
+              ip1: data.dhcpOn === "ip1" ? "172.31.0.1" : (data.ip1 || ""), 
+              ip2: data.dhcpOn === "ip2" ? "203.0.113.3" : (data.ip2 || ""), 
+              gw: data.gw || "", 
+              dhcp: (data.dhcpOn === null ? "none" : data.dhcpOn) as "none" | "ip1" | "ip2"
+            });
           } else if (editingDevice.type === "lan-host") {
             const setter = editingDevice.nodeId === "LAN1" ? setLan1 : setLan2;
             setter({ ...(editingDevice.nodeId === "LAN1" ? lan1 : lan2), ip: data.ip1 || "", mask: data.mask || "", gw: data.gw || "" });
@@ -691,7 +721,10 @@ export default function Page() {
           if (!editingDevice) return;
           if (editingDevice.type === "firewall") commitFirewall();
           else if (editingDevice.type === "lan-router") commitLanRouter();
-          else if (editingDevice.type === "lan-host") {
+          else if (editingDevice.type === "wan-router") {
+            // WAN router commit - values already in state from onChange
+            // No need to commit separately, state is updated on change
+          } else if (editingDevice.type === "lan-host") {
             if (editingDevice.nodeId === "LAN1") commitLan1();
             else commitLan2();
           } else if (editingDevice.type === "dmz-host") {
@@ -706,17 +739,30 @@ export default function Page() {
         initial={wan}
         onClose={() => setWanModalOpen(false)}
         onCommit={(v) => {
-          setWan({ ...v });
+          // Keep ip2 as string in state, only coerce to undefined when writing to store if needed
+          setWan({ 
+            ip1: v.ip1 || "", 
+            ip2: v.ip2 || "", // Keep ip2 as string, even if empty
+            gw: v.gw || "", 
+            dhcp: v.dhcp 
+          });
           setWanModalOpen(false);
         }}
         onExec={exec}
       />
       <LanRouterModal
         isOpen={lanModalOpen}
-        initial={{ ip1: lanR.lanIp, ip2: "", gw: lanR.gw }}
+        initial={{ ip1: lanR.lanIp, ip2: lanR.ip2 || "", gw: lanR.gw }}
         onClose={() => setLanModalOpen(false)}
         onCommit={(v) => {
-          setLanR({ ...lanR, lanIp: v.ip1, gw: v.gw, mask: "255.255.255.0" });
+          // Preserve ip2 even if empty - keep it as a string in state, never drop the key
+          setLanR({ 
+            ...lanR, 
+            lanIp: v.ip1, 
+            ip2: v.ip2 || "", // Keep ip2 as string, even if empty
+            gw: v.gw, 
+            mask: "255.255.255.0" 
+          });
           setLanModalOpen(false);
         }}
         onExec={exec}
