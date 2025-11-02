@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import DeviceTerminal, { ExecFn } from "@/components/terminal/DeviceTerminal";
 
 export type DeviceType = "firewall" | "lan-router" | "wan-router" | "lan-host" | "dmz-host";
 
@@ -22,7 +23,8 @@ export default function DeviceEditModal({
   data, 
   onChange, 
   onClose,
-  onCommit 
+  onCommit,
+  onExec
 }: { 
   open: boolean; 
   device: DeviceType | null;
@@ -30,6 +32,7 @@ export default function DeviceEditModal({
   onChange: (data: DeviceData) => void;
   onClose: () => void;
   onCommit: () => void;
+  onExec?: ExecFn;
 }) {
   if (!open || !device) return null;
 
@@ -220,6 +223,21 @@ export default function DeviceEditModal({
                 </>
               )}
             </div>
+
+            {onExec && (
+              <details className="mt-3 rounded-md bg-slate-900/60 border border-slate-800" open>
+                <summary className="cursor-pointer text-xs px-3 py-2 text-slate-300">Terminal</summary>
+                <div className="p-2">
+                  <DeviceTerminal
+                    source={{
+                      kind: device === "dmz-host" ? "dmz" : device === "lan-host" ? "lan" : device === "firewall" ? "fw" : "wan",
+                      id: device === "firewall" ? "firewall" : (device === "dmz-host" ? (data.ip1 ? "DMZ1" : "dmz") : (device === "lan-host" ? (data.ip1 ? "LAN1" : "lan") : "wan_rtr"))
+                    }}
+                    onExec={onExec}
+                  />
+                </div>
+              </details>
+            )}
 
             <div className="mt-4 flex gap-2">
               <button

@@ -229,3 +229,136 @@ export function hopsToNodes(
   }
   return out;
 }
+
+// Helper to resolve hostnames to IPs
+function resolveHost(s: string, scn: Scenario): string {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(s)) return s;
+  // Check scenario DNS
+  if (scn.internet.dns[s]) return scn.internet.dns[s];
+  // Minimal mock DNS
+  if (s === "internet" || s.endsWith(".example")) return scn.internet.pingTarget || "203.0.113.1";
+  return "198.51.100.1";
+}
+
+export type SimSource = { kind:"dmz"|"lan"|"fw"|"wan"; id:string };
+
+export type TopologyState = {
+  scenario: Scenario;
+  hosts: { lan: Host[]; dmz: Host[] };
+  lanRouter: { lanIp: string; gw: string };
+  firewall: Firewall;
+  wanRouter?: { ip1: string; ip2: string; gw: string };
+};
+
+function getNodeById(state: TopologyState, source: SimSource): { ip: string; subnet: string; interface: string; zone: string } | null {
+  if (source.kind === "lan" && source.id === "LAN1") {
+    const host = state.hosts.lan.find(h => h.id === "lan1");
+    if (host?.ip) return { ip: host.ip, subnet: "192.168.1.0/24", interface: host.nic, zone: "lan" };
+  }
+  if (source.kind === "lan" && source.id === "LAN2") {
+    const host = state.hosts.lan.find(h => h.id === "lan2");
+    if (host?.ip) return { ip: host.ip, subnet: "192.168.1.0/24", interface: host.nic, zone: "lan" };
+  }
+  if (source.kind === "lan" && source.id === "lan_rtr") {
+    if (state.lanRouter?.lanIp) return { ip: state.lanRouter.lanIp, subnet: "192.168.1.0/24", interface: "lan0", zone: "lan" };
+  }
+  if (source.kind === "dmz") {
+    const host = state.hosts.dmz.find(h => h.id === source.id.toLowerCase());
+    if (host?.ip) return { ip: host.ip, subnet: "10.10.10.0/24", interface: host.nic, zone: "dmz" };
+  }
+  if (source.kind === "fw" && source.id === "firewall") {
+    if (state.firewall.ifaces.wan) return { ip: state.firewall.ifaces.wan, subnet: "203.0.113.0/24", interface: "wan", zone: "wan" };
+  }
+  if (source.kind === "wan" && source.id === "wan_rtr") {
+    if (state.wanRouter?.ip1) return { ip: state.wanRouter.ip1, subnet: "203.0.113.0/24", interface: "wan0", zone: "wan" };
+  }
+  return null;
+}
+
+function simulatePath(
+  state: TopologyState,
+  srcNode: { ip: string; subnet: string; interface: string; zone: string },
+  dst: string,
+  options: { icmp: boolean }
+): { reachable: boolean; hops: string[]; blockedAt?: string } {
+  // Use existing pingFromHost logic for LAN hosts
+  if (srcNode.zone === "lan" && srcNode.ip) {
+    const host: Host = state.hosts.lan.find(h => h.ip === srcNode.ip) || { id: "", nic: srcNode.interface, ip: srcNode.ip, mask: "", gw: "" };
+    const result = pingFromHost(state.scenario, host, dst, state.firewall, state.lanRouter);
+    return { reachable: result.success, hops: result.hops, blockedAt: result.reason };
+  }
+  
+  // For firewall/WAN/DMZ sources, use simplified logic
+  if (srcNode.zone === "fw" || srcNode.zone === "wan") {
+    // Direct egress - check firewall rules if needed
+    if (state.firewall.rules && state.firewall.rules.length > 0) {
+      const allows = ruleAllows(state.firewall, "ICMP", srcNode.ip, dst, srcNode.zone === "wan" ? "wan" : undefined);
+      if (!allows) return { reachable: false, hops: [srcNode.ip], blockedAt: "firewall (ACL)" };
+    }
+    // For WAN, can reach internet directly
+    if (srcNode.zone === "wan") {
+      return { reachable: true, hops: [srcNode.ip, dst] };
+    }
+    // For firewall, need WAN gateway
+    if (srcNode.zone === "fw" && state.wanRouter?.gw) {
+      return { reachable: true, hops: [srcNode.ip, state.wanRouter.gw, dst] };
+    }
+  }
+  
+  if (srcNode.zone === "dmz") {
+    // DMZ hosts go through firewall
+    const host: Host = state.hosts.dmz.find(h => h.ip === srcNode.ip) || { id: "", nic: srcNode.interface, ip: srcNode.ip, mask: "", gw: "" };
+    if (state.firewall.ifaces.dmz && host.gw === state.firewall.ifaces.dmz) {
+      const hops = [srcNode.ip, state.firewall.ifaces.dmz];
+      if (state.firewall.rules && state.firewall.rules.length > 0) {
+        const allows = ruleAllows(state.firewall, "ICMP", srcNode.ip, dst, "dmz");
+        if (!allows) return { reachable: false, hops, blockedAt: "firewall (ACL)" };
+      }
+      if (state.firewall.ifaces.wan && state.wanRouter?.gw) {
+        hops.push(state.firewall.ifaces.wan, state.wanRouter.gw, dst);
+        return { reachable: true, hops };
+      }
+    }
+    return { reachable: false, hops: [srcNode.ip], blockedAt: "routing" };
+  }
+  
+  return { reachable: false, hops: [srcNode.ip], blockedAt: "not implemented" };
+}
+
+export async function execCommandFrom(
+  source: SimSource,
+  cmd: "ping" | "traceroute",
+  args: string[],
+  state: TopologyState
+): Promise<string[]> {
+  const dstRaw = args[0];
+  if (!dstRaw) return ["error: destination required"];
+  
+  const dst = resolveHost(dstRaw, state.scenario);
+  const srcNode = getNodeById(state, source);
+  
+  if (!srcNode) return ["error: source not found or not configured"];
+  
+  const result = simulatePath(state, srcNode, dst, { icmp: true });
+  
+  if (cmd === "ping") {
+    return result.reachable
+      ? [
+          `PING ${dst}: icmp_seq=1 ttl=${result.hops.length ? 64 - result.hops.length : 62} time=${Math.max(1, result.hops.length)}ms`,
+          `--- ${dst} ping statistics ---`,
+          `1 packets transmitted, 1 received, 0% packet loss`,
+        ]
+      : [
+          `PING ${dst}: icmp_seq=1`,
+          `From ${result.blockedAt || "unknown"} icmp_seq=1 Destination Host Unreachable`,
+          `--- ${dst} ping statistics ---`,
+          `1 packets transmitted, 0 received, 100% packet loss`,
+        ];
+  }
+  
+  // traceroute
+  const lines = [`traceroute to ${dst} (${dst}), 30 hops max`];
+  result.hops.forEach((h, i) => lines.push(`${i + 1}  ${h} ${i === 0 ? "(source)" : ""}`));
+  if (!result.reachable) lines.push(`* * *  (blocked at ${result.blockedAt || "unknown"})`);
+  return lines;
+}

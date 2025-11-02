@@ -1,8 +1,9 @@
 ﻿"use client";
 import { motion, AnimatePresence } from "framer-motion";
 import React from "react";
+type DeviceKind = 'laptop' | 'router' | 'firewall' | 'cloud';
 type NodeKey = "WAN_ROUTER"|"FW"|"LAN1"|"LAN2"|"LAN_ROUTER"|"DMZ1"|"DMZ2"|"INTERNET";
-type Node = { id: NodeKey; x: number; y: number; label: string; ip?: string; zone?: "lan"|"dmz"|"wan"|"internet"; status?: "ok"|"warning"|"error" };
+type Node = { id: NodeKey; x: number; y: number; label: string; ip?: string; zone?: "lan"|"dmz"|"wan"|"internet"; status?: "ok"|"warning"|"error"; kind?: DeviceKind };
 type Link = { from: NodeKey; to: NodeKey; ok: boolean; active?: boolean };
 export type TopologyProps = {
   nodes: Node[];
@@ -16,6 +17,13 @@ const zoneBg: Record<string,string> = {
   dmz: "fill-yellow-50",
   wan: "fill-rose-50",
   internet: "fill-emerald-50"
+};
+
+const IconForKind: Record<DeviceKind, string> = {
+  laptop: '/icons/laptop.svg',
+  router: '/icons/router.svg',
+  firewall: '/icons/firewall.svg',
+  cloud: '/icons/cloud.svg',
 };
 export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, natOverlay }: TopologyProps) {
   const map = Object.fromEntries(nodes.map(n=>[n.id, n]));
@@ -34,9 +42,9 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
   }
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[420px] rounded-xl border bg-white">
-      <rect x="12" y="52" width="260" height="356" className={zoneBg["dmz"]+" opacity-70 stroke-slate-200"} rx="14"/>
-      <rect x="300" y="52" width="260" height="356" className={zoneBg["wan"]+" opacity-70 stroke-slate-200"} rx="14"/>
-      <rect x="588" y="52" width="260" height="356" className={zoneBg["lan"]+" opacity-70 stroke-slate-200"} rx="14"/>
+      <rect x="12" y="52" width="260" height="356" fill="rgba(255,255,255,0.6)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" opacity="0.7" rx="14"/>
+      <rect x="300" y="52" width="260" height="356" fill="rgba(255,255,255,0.6)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" opacity="0.7" rx="14"/>
+      <rect x="588" y="52" width="260" height="356" fill="rgba(255,255,255,0.6)" stroke="rgba(203,213,225,0.4)" strokeWidth="1" opacity="0.7" rx="14"/>
       <text x="22" y="74" className="fill-slate-600 text-[12px]">DMZ</text>
       <text x="310" y="74" className="fill-slate-600 text-[12px]">FIREWALL / WAN</text>
       <text x="598" y="74" className="fill-slate-600 text-[12px]">LAN</text>
@@ -74,22 +82,45 @@ export default function TopologyCanvas({ nodes, links, packetPath, onNodeClick, 
         );
       })}
       {nodes.map(n=>{
-        const fill = n.zone ? zoneBg[n.zone].replace("fill-","") : "white";
-        const statusColor = n.status === "ok" ? "#10b981" : n.status === "warning" ? "#f59e0b" : n.status === "error" ? "#ef4444" : "#10b981";
+        const hasStatus = !!n.status;
+        const isUp = n.status === "ok";
+        const iconSrc = n.kind && IconForKind[n.kind] ? IconForKind[n.kind] : null;
+        
         return (
-          <g key={n.id} transform={`translate(${n.x-32}, ${n.y-18})`} onClick={()=>onNodeClick?.(n.id)} className="cursor-pointer">
-            <title>{`${n.label}${n.ip ? ` • ${n.ip}` : ""}`}</title>
-            <rect width="64" height="36" rx="8" className="fill-white stroke-slate-300" />
-            {/* Status indicator */}
-            <circle cx="6" cy="6" r="4" fill={statusColor} opacity={n.status ? 1 : 0.6}>
-              {n.status === "ok" && <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite" />}
-            </circle>
-            {/* Status icon overlay */}
-            {n.status === "warning" && <text x="2" y="9" className="fill-white text-[8px] font-bold">!</text>}
-            {n.status === "error" && <text x="3" y="9" className="fill-white text-[8px] font-bold">✕</text>}
-            {n.status === "ok" && <text x="4" y="9" className="fill-white text-[8px] font-bold">✓</text>}
-            <text x="10" y="14" className="fill-slate-700 text-[10px]">{n.label}</text>
-            {n.ip && n.ip.trim().length > 0 && n.ip !== "—" && <text x="10" y="26" className="fill-slate-500 text-[10px]">{n.ip}</text>}
+          <g key={n.id} transform={`translate(${n.x}, ${n.y})`} onClick={()=>onNodeClick?.(n.id)} className="cursor-pointer select-none">
+            <title>{`${n.label}${n.ip && n.ip !== "—" ? ` • ${n.ip}` : ""}`}</title>
+            {/* Icon container with status ring */}
+            <g transform="translate(-16, -28)">
+              {hasStatus && (
+                <circle 
+                  cx="16" 
+                  cy="16" 
+                  r="18" 
+                  fill="none" 
+                  stroke={isUp ? "#10b981" : "#ef4444"}
+                  strokeWidth="2"
+                  opacity="0.7"
+                />
+              )}
+              <foreignObject x="4" y="4" width="24" height="24" className="text-slate-700 dark:text-slate-200">
+                <div 
+                  className="w-full h-full transition-transform hover:scale-[1.05]"
+                  style={{ filter: isUp && hasStatus ? 'drop-shadow(0 0 6px rgba(56,189,248,.7))' : 'none' }}
+                >
+                  {iconSrc ? (
+                    <img src={iconSrc} alt={n.label} className="w-full h-full" />
+                  ) : (
+                    <div className="w-full h-full rounded bg-slate-300"></div>
+                  )}
+                </div>
+              </foreignObject>
+            </g>
+            {/* Label */}
+            <text x="0" y="16" textAnchor="middle" className="fill-slate-700 text-[11px] font-medium">{n.label}</text>
+            {/* IP */}
+            {n.ip && n.ip.trim().length > 0 && n.ip !== "—" && (
+              <text x="0" y="28" textAnchor="middle" className="fill-slate-500 text-[10px]">{n.ip}</text>
+            )}
           </g>
         );
       })}

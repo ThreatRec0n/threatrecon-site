@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import DeviceTerminal, { ExecFn } from "@/components/terminal/DeviceTerminal";
 
 type Props = {
   isOpen: boolean;
@@ -9,9 +10,10 @@ type Props = {
     gw?: string;
   };
   onCommit: (v: { ip1: string; ip2: string; gw: string }) => void;
+  onExec?: ExecFn;
 };
 
-export default function LanRouterModal({ isOpen, onClose, onCommit, initial }: Props) {
+export default function LanRouterModal({ isOpen, onClose, onCommit, initial, onExec }: Props) {
   const [ip1, setIp1] = useState<string>("");
   const [ip2, setIp2] = useState<string>("");
   const [gw, setGw] = useState<string>("");
@@ -64,6 +66,14 @@ export default function LanRouterModal({ isOpen, onClose, onCommit, initial }: P
           onChange={(e)=>setGw(e.target.value)}
           placeholder="e.g. 192.168.1.1"
         />
+        {onExec && (
+          <details className="mt-3 rounded-md bg-slate-900/60 border border-slate-800" open>
+            <summary className="cursor-pointer text-xs px-3 py-2 text-slate-300">Terminal</summary>
+            <div className="p-2">
+              <DeviceTerminal source={{kind:"lan", id:"lan_rtr"}} onExec={onExec} />
+            </div>
+          </details>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="px-3 py-2 rounded-md border" onClick={onClose}>Cancel</button>
           <button type="submit" className="px-4 py-2 rounded-md bg-slate-900 text-white disabled:opacity-50" disabled={!valid}>

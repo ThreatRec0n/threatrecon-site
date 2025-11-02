@@ -41,6 +41,8 @@ import ChallengeScenario from "@/components/ChallengeScenario";
 import WanRouterModal from "@/components/modals/WanRouterModal";
 import LanRouterModal from "@/components/modals/LanRouterModal";
 import EnhancedPacketInspector from "@/components/EnhancedPacketInspector";
+import { execCommandFrom, type TopologyState, type SimSource } from "@/lib/sim/engine";
+import type { ExecFn } from "@/components/terminal/DeviceTerminal";
 import LockoutOverlay from "@/components/LockoutOverlay";
 import ScreenEffects from "@/components/ScreenEffects";
 import ConceptMastery from "@/components/ConceptMastery";
@@ -50,7 +52,7 @@ import AchievementGallery from "@/components/AchievementGallery";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import DeviceEditModal, { type DeviceType } from "@/components/DeviceEditModal";
 
-type Tab = "Configure" | "Diagnostics" | "Firewall & NAT";
+type Tab = "Configure" | "Firewall & NAT";
 
 export default function Page() {
   const scn = scenarioData as Scenario;
@@ -107,6 +109,10 @@ export default function Page() {
     if (v.dhcp === "ip2") v.ip2 = v.ip2 || "203.0.113.3";
     return v;
   };
+  
+  // Topology state ref for terminal execution
+  const topologyStateRef = React.useRef<TopologyState | null>(null);
+  
   // COMMITTED state (diagram and simulation consume these)
   const [cLan1, setCLan1] = useState<Host>({ id:"lan1", nic:"ens0", ip:"", mask:"", gw:"", role:"browser" });
   const [cLan2, setCLan2] = useState<Host>({ id:"lan2", nic:"ens1", ip:"", mask:"", gw:"" });
@@ -114,6 +120,31 @@ export default function Page() {
   const [cDmz2, setCDmz2] = useState<Host>({ id:"dmz2", nic:"ens1", ip:"", mask:"", gw:"" });
   const [cLanR, setCLanR] = useState({ id:"lan-r1", lanIp:"", gw:"" });
   const [cFw, setCFw] = useState<Firewall>({ id:"fw1", ifaces:{ dmz:"", lan:"", wan:"", gw_dmz:"", gw_lan:"", gw_wan:"" }, nat:{ translation: undefined }, rules:[] });
+  
+  // Update topology state ref when state changes
+  useEffect(() => {
+    topologyStateRef.current = {
+      scenario: scn,
+      hosts: {
+        lan: [cLan1, cLan2].filter(h => h.id),
+        dmz: [cDmz1, cDmz2].filter(h => h.id)
+      },
+      lanRouter: { lanIp: cLanR.lanIp, gw: cLanR.gw },
+      firewall: cFw,
+      wanRouter: wan.ip1 || wan.ip2 ? wan : undefined
+    };
+  }, [scn, cLan1, cLan2, cDmz1, cDmz2, cLanR, cFw, wan]);
+  
+  // Exec function for terminals
+  const exec: ExecFn = async (src, cmd, args) => {
+    if (cmd === "help") return ["commands:", "  ping <ip|host>", "  traceroute <ip|host>", "  clear"];
+    if (cmd === "clear") return [];
+    if (!topologyStateRef.current) return ["error: topology state not available"];
+    if (cmd === "ping" || cmd === "traceroute") {
+      return execCommandFrom(src, cmd, args, topologyStateRef.current);
+    }
+    return ["unknown command"];
+  };
 
   const isValidIp = (ip?: string) => {
     if (!ip) return false;
@@ -325,14 +356,14 @@ export default function Page() {
     const linkFwToWan = !!cFw.nat?.snat && cFw.nat?.snat?.outIface === "wan" && cFw.ifaces.wan;
     return {
       nodes: [
-        { id:"DMZ1", x:110, y:180, label:"dmz1", ip:cDmz1.ip || "—", zone:"dmz", status: getNodeStatus("DMZ1") },
-        { id:"DMZ2", x:110, y:260, label:"dmz2", ip:cDmz2.ip || "—", zone:"dmz", status: getNodeStatus("DMZ2") },
-        { id:"FW", x:430, y:220, label:"firewall", ip:cFw.ifaces.wan || "—", zone:"wan", status: getNodeStatus("FW") },
-        { id:"WAN_ROUTER", x:430, y:100, label:"wan gw", ip:wan.ip1 || wan.ip2 || "", zone:"wan" },
-        { id:"LAN_ROUTER", x:700, y:120, label:"lan rtr", ip:cLanR.lanIp || "—", zone:"lan", status: getNodeStatus("LAN_ROUTER") },
-        { id:"LAN1", x:700, y:200, label:"lan1", ip:cLan1.ip || "—", zone:"lan", status: getNodeStatus("LAN1") },
-        { id:"LAN2", x:700, y:280, label:"lan2", ip:cLan2.ip || "—", zone:"lan", status: getNodeStatus("LAN2") },
-        { id:"INTERNET", x:430, y:36, label:"internet", ip:scn.internet.pingTarget, zone:"internet", status: "ok" as const }
+        { id:"DMZ1", x:110, y:180, label:"DMZ1", ip:cDmz1.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ1"), kind:"laptop" as const },
+        { id:"DMZ2", x:110, y:260, label:"DMZ2", ip:cDmz2.ip || undefined, zone:"dmz", status: getNodeStatus("DMZ2"), kind:"laptop" as const },
+        { id:"FW", x:430, y:220, label:"FIREWALL", ip:cFw.ifaces.wan || undefined, zone:"wan", status: getNodeStatus("FW"), kind:"firewall" as const },
+        { id:"WAN_ROUTER", x:430, y:100, label:"WAN GW", ip:wan.ip1 || wan.ip2 || undefined, zone:"wan", kind:"router" as const },
+        { id:"LAN_ROUTER", x:700, y:120, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
+        { id:"LAN1", x:700, y:200, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
+        { id:"LAN2", x:700, y:280, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
+        { id:"INTERNET", x:430, y:36, label:"INTERNET", ip:scn.internet.pingTarget, zone:"internet", status: "ok" as const, kind:"cloud" as const }
       ],
       links: [
         { from:"DMZ1", to:"FW", ok:!!cDmz1.ip && !!cFw.ifaces.dmz, active:!!cDmz1.ip && !!cFw.ifaces.dmz },
@@ -511,7 +542,7 @@ export default function Page() {
         {/* Right panel - Compact Layout */}
         <section className="col-span-5 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/30 p-3 flex flex-col overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
           <div className="flex gap-1.5 text-xs mb-2 sticky top-0 bg-white/95 backdrop-blur-sm z-10 pb-2">
-            {(["Configure","Diagnostics","Firewall & NAT"] as Tab[]).map(t => (
+            {(["Configure","Firewall & NAT"] as Tab[]).map(t => (
               <button key={t} onClick={()=>setActiveTab(t)} className={`px-2 py-1 border rounded flex-1 ${activeTab===t?"bg-slate-900 text-white":"bg-white hover:bg-slate-50"}`}>{t}</button>
             ))}
           </div>
@@ -586,105 +617,6 @@ export default function Page() {
               </div>
             </div>
           )}
-          {activeTab === "Diagnostics" && (
-            <div className="space-y-2 text-sm">
-              <NetTerminal exec={(cmd,args)=>{
-                if (cmd==="ping") {
-                  const res = pingFromHost(scn, cLan1, args[0] || scn.internet.pingTarget, cFw, cLanR);
-                  setPings(p => p + 1);
-                  setPacketPath(hopsToNodes(res.hops, scn, cLanR, cLan1.ip, cFw));
-                  // Show NAT overlay if SNAT is active
-                  if (cFw.nat?.snat && res.hops.includes(cFw.ifaces.wan)) {
-                    setNatOverlay({ from: cLan1.ip, to: cFw.ifaces.wan, visible: true });
-                    setTimeout(() => setNatOverlay(prev => ({ ...prev, visible: false })), 3000);
-                  }
-                  if (res.success) setStreak(s => s + 1);
-                  else if (!practiceMode) setStreak(0);
-                  try { new AudioContext().resume().then(()=>{ const a = new (window.AudioContext|| (window as any).webkitAudioContext)(); const o=a.createOscillator(); const g=a.createGain(); o.type='sine'; o.frequency.value = res.success? 880 : 220; o.connect(g); g.connect(a.destination); g.gain.setValueAtTime(0.0001,a.currentTime); g.gain.exponentialRampToValueAtTime(0.1,a.currentTime+0.01); o.start(); o.stop(a.currentTime+0.15); }); } catch {}
-                  setTrace({ command: "ping", args, hops: res.hops, success: res.success, reason: res.reason });
-                  return res.success? "PING OK\n"+res.hops.join(" -> "): "PING FAIL: "+(res.reason||"blocked")+"\n"+res.hops.join(" -> ");
-                }
-                if (cmd==="traceroute") {
-                  const r = tracerouteFromHost(scn, cLan1, args[0] || scn.internet.pingTarget, cFw, cLanR);
-                  setPacketPath(hopsToNodes(r.hops, scn, cLanR, cLan1.ip, cFw));
-                  setTrace({ command: "traceroute", args, hops: r.hops, success: r.reached });
-                  return r.hops.join("\n");
-                }
-                if (cmd==="nslookup") {
-                  const r = nslookupHost(scn, cLan1, args[0]);
-                  return r.answer? `${args[0]} -> ${r.answer}` : "NXDOMAIN";
-                }
-                return "unknown command; type 'help'";
-              }}/>
-              <div className="space-y-1.5">
-                <CollapsibleSection title="Objectives" icon="🎯" defaultOpen={false}>
-                  <ObjectivesPanel
-                    title={`Objectives (${preset})`}
-                    items={(() => {
-                      const items = [
-                        { id:"icmplan", text:"ICMP allowed on LAN+WAN", done: !!cFw.rules?.length },
-                        { id:"snat", text:"SNAT 192.168.1.0/24 → FW WAN", done: !!cFw.nat?.snat && cFw.nat!.snat!.srcCidr.endsWith('/24') && cFw.nat!.snat!.toIp===cFw.ifaces.wan },
-                        { id:"reach", text:"LAN1 can reach Internet target", done: isConnected },
-                      ];
-                      if (preset!=="Beginner") items.push({ id:"egress", text:"Default deny egress except required", done: true } as any);
-                      return items as any;
-                    })()} 
-                  />
-                </CollapsibleSection>
-                <CollapsibleSection title="Checklist" icon="✓" defaultOpen={false}>
-                  <ChecklistPanel items={[
-                    { id:"lan1", label:"LAN Host committed", ok: !!cLan1.ip, hint:"Commit LAN host" },
-                    { id:"lanr", label:"LAN Router committed", ok: !!cLanR.lanIp, hint:"Commit LAN router" },
-                    { id:"fwlan", label:"Firewall LAN committed", ok: !!cFw.ifaces.lan, hint:"Commit Firewall LAN" },
-                    { id:"fwwan", label:"Firewall WAN committed", ok: !!cFw.ifaces.wan, hint:"Commit Firewall WAN" },
-                    { id:"snat", label:"SNAT configured", ok: !!cFw.nat?.snat && cFw.nat!.snat!.srcCidr.endsWith('/24'), hint:"Set SNAT 192.168.1.0/24" },
-                  ]} />
-                </CollapsibleSection>
-                <CollapsibleSection title="Lint & Diagnostics" icon="🔍" defaultOpen={false}>
-                  <div className="space-y-1.5">
-                    <LintPanel items={(()=>{
-                      const out: {id:string;msg:string}[] = [];
-                      const same24 = (a?:string,b?:string)=>!!a&&!!b&&a.split('.').slice(0,3).join('.')===b.split('.').slice(0,3).join('.');
-                      if (cLan1.ip && cLan1.gw && !same24(cLan1.ip,cLan1.gw)) out.push({id:"gw", msg:"LAN Host gateway not in same /24"});
-                      if (cLanR.lanIp && !(cLanR.lanIp.startsWith('192.168.'))) out.push({id:"lanrip", msg:"LAN Router should be 192.168.x.x"});
-                      if (cFw.ifaces.dmz && !cFw.ifaces.dmz.startsWith('10.')) out.push({id:"dmz", msg:"Firewall DMZ should be 10.x.x.x"});
-                      if (cFw.ifaces.wan && !cFw.ifaces.wan.startsWith('203.0.113.')) out.push({id:"wan", msg:"Firewall WAN should be 203.0.113.x"});
-                      return out;
-                    })()} />
-                    <EnhancedPacketInspector 
-                      src={cLan1.ip} 
-                      dst={(trace?.args?.[0]||scn.internet.pingTarget)} 
-                      translatedSrc={cFw.ifaces.wan && cFw.nat?.snat ? cFw.ifaces.wan : undefined}
-                      hops={trace?.hops}
-                    />
-                    <PacketFlowAnim hops={trace?.hops?.map((h,i)=>({
-                      ip: h,
-                      label: i===0?"LAN Host":i===1?"LAN Router":i===2?"Firewall":i===3?"WAN":"Internet",
-                      headers: { 
-                        src: i===0?cLan1.ip:undefined, 
-                        dst: i===trace.hops.length-1?scn.internet.pingTarget:undefined, 
-                        ttl: 64-i,
-                        proto: "ICMP",
-                        size: 64 + (i * 8)
-                      }
-                    })) || []} />
-                    <NatTable entries={cFw.nat?.snat && cLan1.ip ? [{ src: cLan1.ip, to: cFw.nat.snat.toIp, iface: cFw.nat.snat.outIface }]: []} />
-                  </div>
-                </CollapsibleSection>
-                <CollapsibleSection title="Achievements" icon="🏆" defaultOpen={false}>
-                  <AchievementGallery earned={achievements} />
-                </CollapsibleSection>
-              </div>
-              <div className="mt-2 flex gap-2 text-xs sticky bottom-0 bg-white/95 backdrop-blur-sm pt-2">
-                <button onClick={()=>{ commitLan1(); commitLan2(); commitDmz1(); commitDmz2(); commitLanRouter(); commitFirewall(); }} className="px-3 py-1 border rounded bg-slate-900 text-white hover:bg-slate-800">Commit All (Ctrl+Enter)</button>
-                <button onClick={()=>{
-                  if (cLanR.gw) setCLanR(r=>({ ...r, gw: "192.168.1.254" }));
-                  else if (cFw.ifaces.wan) setCFw(f=>({ ...f, ifaces:{...f.ifaces, wan: "203.0.114.2"}}));
-                  else setCLan1(h=>({ ...h, gw: "192.168.2.1" }));
-                }} className="px-2 py-1 border rounded hover:bg-slate-50">Break Something</button>
-              </div>
-            </div>
-          )}
           {activeTab === "Firewall & NAT" && (
             <div className="text-sm">
               <NatFirewallPanel fw={fw} onChange={setFw}/>
@@ -698,6 +630,7 @@ export default function Page() {
       <DeviceEditModal
         open={!!editingDevice}
         device={editingDevice?.type || null}
+        onExec={exec}
         data={(() => {
           if (!editingDevice) return { type: "firewall" as DeviceType, dmz: "", lan: "", wan: "" };
           if (editingDevice.type === "firewall") {
@@ -760,6 +693,7 @@ export default function Page() {
           setWan(updated);
           setWanModalOpen(false);
         }}
+        onExec={exec}
       />
       <LanRouterModal
         isOpen={lanModalOpen}
@@ -769,6 +703,7 @@ export default function Page() {
           setLanR({ ...lanR, lanIp: v.ip1, gw: v.gw });
           setLanModalOpen(false);
         }}
+        onExec={exec}
       />
     </main>
   );
