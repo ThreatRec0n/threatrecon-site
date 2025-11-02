@@ -409,8 +409,8 @@ export default function Page() {
         { id:"FW", x:460, y:360, label:"FIREWALL", ip:cFw.ifaces.wan || undefined, zone:"wan", status: getNodeStatus("FW"), kind:"firewall" as const },
         { id:"WAN_ROUTER", x:460, y:160, label:"WAN GW", ip:wanIp || undefined, zone:"wan", kind:"router" as const },
         { id:"LAN_ROUTER", x:720, y:240, label:"LAN RTR", ip:cLanR.lanIp || undefined, zone:"lan", status: getNodeStatus("LAN_ROUTER"), kind:"router" as const },
-        { id:"LAN1", x:680, y:360, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
-        { id:"LAN2", x:780, y:360, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
+        { id:"LAN1", x:650, y:360, label:"LAN1", ip:cLan1.ip || undefined, zone:"lan", status: getNodeStatus("LAN1"), kind:"laptop" as const },
+        { id:"LAN2", x:790, y:360, label:"LAN2", ip:cLan2.ip || undefined, zone:"lan", status: getNodeStatus("LAN2"), kind:"laptop" as const },
         { id:"INTERNET", x:460, y:80, label:"INTERNET", ip:undefined, zone:"internet", status: "ok" as const, kind:"cloud" as const }
       ],
       links: [
