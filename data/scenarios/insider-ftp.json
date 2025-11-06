@@ -1,0 +1,15 @@
+{
+  "id": "insider-ftp",
+  "title": "Insider data exfil",
+  "summary": "Unusual outbound FTP sessions during off hours.",
+  "objectives": [
+    "Flag anomalous username or host",
+    "Identify destination network",
+    "Recommend a detection rule"
+  ],
+  "datasetHints": [
+    "Use suricata_alerts_small.jsonl",
+    "Filter by ftp or 21"
+  ]
+}
+

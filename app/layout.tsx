@@ -1,18 +1,36 @@
-﻿import type { Metadata } from "next";
-import "./globals.css";
-import { Inter } from "next/font/google";
-
-const inter = Inter({ subsets: ["latin"] });
+import './styles/globals.css';
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
+import Sidebar from '@/components/Sidebar';
 
 export const metadata: Metadata = {
-  title: "Network Connectivity Simulator",
-  description: "Learn to connect DMZ/LAN/WAN with static IPv4, NAT and firewall rules."
+  title: 'Threat Hunt Lab | Professional SIEM Training Platform',
+  description: 'Hands-on threat hunting scenarios with realistic log analysis. Train on professional SIEM interfaces.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className="dark">
+      <body className="min-h-screen bg-[#0d1117] text-[#c9d1d9] antialiased">
+        <div className="flex h-screen overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <header className="h-14 border-b border-[#30363d] bg-[#161b22] flex items-center px-6">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></div>
+                <span className="text-sm text-[#8b949e]">Threat Hunt Lab</span>
+                <span className="text-xs text-[#484f58]">|</span>
+                <span className="text-xs text-[#8b949e]">Professional SIEM Training</span>
+              </div>
+            </header>
+            <main className="flex-1 overflow-y-auto bg-[#0d1117]">
+              <div className="max-w-[1920px] mx-auto p-6">
+                {children}
+              </div>
+            </main>
+          </div>
+        </div>
+      </body>
     </html>
   );
 }

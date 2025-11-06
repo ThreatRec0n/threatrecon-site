@@ -1,0 +1,7 @@
+{"timestamp":"2024-01-01T03:14:15Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET POLICY FTP Login Attempt"}}
+{"timestamp":"2024-01-01T03:20:00Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET INFO FTP Data Channel"}}
+{"timestamp":"2024-01-01T03:25:30Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET POLICY FTP Login Attempt"}}
+{"timestamp":"2024-01-01T03:30:45Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET INFO FTP Data Channel"}}
+{"timestamp":"2024-01-01T03:35:20Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET POLICY FTP Login Attempt"}}
+{"timestamp":"2024-01-01T03:40:10Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET INFO FTP Data Channel"}}
+

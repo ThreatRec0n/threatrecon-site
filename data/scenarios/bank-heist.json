@@ -1,0 +1,15 @@
+{
+  "id": "bank-heist",
+  "title": "Bank heist beaconing",
+  "summary": "A workstation begins periodic connections to an external IP after a phishing click.",
+  "objectives": [
+    "Identify suspected beacon destination",
+    "Propose a containment step",
+    "List one host triage command"
+  ],
+  "datasetHints": [
+    "Use zeek_conn_small.jsonl",
+    "Look for periodic low byte-count connections"
+  ]
+}
+
