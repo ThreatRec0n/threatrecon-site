@@ -2,8 +2,25 @@
 
 import type { SIEMEvent, Severity } from './siem-types';
 
+function isPrivateIP(ip: string): boolean {
+  if (!ip) return false;
+  // RFC1918 quick check
+  return (
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)
+  );
+}
+
 export function enrichEvent(raw: any, index: number): SIEMEvent {
   const id = `event-${Date.now()}-${index}`;
+  
+  // Hoist derived fields used across rules - null-safe defaults
+  const srcIp = (raw?.src_ip ?? raw?.['id.orig_h'] ?? raw?.source ?? raw?.src ?? '') as string;
+  const dstIp = (raw?.dest_ip ?? raw?.['id.resp_h'] ?? raw?.destination ?? raw?.dst ?? '') as string;
+  const sbytes = Number(raw?.bytes_toserver ?? raw?.tx_bytes ?? raw?.orig_bytes ?? 0);
+  const dbytes = Number(raw?.bytes_toclient ?? raw?.rx_bytes ?? raw?.resp_bytes ?? 0);
+  const bytes = sbytes + dbytes;
   
   // Determine event type and severity from signature/content
   let severity: Severity = 'info';
@@ -12,7 +29,7 @@ export function enrichEvent(raw: any, index: number): SIEMEvent {
   let category = '';
   
   // Suricata alerts
-  if (raw.alert?.signature) {
+  if (raw?.alert?.signature) {
     signature = raw.alert.signature;
     eventType = 'alert';
     
@@ -34,15 +51,13 @@ export function enrichEvent(raw: any, index: number): SIEMEvent {
   }
   
   // Zeek connections - look for suspicious patterns
-  if (raw['id.orig_h'] && raw['id.resp_h']) {
+  if (raw?.['id.orig_h'] && raw?.['id.resp_h']) {
     eventType = 'connection';
     
     // Small, periodic connections = potential beaconing
-    const bytes = Number(raw.orig_bytes) || 0;
-    if (bytes > 0 && bytes < 200) {
+    if (sbytes > 0 && sbytes < 200) {
       // Check if external IP (not RFC 1918)
-      const dstIp = raw['id.resp_h'];
-      if (!isPrivateIP(dstIp)) {
+      if (dstIp && !isPrivateIP(dstIp)) {
         severity = 'high';
         category = 'Potential C2';
         signature = 'Suspicious low-byte outbound connection';
@@ -50,8 +65,8 @@ export function enrichEvent(raw: any, index: number): SIEMEvent {
     }
     
     // Large outbound = potential exfiltration
-    if (bytes > 10000) {
-      if (!isPrivateIP(dstIp)) {
+    if (sbytes > 10000) {
+      if (dstIp && !isPrivateIP(dstIp)) {
         severity = 'medium';
         category = 'Potential Data Exfiltration';
         signature = 'Large outbound data transfer';
@@ -59,10 +74,8 @@ export function enrichEvent(raw: any, index: number): SIEMEvent {
     }
   }
   
-  // Extract network info
-  const srcIp = raw.src_ip || raw['id.orig_h'] || '';
-  const dstIp = raw.dest_ip || raw['id.resp_h'] || '';
-  const timestamp = raw.timestamp || raw.ts || new Date().toISOString();
+  // Extract timestamp
+  const timestamp = raw?.timestamp ?? raw?.ts ?? new Date().toISOString();
   
   return {
     id,
@@ -70,32 +83,18 @@ export function enrichEvent(raw: any, index: number): SIEMEvent {
     severity,
     status: 'new',
     eventType,
-    source: raw._source || (raw.alert ? 'suricata' : 'zeek'),
+    source: raw?._source ?? (raw?.alert ? 'suricata' : 'zeek'),
     srcIp,
     dstIp,
-    srcPort: raw.src_port || raw['id.orig_p'],
-    dstPort: raw.dest_port || raw['id.resp_p'],
-    protocol: raw.proto || 'tcp',
+    srcPort: raw?.src_port ?? raw?.['id.orig_p'],
+    dstPort: raw?.dest_port ?? raw?.['id.resp_p'],
+    protocol: raw?.proto ?? 'tcp',
     signature,
     ruleName: signature,
     category,
-    bytesIn: raw.bytes_toclient || raw.resp_bytes || 0,
-    bytesOut: raw.bytes_toserver || raw.orig_bytes || 0,
+    bytesIn: dbytes,
+    bytesOut: sbytes,
     raw,
     tags: [],
   };
 }
-
-function isPrivateIP(ip: string): boolean {
-  if (!ip) return false;
-  const parts = ip.split('.').map(Number);
-  if (parts.length !== 4) return false;
-  
-  // RFC 1918 private ranges
-  return (
-    parts[0] === 10 ||
-    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-    (parts[0] === 192 && parts[1] === 168)
-  );
-}
-
