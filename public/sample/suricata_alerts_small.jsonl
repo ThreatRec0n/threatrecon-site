@@ -4,4 +4,17 @@
 {"timestamp":"2024-01-01T03:30:45Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET INFO FTP Data Channel"}}
 {"timestamp":"2024-01-01T03:35:20Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET POLICY FTP Login Attempt"}}
 {"timestamp":"2024-01-01T03:40:10Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET INFO FTP Data Channel"}}
-
+{"timestamp":"2024-01-01T09:15:22Z","src_ip":"10.0.1.129","dest_ip":"185.220.101.42","alert":{"signature":"ET MALWARE Known Malware IP"}}
+{"timestamp":"2024-01-01T09:18:45Z","src_ip":"10.0.1.45","dest_ip":"192.0.2.156","alert":{"signature":"ET TROJAN Possible C2 Communication"}}
+{"timestamp":"2024-01-01T09:22:10Z","src_ip":"10.0.1.129","dest_ip":"185.220.101.42","alert":{"signature":"ET MALWARE Known Malware IP"}}
+{"timestamp":"2024-01-01T09:25:33Z","src_ip":"10.0.1.98","dest_ip":"198.18.0.25","alert":{"signature":"ET SCAN Potential Port Scan"}}
+{"timestamp":"2024-01-01T09:28:55Z","src_ip":"10.0.1.45","dest_ip":"192.0.2.156","alert":{"signature":"ET TROJAN Possible C2 Communication"}}
+{"timestamp":"2024-01-01T09:32:18Z","src_ip":"10.0.1.203","dest_ip":"203.0.113.78","alert":{"signature":"ET POLICY Suspicious Outbound Connection"}}
+{"timestamp":"2024-01-01T09:35:42Z","src_ip":"10.0.1.129","dest_ip":"185.220.101.42","alert":{"signature":"ET MALWARE Known Malware IP"}}
+{"timestamp":"2024-01-01T09:40:15Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET INFO FTP Data Channel"}}
+{"timestamp":"2024-01-01T09:43:28Z","src_ip":"10.0.1.156","dest_ip":"198.51.100.89","alert":{"signature":"ET POLICY Suspicious DNS Query"}}
+{"timestamp":"2024-01-01T09:46:50Z","src_ip":"10.0.1.45","dest_ip":"192.0.2.156","alert":{"signature":"ET TROJAN Possible C2 Communication"}}
+{"timestamp":"2024-01-01T09:50:12Z","src_ip":"10.0.1.91","dest_ip":"203.0.113.45","alert":{"signature":"ET SCAN Potential Port Scan"}}
+{"timestamp":"2024-01-01T09:53:35Z","src_ip":"10.0.1.203","dest_ip":"203.0.113.78","alert":{"signature":"ET POLICY Suspicious Outbound Connection"}}
+{"timestamp":"2024-01-01T09:56:58Z","src_ip":"10.0.1.129","dest_ip":"185.220.101.42","alert":{"signature":"ET MALWARE Known Malware IP"}}
+{"timestamp":"2024-01-01T10:00:20Z","src_ip":"10.0.1.77","dest_ip":"203.0.113.25","alert":{"signature":"ET POLICY FTP Login Attempt"}}
