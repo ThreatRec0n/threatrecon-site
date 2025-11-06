@@ -1,0 +1,70 @@
+{
+  "id": "guided-tutorial-1",
+  "title": "Guided Tutorial: Your First Threat Hunt",
+  "difficulty": "guided",
+  "type": "phishing",
+  "order": 0,
+  "narrative": {
+    "background": "You're a new security analyst at TechCorp. It's Monday morning, and you've just received an alert from your SIEM about suspicious email activity. Your senior analyst has asked you to investigate this incident as your first case.",
+    "incident": "An employee reported receiving a suspicious email with an attachment. The email appeared to be from a trusted vendor, but something felt off. The employee didn't open the attachment, but clicked a link in the email.",
+    "yourRole": "Junior Security Analyst - This is your first investigation. Follow the guided steps to learn the basics of threat hunting.",
+    "timeline": "Incident occurred: Friday, 2:30 PM | Reported: Monday, 9:15 AM | Current time: Monday, 9:30 AM"
+  },
+  "logFiles": ["/sample/zeek_conn_small.jsonl"],
+  "logTypes": ["zeek"],
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "What is the first step you should take when investigating a potential phishing incident?",
+      "type": "text",
+      "correctAnswers": ["check email logs", "review email headers", "examine the email", "inspect the message"],
+      "points": 10,
+      "hint": "Think about what evidence you need first - where would the email information be stored?",
+      "explanation": "The first step is to examine the email itself - check email logs, review headers, and inspect the message content for suspicious indicators."
+    },
+    {
+      "id": "q2",
+      "prompt": "In the network logs, what IP address is the suspicious host connecting to?",
+      "type": "ip",
+      "correctAnswers": ["198.51.100.42"],
+      "points": 20,
+      "hint": "Look for connections from internal IPs (10.0.x.x) to external IPs. Check the 'id.resp_h' field in Zeek logs.",
+      "explanation": "The suspicious host 10.0.1.50 is connecting to external IP 198.51.100.42. This is the beacon destination."
+    },
+    {
+      "id": "q3",
+      "prompt": "What pattern do you notice in the connection times?",
+      "type": "text",
+      "correctAnswers": ["periodic", "regular intervals", "every minute", "beaconing", "consistent timing"],
+      "points": 20,
+      "hint": "Look at the timestamps - are they evenly spaced? What does this pattern suggest?",
+      "explanation": "The connections occur every minute at regular intervals (10:00, 10:01, 10:02, etc.). This is a classic beaconing pattern indicating command and control communication."
+    }
+  ],
+  "hints": [
+    "Start by filtering logs for the time period when the incident occurred",
+    "Look for connections from internal IPs (10.0.x.x) to external IPs",
+    "Check the 'proto' field to see what protocol is being used",
+    "Examine the 'orig_bytes' and 'resp_bytes' - small, consistent byte counts suggest beaconing"
+  ],
+  "solution": {
+    "summary": "This was a phishing email that led to malware installation. The malware established a command and control (C2) connection to 198.51.100.42, with periodic beaconing every minute. The small, consistent byte counts (around 120 bytes) are typical of C2 heartbeat messages.",
+    "keyFindings": [
+      "Suspicious host 10.0.1.50 connecting to external IP 198.51.100.42",
+      "Periodic connections every minute (beaconing pattern)",
+      "Small, consistent byte counts (120-123 bytes) indicating C2 communication",
+      "TCP protocol used for communication"
+    ],
+    "mitreTechniques": ["T1071.001", "T1566.001"],
+    "recommendations": [
+      "Isolate the affected host (10.0.1.50) from the network immediately",
+      "Block outbound connections to 198.51.100.42 at the firewall",
+      "Conduct forensic analysis on the host to identify the malware",
+      "Review email security controls to prevent similar incidents",
+      "Update detection rules to flag periodic low-byte connections to external IPs"
+    ]
+  },
+  "estimatedTime": 15,
+  "tags": ["phishing", "beaconing", "c2", "network-analysis"]
+}
+
