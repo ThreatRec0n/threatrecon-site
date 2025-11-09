@@ -7,14 +7,12 @@ import { useRouter } from 'next/navigation';
 const ADMIN_CREDENTIALS = {
   username: 'admin',
   password: 'An0mal0usAcess!@#',
-  twoFactor: '123456', // Simple 2FA for demo
 };
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [twoFactor, setTwoFactor] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -64,13 +62,11 @@ export default function AdminLoginPage() {
     // Sanitize inputs
     const sanitizedUsername = username.trim();
     const sanitizedPassword = password.trim();
-    const sanitized2FA = twoFactor.trim();
 
     // Validate credentials
     if (
       sanitizedUsername === ADMIN_CREDENTIALS.username &&
-      sanitizedPassword === ADMIN_CREDENTIALS.password &&
-      sanitized2FA === ADMIN_CREDENTIALS.twoFactor
+      sanitizedPassword === ADMIN_CREDENTIALS.password
     ) {
       // Correct credentials - trigger honeypot response
       setIsCompromised(true);
@@ -230,25 +226,6 @@ export default function AdminLoginPage() {
               />
             </div>
 
-            {/* 2FA Code */}
-            <div>
-              <label htmlFor="twoFactor" className="block text-sm font-medium text-[#c9d1d9] mb-2">
-                Two-Factor Authentication Code
-              </label>
-              <input
-                id="twoFactor"
-                type="text"
-                value={twoFactor}
-                onChange={(e) => setTwoFactor(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                disabled={isLocked || isCompromised || isLoading}
-                className="w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded text-[#c9d1d9] placeholder-[#8b949e] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed font-mono text-center text-lg tracking-widest"
-                placeholder="000000"
-                maxLength={6}
-                required
-                autoComplete="one-time-code"
-              />
-            </div>
-
             {/* Error Message */}
             {error && (
               <div className={`p-3 rounded border ${
@@ -264,17 +241,6 @@ export default function AdminLoginPage() {
                 )}
               </div>
             )}
-
-            {/* CAPTCHA-style widget (visual only) */}
-            <div className="bg-[#0d1117] border border-[#30363d] rounded p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-[#58a6ff] rounded"></div>
-                  <span className="text-sm text-[#8b949e]">I'm not a robot</span>
-                </div>
-                <div className="text-xs text-[#58a6ff]">✓ Verified</div>
-              </div>
-            </div>
 
             {/* Submit Button */}
             <button
