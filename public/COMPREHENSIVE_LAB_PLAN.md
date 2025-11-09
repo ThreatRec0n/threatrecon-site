@@ -5,10 +5,11 @@ This document outlines how the comprehensive free threat hunting lab plan has be
 ## Core Principles (Fully Implemented)
 
 ### ✅ 100% Free & No Login Required
-- All platform features are accessible without sign-ups
+- **All core platform features are accessible without sign-ups or accounts**
 - Uses exclusively open-source tools and concepts
 - No proprietary or paid dependencies
 - All OSINT links point to free, public resources
+- **Optional account feature**: Sign Up/Sign In buttons only appear when Supabase is configured (for progress syncing across devices). The platform is fully functional without accounts.
 
 ### ✅ Realistic, Authentic Data
 - Multi-stage attack scenarios based on real-world patterns
@@ -145,6 +146,8 @@ This document outlines how the comprehensive free threat hunting lab plan has be
 
 ## Scenario Types (Aligned with Lab Plan)
 
+The platform includes **10+ scenario types** accessible via the Scenario Settings button:
+
 ### 1. APT29 (Cozy Bear) Multi-Day Campaign
 - **Stages**: Initial access → Execution → Persistence → Credential access → Lateral movement → Exfiltration
 - **Learning Objectives**: APT-style campaigns, credential dumping, lateral movement tracking
@@ -162,6 +165,14 @@ This document outlines how the comprehensive free threat hunting lab plan has be
 - **Learning Objectives**: Insider threat detection, user behavior analysis
 - **Data Sources**: Authentication logs, file access logs, network logs
 - **IOCs**: User accounts, external services, data transfer patterns
+
+### Additional Scenario Types
+- **Credential Harvesting**: Steal credentials and use for lateral movement
+- **BEC (Business Email Compromise)**: Sophisticated BEC attack targeting financial transactions
+- **Phishing with Malware Dropper**: Multi-stage phishing delivering malware
+- **Insider Sabotage**: Malicious insider performing destructive actions
+- **Cloud Misconfiguration Breach**: Attack exploiting cloud infrastructure misconfigurations
+- **Supply Chain Compromise**: Attack through compromised third-party software
 
 ## Tool Integration (As Specified in Plan)
 
@@ -186,16 +197,19 @@ This document outlines how the comprehensive free threat hunting lab plan has be
 - SSL/TLS logs
 
 ### OSINT Tools (Direct Links)
-All tools are accessible without login:
-- **VirusTotal**: File hash, IP, domain, URL lookups
+All tools are accessible without login and are integrated into the IOC Enrichment panel:
+- **VirusTotal**: File hash, IP, domain, URL lookups (no login required)
 - **AbuseIPDB**: IP reputation checks
-- **ThreatMiner**: Comprehensive IOC context
+- **ThreatMiner**: Comprehensive IOC context (IPs, domains, hashes)
 - **AlienVault OTX**: Threat intelligence
-- **URLhaus**: Malicious URL database
-- **Hybrid Analysis**: Malware analysis
+- **URLhaus**: Malicious URL database (for domains)
+- **Hybrid Analysis**: Malware analysis (for file hashes)
 - **Pulsedive**: IOC analysis
-- **Shodan**: IP/domain intelligence
-- **WHOIS**: Domain registration info
+- **Shodan**: IP/domain intelligence (for IPs)
+- **WHOIS**: Domain registration info (for domains/IPs)
+- **Cisco Talos Intelligence**: IP reputation (for IPs)
+
+**Note**: All OSINT links open in new tabs and require no authentication. The IOC Enrichment panel automatically shows relevant links based on IOC type (IP, domain, or hash).
 
 ### CyberChef (Referenced)
 - Mentioned in investigation guide
