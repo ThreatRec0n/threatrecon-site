@@ -33,7 +33,7 @@ But I see you too 👀
           }}
         />
       </head>
-      <body className="min-h-screen bg-[#0d1117] text-[#c9d1d9] antialiased">
+      <body className="min-h-screen bg-[#0d1117] text-[#c9d1d9] antialiased pt-14">
         {/* HTML Comment visible in source */}
         <div
           style={{ display: 'none' }}

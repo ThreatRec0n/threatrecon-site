@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
 
 interface Props {
   isOpen: boolean;
@@ -13,7 +13,13 @@ interface Props {
 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', mode: propMode }: Props) {
+  const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<'login' | 'signup'>(propMode || initialMode);
+  
+  // SSR safety: only mount portal on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Update mode when initialMode or propMode changes
   useEffect(() => {
@@ -27,6 +33,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  
+  // Guard: never open if Supabase is not enabled or not mounted
+  if (!isSupabaseEnabled || !isOpen || !mounted) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +127,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
   if (!isOpen) return null;
 
   const modal = (
-    <div className="fixed inset-0 z-[2000]">
+    <div className="fixed inset-0 z-modal">
       <div 
         className="absolute inset-0 bg-black/60" 
         onClick={onClose}

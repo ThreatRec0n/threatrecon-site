@@ -46,6 +46,7 @@ export default function AppHeader() {
                   <button
                     className="rounded-md px-3 py-1.5 text-sm text-[#c9d1d9] hover:bg-[#21262d] transition-colors border border-[#30363d] hover:border-[#58a6ff]"
                     onClick={() => {
+                      if (!isSupabaseEnabled) return; // silent no-op
                       setMode('login');
                       setAuthOpen(true);
                     }}
@@ -56,6 +57,7 @@ export default function AppHeader() {
                   <button
                     className="rounded-md bg-[#58a6ff] px-3 py-1.5 text-sm text-white hover:bg-[#4493f8] transition-colors"
                     onClick={() => {
+                      if (!isSupabaseEnabled) return; // silent no-op
                       setMode('signup');
                       setAuthOpen(true);
                     }}
