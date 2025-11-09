@@ -58,7 +58,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
 
     try {
       if (mode === 'login') {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
+        const supa = getSupabaseClient();
+        if (!supa) {
+          setError('Authentication is not available');
+          setLoading(false);
+          return;
+        }
+        const { data, error: authError } = await supa.auth.signInWithPassword({
           email,
           password,
         });
@@ -86,7 +92,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
           }, 1000);
         }
       } else {
-        const { data, error: authError } = await supabase.auth.signUp({
+        const supa = getSupabaseClient();
+        if (!supa) {
+          setError('Authentication is not available');
+          setLoading(false);
+          return;
+        }
+        const { data, error: authError } = await supa.auth.signUp({
           email,
           password,
         });

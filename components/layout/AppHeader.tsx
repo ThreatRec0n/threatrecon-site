@@ -14,12 +14,12 @@ export default function AppHeader() {
   useEffect(() => {
     if (!isSupabaseEnabled) return;
     
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
+    const supa = getSupabaseClient();
+    if (!supa) return;
 
-    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
+    supa.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
     });
 

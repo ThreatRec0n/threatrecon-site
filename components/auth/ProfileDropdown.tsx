@@ -21,8 +21,8 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
   const handleSync = async () => {
     if (!user) return;
 
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
+    const supa = getSupabaseClient();
+    if (!supa) return;
 
     setSyncing(true);
     setSyncStatus('syncing');
@@ -64,9 +64,9 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
   };
 
   const handleLogout = async () => {
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.auth.signOut();
+    const supa = getSupabaseClient();
+    if (supa) {
+      await supa.auth.signOut();
     }
     setIsOpen(false);
   };
@@ -74,8 +74,8 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
   const handleLoadProgress = async () => {
     if (!user) return;
 
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
+    const supa = getSupabaseClient();
+    if (!supa) return;
 
     setSyncing(true);
     setSyncStatus('syncing');

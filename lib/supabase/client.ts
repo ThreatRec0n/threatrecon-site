@@ -1,66 +1,30 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+// lib/supabase/client.ts
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient | null = null;
 
+// Primary flag used across the app
 export const isSupabaseEnabled =
-  !!process.env.NEXT_PUBLIC_SUPABASE_URL && 
-  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL !== 'your_supabase_project_url' &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'your_supabase_anon_key';
+  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Temporary backward compatibility alias:
+// Compatibility alias for legacy imports
 export const isSupabaseConfigured = isSupabaseEnabled;
 
+// Always access via this function; returns null when disabled or on server
 export function getSupabaseClient(): SupabaseClient | null {
-  if (!isSupabaseEnabled || typeof window === 'undefined') return null;
-  
+  if (!isSupabaseEnabled) return null;
+  if (typeof window === 'undefined') return null;
   if (!client) {
     client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { 
-        auth: { 
-          persistSession: true, 
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-        } 
-      }
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+      { auth: { persistSession: true, autoRefreshToken: true } }
     );
   }
-  
   return client;
 }
 
-// Legacy export for backward compatibility
-export const supabase = {
-  auth: {
-    getSession: async () => {
-      const c = getSupabaseClient();
-      return c ? c.auth.getSession() : { data: { session: null }, error: null };
-    },
-    getUser: async () => {
-      const c = getSupabaseClient();
-      return c ? c.auth.getUser() : { data: { user: null }, error: null };
-    },
-    onAuthStateChange: (callback: any) => {
-      const c = getSupabaseClient();
-      if (!c) {
-        return { data: { subscription: null }, unsubscribe: () => {} };
-      }
-      return c.auth.onAuthStateChange(callback);
-    },
-    signOut: async () => {
-      const c = getSupabaseClient();
-      return c ? c.auth.signOut() : { error: null };
-    },
-    signInWithPassword: async (credentials: any) => {
-      const c = getSupabaseClient();
-      return c ? c.auth.signInWithPassword(credentials) : { data: null, error: { message: 'Supabase not configured' } };
-    },
-    signUp: async (credentials: any) => {
-      const c = getSupabaseClient();
-      return c ? c.auth.signUp(credentials) : { data: null, error: { message: 'Supabase not configured' } };
-    },
-  },
-};
-
+// Hard deprecate any legacy direct client usage
+// (kept only to avoid import crashes if it still exists somewhere)
+export const supabase = null as unknown as SupabaseClient;
