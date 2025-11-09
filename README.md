@@ -2,6 +2,8 @@
 
 An advanced, hands-on threat hunting and SOC simulation platform for training security analysts. Built with realistic attack chains, multi-source log analysis, and professional SOC workflows.
 
+**🎯 The Ultimate Free Hands-On Threat Hunting Lab** - This platform implements the comprehensive blueprint for a free, open-access threat hunting training environment. No login required, no cost, maximum learning value.
+
 ## Features
 
 - **SOC Simulation Dashboard**: Professional-grade threat hunting interface with multi-stage attack scenarios
