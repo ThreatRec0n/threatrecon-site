@@ -54,12 +54,10 @@ But I see you too 👀
 -->`,
           }}
         />
-        <div className="flex flex-col h-screen overflow-hidden">
+        <div className="flex flex-col min-h-screen">
           <AppHeader />
-          <main className="flex-1 overflow-y-auto bg-[#0d1117]">
-            <div className="max-w-[1920px] mx-auto p-6">
-              {children}
-            </div>
+          <main className="flex-1">
+            {children}
           </main>
         </div>
       </body>

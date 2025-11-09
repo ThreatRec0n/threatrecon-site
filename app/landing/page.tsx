@@ -7,44 +7,7 @@ export default function LandingPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-xl font-bold">🛡️</span>
-            </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              ThreatRecon
-            </h1>
-          </div>
-          <nav className="flex items-center gap-4">
-            <Link
-              href="/simulation"
-              className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors font-medium"
-              aria-label="Launch Threat Hunting Simulation"
-            >
-              Launch Simulation
-            </Link>
-            <Link
-              href="/docs"
-              className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-              aria-label="View Documentation"
-            >
-              View Docs
-            </Link>
-            <button
-              onClick={() => router.push('/simulation')}
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl font-semibold"
-              aria-label="Get Started with Threat Hunting"
-            >
-              Get Started
-            </button>
-          </nav>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-14">
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-6 py-20 text-center">
         <div className="max-w-4xl mx-auto">

@@ -38,42 +38,36 @@ export default function AppHeader() {
           </div>
 
           <div className="flex items-center gap-2">
-            {isSupabaseEnabled && user ? (
-              <ProfileDropdown user={user} />
-            ) : (
-              <>
-                <button
-                  className="rounded-md px-3 py-1.5 text-sm text-[#c9d1d9] hover:bg-[#21262d] transition-colors border border-[#30363d] hover:border-[#58a6ff]"
-                  onClick={() => {
-                    if (!isSupabaseEnabled) {
-                      alert('Account features require Supabase configuration. The platform is fully functional without accounts - all features work without signing in.');
-                      return;
-                    }
-                    setMode('login');
-                    setAuthOpen(true);
-                  }}
-                  aria-label="Sign In to your account"
-                  title={!isSupabaseEnabled ? 'Account features require Supabase configuration. Platform works without accounts.' : 'Sign In to your account'}
-                >
-                  Sign In
-                </button>
-                <button
-                  className="rounded-md bg-[#58a6ff] px-3 py-1.5 text-sm text-white hover:bg-[#4493f8] transition-colors"
-                  onClick={() => {
-                    if (!isSupabaseEnabled) {
-                      alert('Account features require Supabase configuration. The platform is fully functional without accounts - all features work without signing in.');
-                      return;
-                    }
-                    setMode('signup');
-                    setAuthOpen(true);
-                  }}
-                  aria-label="Sign Up for a new account"
-                  title={!isSupabaseEnabled ? 'Account features require Supabase configuration. Platform works without accounts.' : 'Sign Up for a new account'}
-                >
-                  Sign Up
-                </button>
-              </>
-            )}
+            {isSupabaseEnabled ? (
+              user ? (
+                <ProfileDropdown user={user} />
+              ) : (
+                <>
+                  <button
+                    className="rounded-md px-3 py-1.5 text-sm text-[#c9d1d9] hover:bg-[#21262d] transition-colors border border-[#30363d] hover:border-[#58a6ff]"
+                    onClick={() => {
+                      if (!isSupabaseEnabled) return;
+                      setMode('login');
+                      setAuthOpen(true);
+                    }}
+                    aria-label="Sign In to your account"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    className="rounded-md bg-[#58a6ff] px-3 py-1.5 text-sm text-white hover:bg-[#4493f8] transition-colors"
+                    onClick={() => {
+                      if (!isSupabaseEnabled) return;
+                      setMode('signup');
+                      setAuthOpen(true);
+                    }}
+                    aria-label="Sign Up for a new account"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )
+            ) : null}
           </div>
         </div>
       </header>
