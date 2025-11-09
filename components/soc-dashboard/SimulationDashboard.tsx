@@ -14,7 +14,6 @@ import InvestigationGuide from './InvestigationGuide';
 import OnboardingModal from './OnboardingModal';
 import ScenarioSelector from './ScenarioSelector';
 import ProgressTracker, { markScenarioCompleted } from './ProgressTracker';
-import ProfileDropdown from '@/components/auth/ProfileDropdown';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
