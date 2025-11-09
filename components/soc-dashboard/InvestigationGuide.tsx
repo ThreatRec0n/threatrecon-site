@@ -209,7 +209,8 @@ export default function InvestigationGuide({ scenarioName, attackStages, isOpen:
       <button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 px-4 py-3 bg-[#58a6ff] text-white rounded-lg shadow-lg hover:bg-[#4493f8] transition-colors z-40 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#0d1117]"
-        aria-label="Open Investigation Guide"
+        aria-label="Open Investigation Guide - View 9-step methodology, tool guides, and stage-specific hints"
+        title="Open Investigation Guide - View methodology, tools, and hints"
       >
         <span aria-hidden="true">📖</span>
         <span className="hidden sm:inline">Investigation Guide</span>

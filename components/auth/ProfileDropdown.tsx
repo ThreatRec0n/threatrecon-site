@@ -165,19 +165,32 @@ export default function ProfileDropdown({ onProgressSync }: Props) {
     }
   };
 
+  // Check if Supabase is configured
+  const isConfigured = typeof window !== 'undefined' && 
+    process.env.NEXT_PUBLIC_SUPABASE_URL && 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL !== 'your_supabase_project_url';
+
+  // Always show auth button, but hide dropdown if not configured
   return (
     <>
       <div className="relative">
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => {
+            if (!isConfigured) {
+              setShowAuthModal(true);
+            } else {
+              setIsOpen(!isOpen);
+            }
+          }}
           className="flex items-center gap-2 px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-          aria-label="User Profile"
+          aria-label={user ? "User Profile" : "Sign In"}
           aria-expanded={isOpen}
         >
           {user ? (
             <>
-              <span className="text-lg">👤</span>
-              <span className="hidden sm:inline">{user.email?.split('@')[0]}</span>
+              <span className="text-lg">🔒</span>
+              <span className="hidden sm:inline">Account</span>
             </>
           ) : (
             <>
@@ -187,7 +200,7 @@ export default function ProfileDropdown({ onProgressSync }: Props) {
           )}
         </button>
 
-        {isOpen && (
+        {isOpen && isConfigured && (
           <>
             <div
               className="fixed inset-0 z-40"
@@ -257,16 +270,18 @@ export default function ProfileDropdown({ onProgressSync }: Props) {
         )}
       </div>
 
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => {
-          setShowAuthModal(false);
-          if (onProgressSync) {
-            setTimeout(() => handleSync(), 1000);
-          }
-        }}
-      />
+      {isConfigured && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (onProgressSync) {
+              setTimeout(() => handleSync(), 1000);
+            }
+          }}
+        />
+      )}
     </>
   );
 }

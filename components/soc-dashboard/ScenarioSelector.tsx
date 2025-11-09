@@ -18,6 +18,11 @@ const SCENARIO_TYPES = [
   { id: 'insider-threat', name: 'Insider Threat', description: 'Data exfiltration by legitimate user account' },
   { id: 'credential-harvesting', name: 'Credential Harvesting', description: 'Steal credentials and use for lateral movement' },
   { id: 'ransomware-deployment', name: 'Ransomware Deployment', description: 'Full ransomware attack chain' },
+  { id: 'bec-compromise', name: 'BEC (Business Email Compromise)', description: 'Sophisticated BEC attack targeting financial transactions' },
+  { id: 'phishing-malware-dropper', name: 'Phishing with Malware Dropper', description: 'Multi-stage phishing delivering malware via attachments' },
+  { id: 'insider-sabotage', name: 'Insider Sabotage', description: 'Malicious insider performing destructive actions' },
+  { id: 'cloud-misconfiguration', name: 'Cloud Misconfiguration Breach', description: 'Attack exploiting cloud infrastructure misconfigurations' },
+  { id: 'supply-chain-compromise', name: 'Supply Chain Compromise', description: 'Attack through compromised third-party software' },
 ];
 
 export default function ScenarioSelector({ isOpen, onClose, onRegenerate }: Props) {

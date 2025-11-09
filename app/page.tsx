@@ -7,8 +7,8 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to SOC Simulation Mode
-    router.push('/simulation');
+    // Redirect to landing page
+    router.push('/landing');
   }, [router]);
 
   return (

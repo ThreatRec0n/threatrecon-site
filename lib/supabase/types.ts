@@ -23,5 +23,15 @@ export interface UserProfile {
   id: string;
   email: string;
   created_at: string;
+  role?: 'user' | 'admin' | 'moderator'; // RBAC role
 }
+
+// RBAC role definitions
+export type UserRole = 'user' | 'admin' | 'moderator';
+
+export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  user: ['view_simulation', 'complete_scenarios', 'view_leaderboard', 'sync_progress'],
+  moderator: ['view_simulation', 'complete_scenarios', 'view_leaderboard', 'sync_progress', 'moderate_content', 'view_analytics'],
+  admin: ['view_simulation', 'complete_scenarios', 'view_leaderboard', 'sync_progress', 'moderate_content', 'view_analytics', 'manage_users', 'system_config'],
+};
 

@@ -432,7 +432,8 @@ export default function SimulationDashboard() {
                     ? 'bg-yellow-900/40 text-yellow-400 border-yellow-800/60'
                     : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff]'
                 } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-[#58a6ff]`}
-                aria-label="Toggle Timed Mode"
+                aria-label={timedMode ? "Timed mode is ON - Your investigation time is being tracked" : "Timed mode is OFF - Click to enable timed challenge mode"}
+                title={timedMode ? "Timed mode enabled - Your completion time will be recorded" : "Enable timed mode to track your investigation speed"}
               >
                 {timedMode ? '⏱️ Timed ON' : '⏱️ Timed OFF'}
               </button>
@@ -441,7 +442,8 @@ export default function SimulationDashboard() {
               <button
                 onClick={() => setShowScenarioSelector(true)}
                 className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-                aria-label="Open Scenario Settings"
+                aria-label="Open Scenario Settings - Customize attack scenario type, stages, and noise level"
+                title="Customize scenario type, attack stages, and noise level"
               >
                 🧬 Scenario Settings
               </button>
@@ -449,7 +451,8 @@ export default function SimulationDashboard() {
               <a
                 href="/leaderboard"
                 className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-                aria-label="View Leaderboard"
+                aria-label="View Leaderboard - See top scores and timed challenge results"
+                title="View leaderboard with top scores and timed challenge results"
               >
                 🏆 Leaderboard
               </a>
@@ -460,24 +463,25 @@ export default function SimulationDashboard() {
               }} />
               
               <div className="relative group">
-                <button
-                  className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-                  aria-label="Documentation Menu"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      const menu = document.getElementById('docs-menu');
-                      if (menu) {
-                        menu.classList.toggle('opacity-0');
-                        menu.classList.toggle('invisible');
-                      }
+              <button
+                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                aria-label="Documentation Menu - View lab plans and documentation"
+                aria-haspopup="true"
+                aria-expanded="false"
+                title="View documentation and lab plans"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const menu = document.getElementById('docs-menu');
+                    if (menu) {
+                      menu.classList.toggle('opacity-0');
+                      menu.classList.toggle('invisible');
                     }
-                  }}
-                >
-                  📚 Docs
-                </button>
+                  }
+                }}
+              >
+                📚 Docs
+              </button>
                 <div
                   id="docs-menu"
                   className="absolute top-full left-0 mt-1 w-56 bg-[#161b22] border border-[#30363d] rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50"
@@ -514,48 +518,57 @@ export default function SimulationDashboard() {
                     ? 'bg-[#58a6ff] text-[#0d1117] border-[#58a6ff]'
                     : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
                 } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-[#58a6ff]`}
-                aria-label={`Toggle Learning Mode ${learningMode ? 'OFF' : 'ON'}`}
+                aria-label={`Toggle Learning Mode ${learningMode ? 'OFF' : 'ON'} - Show MITRE technique definitions and detection tips`}
+                title={learningMode ? "Learning mode ON - Click to hide educational overlays" : "Learning mode OFF - Click to show MITRE definitions and detection tips"}
               >
                 📘 Learning {learningMode ? 'ON' : 'OFF'}
               </button>
               <button
                 onClick={() => setActiveView(activeView === 'mitre' ? 'main' : 'mitre')}
-                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
+                className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                   activeView === 'mitre'
                     ? 'bg-purple-900/40 text-purple-400 border-purple-800/60'
                     : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-purple-800/60'
                 }`}
+                aria-label={activeView === 'mitre' ? "Close MITRE ATT&CK Navigator and return to main view" : "Open MITRE ATT&CK Navigator - View attack techniques matrix"}
+                title={activeView === 'mitre' ? "Close MITRE Navigator" : "View MITRE ATT&CK techniques matrix for this scenario"}
               >
                 🎯 ATT&CK Navigator
               </button>
               <button
                 onClick={() => setActiveView(activeView === 'purple' ? 'main' : 'purple')}
-                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
+                className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${
                   activeView === 'purple'
                     ? 'bg-orange-900/40 text-orange-400 border-orange-800/60'
                     : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-orange-800/60'
                 }`}
+                aria-label={activeView === 'purple' ? "Close Purple Team Mode and return to main view" : "Open Purple Team Mode - Execute attacks and test detections"}
+                title={activeView === 'purple' ? "Close Purple Team Mode" : "Purple Team Mode - Execute Atomic Red Team techniques and test detections"}
               >
                 🟣 Purple Team
               </button>
               <button
                 onClick={() => setActiveView(activeView === 'rules' ? 'main' : 'rules')}
-                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
+                className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 ${
                   activeView === 'rules'
                     ? 'bg-green-900/40 text-green-400 border-green-800/60'
                     : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-green-800/60'
                 }`}
+                aria-label={activeView === 'rules' ? "Close Detection Rule Builder and return to main view" : "Open Detection Rule Builder - Create Sigma, YARA, and KQL rules"}
+                title={activeView === 'rules' ? "Close Detection Rule Builder" : "Detection Rule Builder - Create and test detection rules (Sigma, YARA, KQL)"}
               >
                 📝 Detection Rules
               </button>
               <button
                 onClick={handleFinalizeInvestigation}
                 disabled={isLocked || isSubmitting}
-                className={`px-4 py-1.5 rounded border text-sm font-semibold transition-colors ${
+                className={`px-4 py-1.5 rounded border text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 ${
                   isLocked
                     ? 'bg-gray-700 text-gray-400 border-gray-600 cursor-not-allowed'
                     : 'bg-green-600 text-white border-green-700 hover:bg-green-700'
                 }`}
+                aria-label={isLocked ? "Investigation already finalized" : "Finalize investigation and view evaluation report with score and skill badge"}
+                title={isLocked ? "Investigation has been finalized" : "Submit your investigation for evaluation and receive a score with skill badge"}
               >
                 {isSubmitting ? 'Submitting...' : isLocked ? 'Locked' : '✅ Finalize Investigation'}
               </button>

@@ -59,10 +59,27 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
         if (data.user) {
           onSuccess();
           onClose();
+          // Redirect to simulation after successful login
+          if (typeof window !== 'undefined') {
+            setTimeout(() => {
+              window.location.href = '/simulation';
+            }, 500);
+          }
         }
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      // Show clearer error messages
+      if (err.message?.includes('Invalid login')) {
+        setError('Invalid email or password. Please check your credentials and try again.');
+      } else if (err.message?.includes('Email not confirmed')) {
+        setError('Please check your email and verify your account before signing in.');
+      } else if (err.message?.includes('Password')) {
+        setError('Password must be at least 8 characters long.');
+      } else if (err.message?.includes('already registered')) {
+        setError('An account with this email already exists. Please sign in instead.');
+      } else {
+        setError(err.message || 'An error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -78,6 +95,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
       aria-labelledby="auth-title"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
       }}
     >
       <div className="bg-[#161b22] border border-[#30363d] rounded-lg max-w-md w-full shadow-2xl">
