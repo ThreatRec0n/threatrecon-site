@@ -26,6 +26,41 @@ export default function EvaluationReport({ result, onClose, onNewInvestigation }
     return 'Needs Improvement';
   };
 
+  const getSkillLevel = (score: number): { title: string; emoji: string; badge: string; color: string } => {
+    if (score >= 90) {
+      return {
+        title: 'Incident Commander',
+        emoji: '🔥',
+        badge: 'bg-red-900/40 text-red-400 border-red-800/60',
+        color: 'text-red-400',
+      };
+    }
+    if (score >= 70) {
+      return {
+        title: 'Threat Hunter',
+        emoji: '🕵️‍♂️',
+        badge: 'bg-purple-900/40 text-purple-400 border-purple-800/60',
+        color: 'text-purple-400',
+      };
+    }
+    if (score >= 50) {
+      return {
+        title: 'SOC Analyst',
+        emoji: '🛡️',
+        badge: 'bg-blue-900/40 text-blue-400 border-blue-800/60',
+        color: 'text-blue-400',
+      };
+    }
+    return {
+      title: 'Analyst in Training',
+      emoji: '📚',
+      badge: 'bg-yellow-900/40 text-yellow-400 border-yellow-800/60',
+      color: 'text-yellow-400',
+    };
+  };
+
+  const skillLevel = getSkillLevel(result.score);
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-[#161b22] border border-[#30363d] rounded-lg max-w-5xl w-full max-h-[90vh] overflow-y-auto">
@@ -50,6 +85,13 @@ export default function EvaluationReport({ result, onClose, onNewInvestigation }
               </div>
               <div className={`text-lg font-semibold mt-1 ${getScoreColor(result.score)}`}>
                 {getScoreLabel(result.score)}
+              </div>
+              {/* Skill Level Badge */}
+              <div className="mt-3">
+                <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded border text-sm font-semibold ${skillLevel.badge}`}>
+                  <span>{skillLevel.emoji}</span>
+                  <span>{skillLevel.title}</span>
+                </span>
               </div>
             </div>
             <div className="grid grid-cols-4 gap-4">
@@ -265,6 +307,49 @@ export default function EvaluationReport({ result, onClose, onNewInvestigation }
           {activeTab === 'recommendations' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-[#c9d1d9] mb-4">Recommendations</h3>
+              
+              {/* High Score Suggestion */}
+              {result.score > 80 && (
+                <div className="bg-green-900/20 border border-green-800/40 rounded p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-green-400 text-xl">🎯</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-green-400 mb-1">Excellent Performance!</p>
+                      <p className="text-sm text-[#c9d1d9]">
+                        You're ready for more challenging scenarios. Try a harder scenario with more attack stages
+                        or higher noise level to further develop your threat hunting skills.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MITRE Links for Missed Detections */}
+              {result.missedIOCs.length > 0 && (
+                <div className="bg-blue-900/20 border border-blue-800/40 rounded p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-blue-400 text-xl">📚</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-400 mb-2">Learn More About Missed Techniques</p>
+                      <div className="space-y-2">
+                        {Array.from(new Set(result.missedIOCs.map(ioc => ioc.technique_id).filter((id): id is string => Boolean(id)))).map((techId) => (
+                          <a
+                            key={techId}
+                            href={`https://attack.mitre.org/techniques/${techId.replace('.', '/')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-sm text-[#58a6ff] hover:text-[#79c0ff] hover:underline"
+                          >
+                            → View MITRE ATT&CK: {techId}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* General Recommendations */}
               <div className="space-y-3">
                 {result.recommendations.map((rec, idx) => (
                   <div key={idx} className="bg-[#0d1117] p-4 rounded border border-[#30363d]">
@@ -291,7 +376,7 @@ export default function EvaluationReport({ result, onClose, onNewInvestigation }
             onClick={onNewInvestigation}
             className="btn-primary"
           >
-            Start New Investigation
+            Try Again
           </button>
         </div>
       </div>

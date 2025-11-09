@@ -11,6 +11,9 @@ import MitreNavigator from './MitreNavigator';
 import PurpleTeamMode from './PurpleTeamMode';
 import DetectionRuleBuilder, { type DetectionRule } from '@/components/DetectionRuleBuilder';
 import InvestigationGuide from './InvestigationGuide';
+import OnboardingModal from './OnboardingModal';
+import ScenarioSelector from './ScenarioSelector';
+import ProgressTracker, { markScenarioCompleted } from './ProgressTracker';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -48,6 +51,9 @@ export default function SimulationDashboard() {
   const [detectedTechniques, setDetectedTechniques] = useState<string[]>([]);
   const [savedRules, setSavedRules] = useState<DetectionRule[]>([]);
   const [showScenarioIntro, setShowScenarioIntro] = useState(true);
+  const [showScenarioSelector, setShowScenarioSelector] = useState(false);
+  const [currentScenarioType, setCurrentScenarioType] = useState<string>('');
+  const [investigationGuideOpen, setInvestigationGuideOpen] = useState(false);
 
   // Initialize simulation on mount
   useEffect(() => {
@@ -55,7 +61,11 @@ export default function SimulationDashboard() {
   }, []);
 
   // Initialize simulation
-  const initializeSimulation = async () => {
+  const initializeSimulation = async (config?: {
+    story_type?: string;
+    stages?: number;
+    noise_level?: 'low' | 'medium' | 'high';
+  }) => {
     setLoading(true);
     setError(null);
     setIsLocked(false);
@@ -66,16 +76,21 @@ export default function SimulationDashboard() {
     setShowScenarioIntro(true);
 
     try {
+      const storyType = config?.story_type || ['ransomware-deployment', 'apt29-cozy-bear', 'credential-harvesting', 'ransomware-lockbit', 'insider-threat'][Math.floor(Math.random() * 5)];
+      const noiseCount = config?.noise_level === 'low' ? 25 : config?.noise_level === 'high' ? 100 : 50;
+
+      setCurrentScenarioType(storyType);
+
       const response = await fetch('/api/simulation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'initialize',
           config: {
-            story_type: ['ransomware-deployment', 'apt29-cozy-bear', 'credential-harvesting', 'ransomware-lockbit', 'insider-threat'][Math.floor(Math.random() * 5)] as any,
+            story_type: storyType,
             difficulty: 'intermediate',
             add_noise: true,
-            noise_count: 50,
+            noise_count: noiseCount,
           },
         }),
       });
@@ -93,6 +108,15 @@ export default function SimulationDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle scenario regeneration
+  const handleRegenerateScenario = (config: {
+    story_type: string;
+    stages: number;
+    noise_level: 'low' | 'medium' | 'high';
+  }) => {
+    initializeSimulation(config);
   };
 
   // Get unique stages from events
@@ -179,6 +203,11 @@ export default function SimulationDashboard() {
 
       setEvaluationResult(result);
       
+      // Mark scenario as completed
+      if (currentScenarioType) {
+        markScenarioCompleted(currentScenarioType);
+      }
+      
       // Update detected techniques based on evaluation
       const detected = new Set<string>();
       session.events.forEach(event => {
@@ -232,7 +261,7 @@ export default function SimulationDashboard() {
         <div className="max-w-2xl w-full siem-card text-center space-y-4">
           <div className="text-red-400 text-xl">⚠️ Error Loading Simulation</div>
           <p className="text-[#8b949e]">{error}</p>
-          <button onClick={initializeSimulation} className="btn-primary">
+          <button onClick={() => initializeSimulation()} className="btn-primary">
             Retry
           </button>
         </div>
@@ -250,7 +279,7 @@ export default function SimulationDashboard() {
             Advanced threat hunting and investigation training environment. Analyze multi-stage attack chains,
             correlate events across log sources, and identify malicious IOCs using professional SOC workflows.
           </p>
-          <button onClick={initializeSimulation} className="btn-primary px-8 py-3 text-lg">
+          <button onClick={() => initializeSimulation()} className="btn-primary px-8 py-3 text-lg">
             Start New Investigation
           </button>
         </div>
@@ -290,6 +319,14 @@ export default function SimulationDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <ProgressTracker />
+              <button
+                onClick={() => setShowScenarioSelector(true)}
+                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                aria-label="Open Scenario Settings"
+              >
+                🧬 Scenario Settings
+              </button>
               <div className="relative group">
                 <button
                   className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
@@ -592,6 +629,25 @@ export default function SimulationDashboard() {
       <InvestigationGuide
         scenarioName={currentScenario?.name || 'Active Investigation'}
         attackStages={stages}
+        isOpen={investigationGuideOpen}
+        onOpenChange={setInvestigationGuideOpen}
+      />
+
+      {/* Onboarding Modal */}
+      <OnboardingModal
+        onOpenGuide={() => {
+          setInvestigationGuideOpen(true);
+        }}
+        onStart={() => {
+          // Modal will close itself
+        }}
+      />
+
+      {/* Scenario Selector */}
+      <ScenarioSelector
+        isOpen={showScenarioSelector}
+        onClose={() => setShowScenarioSelector(false)}
+        onRegenerate={handleRegenerateScenario}
       />
     </div>
   );

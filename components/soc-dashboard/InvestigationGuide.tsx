@@ -5,10 +5,20 @@ import { useState } from 'react';
 interface Props {
   scenarioName: string;
   attackStages: string[];
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function InvestigationGuide({ scenarioName, attackStages }: Props) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function InvestigationGuide({ scenarioName, attackStages, isOpen: controlledIsOpen, onOpenChange }: Props) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+  const setIsOpen = (open: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(open);
+    } else {
+      setInternalIsOpen(open);
+    }
+  };
   const [activeSection, setActiveSection] = useState<'overview' | 'methodology' | 'tools' | 'hints'>('overview');
   const [expandedToolCategory, setExpandedToolCategory] = useState<string | null>(null);
   const [toolSearchQuery, setToolSearchQuery] = useState('');
