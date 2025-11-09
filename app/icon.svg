@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Eye shape - simplified for small size -->
+  <ellipse cx="50" cy="50" rx="38" ry="24" fill="#58a6ff" stroke="#4493f8" stroke-width="2"/>
+  <!-- Pupil -->
+  <circle cx="50" cy="50" r="14" fill="#0d1117"/>
+  <!-- Highlight -->
+  <circle cx="56" cy="44" r="5" fill="#ffffff" opacity="0.9"/>
+</svg>

@@ -5,6 +5,10 @@ import type { ReactNode } from 'react';
 export const metadata: Metadata = {
   title: 'Threat Hunt Lab | Professional SIEM Training Platform',
   description: 'Hands-on threat hunting scenarios with realistic log analysis. Train on professional SIEM interfaces.',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
