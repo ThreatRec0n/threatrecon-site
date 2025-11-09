@@ -6,8 +6,8 @@ import { lookupThreatIntel } from '@/lib/threat-intel';
 import ThreatIntelPanel from './ThreatIntelPanel';
 import CaseManagement from './CaseManagement';
 import LogSearchPanel from './LogSearchPanel';
-import DetectionRuleBuilder from './DetectionRuleBuilder';
 import AlertClassificationPanel from './AlertClassificationPanel';
+import DashboardVisualizations from './DashboardVisualizations';
 
 interface Props {
   scenarioId?: string;
@@ -17,7 +17,8 @@ interface Props {
 }
 
 export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events = [], onAlertClassify }: Props) {
-  const [activeTab, setActiveTab] = useState<'alerts' | 'logs' | 'cases' | 'rules' | 'dashboard'>('alerts');
+  const [activeTab, setActiveTab] = useState<'alerts' | 'logs' | 'cases' | 'dashboard'>('dashboard');
+  const [selectedIPs, setSelectedIPs] = useState<Set<string>>(new Set());
   const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<SIEMEvent | null>(null);
   const [cases, setCases] = useState<IncidentCase[]>([]);
@@ -50,7 +51,7 @@ export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events 
     <div className="space-y-4">
       {/* Tab Navigation */}
       <div className="flex items-center gap-2 border-b border-[#30363d]">
-        {(['dashboard', 'alerts', 'logs', 'cases', 'rules'] as const).map(tab => (
+        {(['dashboard', 'alerts', 'logs', 'cases'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -87,40 +88,33 @@ export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events 
               <div className="text-2xl font-bold text-green-400">{stats.falsePositives}</div>
             </div>
           </div>
-          
-          {/* MITRE ATT&CK Coverage */}
-          <div className="siem-card">
-            <h3 className="text-lg font-semibold text-[#c9d1d9] mb-4">MITRE ATT&CK Coverage</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {['Initial Access', 'Execution', 'Persistence', 'Command and Control'].map(tactic => {
-                const count = alerts.filter(a => a.mitreTactics?.includes(tactic)).length;
-                return (
-                  <div key={tactic} className="bg-[#0d1117] p-3 rounded border border-[#30363d]">
-                    <div className="text-xs text-[#8b949e]">{tactic}</div>
-                    <div className="text-xl font-bold text-[#c9d1d9]">{count}</div>
+
+          {/* Marked Malicious IPs */}
+          {selectedIPs.size > 0 && (
+            <div className="siem-card border-l-4 border-red-500">
+              <h3 className="text-lg font-semibold text-[#c9d1d9] mb-3">🎯 Marked Malicious IPs</h3>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(selectedIPs).map(ip => (
+                  <div key={ip} className="flex items-center gap-2 px-3 py-2 bg-red-900/40 border border-red-800/60 rounded">
+                    <span className="font-mono text-sm text-red-400">{ip}</span>
+                    <button
+                      onClick={() => setSelectedIPs(prev => {
+                        const next = new Set(prev);
+                        next.delete(ip);
+                        return next;
+                      })}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      ✕
+                    </button>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
-          
-          {/* Top Alerting Hosts */}
-          <div className="siem-card">
-            <h3 className="text-lg font-semibold text-[#c9d1d9] mb-4">Top Alerting Hosts</h3>
-            <div className="space-y-2">
-              {Array.from(new Set(alerts.map(a => a.hostname).filter(Boolean)))
-                .slice(0, 5)
-                .map(hostname => {
-                  const count = alerts.filter(a => a.hostname === hostname).length;
-                  return (
-                    <div key={hostname} className="flex items-center justify-between p-2 bg-[#0d1117] rounded">
-                      <span className="text-sm text-[#c9d1d9] font-mono">{hostname}</span>
-                      <span className="text-sm text-[#8b949e]">{count} alerts</span>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
+          )}
+
+          {/* All Visualizations */}
+          <DashboardVisualizations events={events} alerts={alerts} />
         </div>
       )}
       
@@ -145,14 +139,37 @@ export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events 
       
       {/* Logs Tab */}
       {activeTab === 'logs' && (
-        <LogSearchPanel
-          events={events}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          timeRange={timeRange}
-          onTimeRangeChange={setTimeRange}
-          onSelectEvent={setSelectedEvent}
-        />
+        <div className="space-y-4">
+          <LogSearchPanel
+            events={events}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            onSelectEvent={setSelectedEvent}
+            selectedIPs={selectedIPs}
+            onToggleIP={(ip) => {
+              setSelectedIPs(prev => {
+                const next = new Set(prev);
+                if (next.has(ip)) {
+                  next.delete(ip);
+                } else {
+                  next.add(ip);
+                }
+                return next;
+              });
+            }}
+          />
+          {selectedEvent && (
+            <EventDetailsPanel
+              event={selectedEvent}
+              onClose={() => setSelectedEvent(null)}
+              onMarkIP={(ip: string) => {
+                setSelectedIPs(prev => new Set([...prev, ip]));
+              }}
+            />
+          )}
+        </div>
       )}
       
       {/* Cases Tab */}
@@ -178,11 +195,6 @@ export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events 
         />
       )}
       
-      {/* Rules Tab */}
-      {activeTab === 'rules' && (
-        <DetectionRuleBuilder />
-      )}
-      
       {/* Threat Intel Lookup Modal */}
       {threatIntelLookup && (
         <ThreatIntelPanel
@@ -204,8 +216,159 @@ function AlertDetailsPanel({ alert, onClose, onThreatIntelLookup }: any) {
           <button onClick={onClose} className="text-[#8b949e] hover:text-[#c9d1d9]">✕</button>
         </div>
         <div className="p-6 space-y-4">
-          {/* Alert details, MITRE mapping, threat intel, etc. */}
-          {/* Implementation details... */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-[#8b949e] mb-1">Severity</div>
+              <span className={`px-2 py-1 text-xs font-medium rounded border ${
+                alert.severity === 'critical' ? 'bg-red-900/40 text-red-400 border-red-800/60' :
+                alert.severity === 'high' ? 'bg-orange-900/40 text-orange-400 border-orange-800/60' :
+                alert.severity === 'medium' ? 'bg-yellow-900/40 text-yellow-400 border-yellow-800/60' :
+                'bg-blue-900/40 text-blue-400 border-blue-800/60'
+              }`}>
+                {alert.severity.toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <div className="text-xs text-[#8b949e] mb-1">Timestamp</div>
+              <div className="text-sm text-[#c9d1d9]">{new Date(alert.timestamp).toLocaleString()}</div>
+            </div>
+            {alert.srcIp && (
+              <div>
+                <div className="text-xs text-[#8b949e] mb-1">Source IP</div>
+                <div className="text-sm font-mono text-[#58a6ff]">{alert.srcIp}</div>
+              </div>
+            )}
+            {alert.dstIp && (
+              <div>
+                <div className="text-xs text-[#8b949e] mb-1">Destination IP</div>
+                <div className="text-sm font-mono text-[#58a6ff]">{alert.dstIp}</div>
+                <button
+                  onClick={() => onThreatIntelLookup?.({ type: 'ip', value: alert.dstIp })}
+                  className="text-xs text-[#58a6ff] hover:underline mt-1"
+                >
+                  Lookup Threat Intel
+                </button>
+              </div>
+            )}
+            {alert.hostname && (
+              <div>
+                <div className="text-xs text-[#8b949e] mb-1">Hostname</div>
+                <div className="text-sm text-[#c9d1d9]">{alert.hostname}</div>
+              </div>
+            )}
+            {alert.username && (
+              <div>
+                <div className="text-xs text-[#8b949e] mb-1">Username</div>
+                <div className="text-sm text-[#c9d1d9]">{alert.username}</div>
+              </div>
+            )}
+          </div>
+          
+          {alert.mitreTechniques && alert.mitreTechniques.length > 0 && (
+            <div>
+              <div className="text-xs text-[#8b949e] mb-2">MITRE ATT&CK Techniques</div>
+              <div className="flex flex-wrap gap-2">
+                {alert.mitreTechniques.map((tech: string) => (
+                  <span key={tech} className="px-2 py-1 text-xs bg-[#0d1117] border border-[#30363d] rounded text-[#58a6ff] font-mono">
+                    {tech}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {alert.keyIndicators && alert.keyIndicators.length > 0 && (
+            <div>
+              <div className="text-xs text-[#8b949e] mb-2">Key Indicators</div>
+              <ul className="list-disc list-inside space-y-1">
+                {alert.keyIndicators.map((indicator: string, idx: number) => (
+                  <li key={idx} className="text-sm text-[#c9d1d9]">{indicator}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {alert.threatIntelMatches && alert.threatIntelMatches.length > 0 && (
+            <div>
+              <div className="text-xs text-[#8b949e] mb-2">Threat Intelligence Matches</div>
+              <div className="space-y-2">
+                {alert.threatIntelMatches.map((match: any, idx: number) => (
+                  <div key={idx} className="bg-[#0d1117] p-3 rounded border border-[#30363d]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold text-[#c9d1d9]">{match.source}</span>
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        match.reputation === 'malicious' ? 'bg-red-900/40 text-red-400 border border-red-800/60' :
+                        'bg-gray-700/40 text-gray-400 border border-gray-600/60'
+                      }`}>
+                        {match.reputation}
+                      </span>
+                    </div>
+                    {match.description && (
+                      <div className="text-xs text-[#8b949e]">{match.description}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {alert.explanation && (
+            <div>
+              <div className="text-xs text-[#8b949e] mb-2">Explanation</div>
+              <div className="text-sm text-[#c9d1d9] bg-[#0d1117] p-3 rounded border border-[#30363d]">
+                {alert.explanation}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EventDetailsPanel({ event, onClose, onMarkIP }: any) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-[#30363d] flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-[#c9d1d9]">Event Details</h3>
+          <button onClick={onClose} className="text-[#8b949e] hover:text-[#c9d1d9]">✕</button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-[#8b949e] mb-1">Timestamp</div>
+              <div className="text-sm text-[#c9d1d9]">{new Date(event.timestamp).toLocaleString()}</div>
+            </div>
+            <div>
+              <div className="text-xs text-[#8b949e] mb-1">Event Type</div>
+              <div className="text-sm text-[#c9d1d9]">{event.eventType}</div>
+            </div>
+            <div>
+              <div className="text-xs text-[#8b949e] mb-1">Source IP</div>
+              <div className="text-sm font-mono text-[#58a6ff]">{event.sourceIP}</div>
+            </div>
+            <div>
+              <div className="text-xs text-[#8b949e] mb-1">Destination IP</div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-mono text-[#58a6ff]">{event.destinationIP}</span>
+                {!event.destinationIP?.startsWith('10.') && !event.destinationIP?.startsWith('192.168.') && (
+                  <button
+                    onClick={() => onMarkIP?.(event.destinationIP)}
+                    className="text-xs px-2 py-1 bg-red-900/40 text-red-400 border border-red-800/60 rounded hover:bg-red-900/60"
+                  >
+                    Mark as Malicious
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-[#8b949e] mb-1">Message</div>
+            <div className="text-sm text-[#c9d1d9] bg-[#0d1117] p-3 rounded border border-[#30363d]">
+              {event.message || '-'}
+            </div>
+          </div>
         </div>
       </div>
     </div>
