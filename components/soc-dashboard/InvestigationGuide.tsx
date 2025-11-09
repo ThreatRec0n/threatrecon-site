@@ -70,39 +70,84 @@ export default function InvestigationGuide({ scenarioName, attackStages }: Props
 
   const toolGuide = {
     'Wireshark': {
-      description: 'Network protocol analyzer for examining packet captures (PCAP files). In this platform, network events are shown in Zeek logs.',
-      useCase: 'Analyze network connections, identify C2 beaconing, find data exfiltration patterns.',
-      tip: 'Look for periodic connections, unusual ports, and large data transfers.',
+      description: 'Network protocol analyzer for examining packet captures (PCAP files). In this platform, network events are shown in Zeek logs. Essential skill for threat analysts.',
+      useCase: 'Analyze network connections, identify C2 beaconing, find data exfiltration patterns. Follow TCP streams to see full conversations.',
+      tip: 'Look for periodic connections, unusual ports, and large data transfers. Filter by IP address to isolate traffic from suspect hosts.',
+    },
+    'Network Miner': {
+      description: 'Free PCAP artifact extractor that automatically extracts files, credentials, and host information from network traffic. Complements Wireshark analysis.',
+      useCase: 'Extract files transferred over network, identify credentials in traffic, get quick overview of network artifacts.',
+      tip: 'Use Network Miner to quickly identify suspicious file transfers or credential dumps in network traffic.',
     },
     'Sysmon': {
-      description: 'System Monitor provides detailed Windows security logging. Events show process creation, network connections, file operations.',
-      useCase: 'Track process execution chains, identify malicious binaries, detect persistence mechanisms.',
-      tip: 'Focus on Event ID 1 (Process Create), Event ID 3 (Network Connect), and Event ID 13 (Registry modifications).',
+      description: 'System Monitor provides detailed Windows security logging. Events show process creation, network connections, file operations, and registry changes.',
+      useCase: 'Track process execution chains, identify malicious binaries, detect persistence mechanisms, monitor network connections from processes.',
+      tip: 'Focus on Event ID 1 (Process Create), Event ID 3 (Network Connect), Event ID 13 (Registry modifications), and Event ID 10 (Process Access).',
     },
     'Zeek': {
-      description: 'Network analysis framework that generates structured logs from network traffic. Provides connection, HTTP, DNS logs.',
-      useCase: 'Identify C2 communications, analyze DNS queries, detect suspicious HTTP patterns.',
-      tip: 'Look for connections to external IPs, unusual DNS queries, and HTTP requests to unknown domains.',
+      description: 'Network analysis framework that generates structured logs from network traffic. Provides connection, HTTP, DNS, SSL logs for easier analysis than raw packets.',
+      useCase: 'Identify C2 communications, analyze DNS queries, detect suspicious HTTP patterns, search for specific domains or IPs.',
+      tip: 'Look for connections to external IPs, unusual DNS queries, and HTTP requests to unknown domains. Zeek logs make searching easier than raw PCAP.',
+    },
+    'Security Onion': {
+      description: 'All-in-one Linux distribution for threat monitoring. Includes Zeek, Suricata, ELK stack, and analysis tools pre-configured.',
+      useCase: 'Complete network security monitoring solution. Captures and analyzes network traffic with IDS/IPS capabilities.',
+      tip: 'Security Onion provides a ready-to-use environment for network monitoring and threat hunting.',
+    },
+    'SIEM (Splunk/ELK)': {
+      description: 'Security Information and Event Management systems for centralized log search and analysis. Splunk (free tier) or ELK Stack (open-source) provide fast searching across thousands of events.',
+      useCase: 'Search Windows event logs, correlate events across time, identify patterns in large datasets, build dashboards for visualization.',
+      tip: 'Use queries to find specific Event IDs, search for keywords, filter by time ranges, and correlate events from multiple sources.',
+    },
+    'Windows Event Log Viewer': {
+      description: 'Built-in Windows tool or EVTX Explorer (free GUI) for inspecting raw Windows event logs outside of SIEM.',
+      useCase: 'Examine Security, System, and Application logs. View detailed event properties and filter by Event ID.',
+      tip: 'Event ID 4624 (successful logon), 4625 (failed logon), 4688 (process creation) are key for threat hunting.',
+    },
+    'Sysinternals Suite': {
+      description: 'Free Microsoft tools for Windows system analysis. Includes Process Explorer, Autoruns, Procmon, and more.',
+      useCase: 'Live system analysis, identify autorun entries, examine running processes, monitor registry/file changes.',
+      tip: 'Autoruns shows all startup programs. Process Explorer shows process trees and loaded DLLs. Essential for host analysis.',
     },
     'VirusTotal': {
-      description: 'Free threat intelligence service. Search file hashes, IPs, domains, and URLs to check reputation.',
-      useCase: 'Validate if a file hash is known malware, check if an IP is associated with attacks.',
-      tip: 'Multiple AV detections indicate high confidence. Check community comments for context.',
+      description: 'Free threat intelligence service. Search file hashes, IPs, domains, and URLs to check reputation against 70+ antivirus engines.',
+      useCase: 'Validate if a file hash is known malware, check if an IP is associated with attacks, get malware family names.',
+      tip: 'Multiple AV detections indicate high confidence. Check community comments for context. No login required for basic searches.',
     },
     'AbuseIPDB': {
-      description: 'IP reputation database. Check if an IP address has been reported for malicious activity.',
-      useCase: 'Validate external IP addresses found in network logs.',
-      tip: 'High abuse confidence scores indicate known malicious IPs.',
+      description: 'IP reputation database. Check if an IP address has been reported for malicious activity by the community.',
+      useCase: 'Validate external IP addresses found in network logs. Get abuse confidence scores.',
+      tip: 'High abuse confidence scores indicate known malicious IPs. Free to search without account.',
     },
     'ThreatMiner': {
-      description: 'Threat intelligence aggregator. Provides context on IOCs including related malware, campaigns, and infrastructure.',
-      useCase: 'Get comprehensive context on domains, IPs, and hashes. See relationships between indicators.',
-      tip: 'Use the graph view to see how IOCs relate to each other and known threat actors.',
+      description: 'Threat intelligence aggregator. Provides context on IOCs including related malware, campaigns, and infrastructure relationships.',
+      useCase: 'Get comprehensive context on domains, IPs, and hashes. See relationships between indicators and threat actors.',
+      tip: 'Use the graph view to see how IOCs relate to each other and known threat actors. Excellent for pivoting.',
+    },
+    'Automater': {
+      description: 'Free Python-based OSINT tool that automates threat intelligence lookups. Aggregates data from VirusTotal, AbuseIPDB, and other sources.',
+      useCase: 'Quick OSINT on IPs, URLs, and hashes. Get consolidated reports from multiple sources in one command.',
+      tip: 'Run: python automater.py -h <hash> or -i <ip> to get comprehensive intel. Saves time on manual lookups.',
+    },
+    'APT-Hunter': {
+      description: 'Open-source tool for hunting through Windows event logs with automated detection. Maps findings to MITRE ATT&CK framework.',
+      useCase: 'Automatically detect APT behavior in logs, validate manual findings, learn automated hunting techniques.',
+      tip: 'Run APT-Hunter on event logs to get automated suspicious activity reports. Compare with manual findings to identify gaps.',
+    },
+    'Volatility': {
+      description: 'Free memory forensics framework for analyzing memory dumps. Identifies injected processes, dumped credentials, and malware artifacts.',
+      useCase: 'Analyze memory dumps from infected systems, find fileless malware, extract credentials from memory.',
+      tip: 'Advanced tool for memory analysis. Use when investigating sophisticated attacks or fileless malware.',
     },
     'CyberChef': {
-      description: 'Data transformation tool. Decode Base64, hex, analyze encodings, and perform data conversions.',
-      useCase: 'Decode PowerShell encoded commands, analyze obfuscated strings, convert data formats.',
-      tip: 'Many attackers use Base64 encoding. CyberChef can decode it instantly.',
+      description: 'Data transformation tool. Decode Base64, hex, analyze encodings, and perform data conversions. Runs in browser.',
+      useCase: 'Decode PowerShell encoded commands, analyze obfuscated strings, convert data formats, extract indicators.',
+      tip: 'Many attackers use Base64 encoding. CyberChef can decode it instantly. Also useful for extracting IOCs from encoded data.',
+    },
+    'MITRE ATT&CK': {
+      description: 'Free knowledge base of adversary tactics and techniques. Framework for understanding and categorizing attack behaviors.',
+      useCase: 'Map findings to attack techniques, understand adversary methodology, communicate findings using common language.',
+      tip: 'Every malicious action maps to a MITRE technique. Use ATT&CK Navigator to visualize attack chains.',
     },
   };
 
