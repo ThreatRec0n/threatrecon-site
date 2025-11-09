@@ -1,13 +1,17 @@
-﻿# Threat Hunt Lab
+﻿# ThreatRecon SOC Training Platform
 
-A hands-on threat hunting platform for analyzing security logs and practicing investigation scenarios.
+An advanced, hands-on threat hunting and SOC simulation platform for training security analysts. Built with realistic attack chains, multi-source log analysis, and professional SOC workflows.
 
 ## Features
 
-- **Interactive Log Viewer**: Upload and analyze JSONL, CSV, and JSON log files
-- **Scenario-Based Training**: Practice threat hunting with curated scenarios
-- **Real-time Filtering**: Search and filter logs by keywords, IPs, signatures, etc.
-- **Sample Datasets**: Included Zeek and Suricata log samples for practice
+- **SOC Simulation Dashboard**: Professional-grade threat hunting interface with multi-stage attack scenarios
+- **MITRE ATT&CK Integration**: Full technique mapping and visualization
+- **Purple Team Mode**: Execute Atomic Red Team techniques and test detection rules
+- **Detection Rule Builder**: Create and test Sigma, YARA, KQL, and Splunk rules
+- **IOC Tagging & Enrichment**: Tag and enrich indicators with threat intelligence
+- **Learning Mode**: Educational overlays with MITRE explanations and detection guidance
+- **Evaluation Engine**: Comprehensive scoring and feedback system
+- **Multi-Source Log Analysis**: Sysmon, Zeek, Suricata, and EDR logs
 
 ## Tech Stack
 
@@ -48,22 +52,28 @@ npm start
 
 ```
 ├── app/
-│   ├── layout.tsx          # Root layout with navigation
-│   ├── page.tsx            # Home page with log viewer
-│   ├── scenarios/
-│   │   └── page.tsx        # Scenarios listing page
-│   └── styles/
-│       └── globals.css     # Global styles
+│   ├── layout.tsx              # Root layout
+│   ├── page.tsx                # Home page (redirects to /simulation)
+│   ├── simulation/
+│   │   └── page.tsx            # SOC Simulation Dashboard
+│   └── api/
+│       └── simulation/        # Simulation engine API
 ├── components/
-│   ├── LogViewer.tsx       # Interactive log analysis component
-│   ├── ScenarioCard.tsx   # Scenario display component
-│   └── ScenarioRunner.tsx  # Scenario question/answer component
-├── data/
-│   └── scenarios/          # Scenario definitions (JSON)
+│   ├── soc-dashboard/          # SOC dashboard components
+│   │   ├── SimulationDashboard.tsx
+│   │   ├── LogExplorer.tsx
+│   │   ├── IOCTaggingPanel.tsx
+│   │   ├── TimelinePanel.tsx
+│   │   ├── MitreNavigator.tsx
+│   │   ├── PurpleTeamMode.tsx
+│   │   └── EvaluationReport.tsx
+│   └── DetectionRuleBuilder.tsx
 ├── lib/
-│   └── parsers/            # Log parsing utilities
+│   ├── simulation-engine/     # Core simulation engine
+│   ├── evaluation-engine/      # Investigation scoring
+│   ├── log-generators/        # Log generation (Sysmon, Zeek)
+│   └── attack-simulators/     # Atomic Red Team execution
 └── public/
-    └── sample/             # Sample log files
 ```
 
 ## Adding Scenarios

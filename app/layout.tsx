@@ -1,7 +1,6 @@
 import './styles/globals.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import ProgressTracker from '@/components/ProgressTracker';
 
 export const metadata: Metadata = {
   title: 'Threat Hunt Lab | Professional SIEM Training Platform',
@@ -68,7 +67,6 @@ But I see you too 👀
               {children}
             </div>
           </main>
-          <ProgressTracker />
         </div>
       </body>
     </html>

@@ -2,8 +2,6 @@
 
 import type { Severity, Status } from './siem-types';
 
-export type DifficultyLevel = 'grasshopper' | 'beginner' | 'intermediate' | 'advanced';
-
 export type ScenarioType = 
   | 'malware-infection'
   | 'insider-threat'
@@ -136,127 +134,7 @@ export interface DetectionRule {
   timeWindow?: string;
 }
 
-export interface Scenario {
-  id: string;
-  title: string;
-  difficulty: DifficultyLevel;
-  type: ScenarioType;
-  order: number;
-  
-  narrative: {
-    background: string;
-    incident: string;
-    yourRole: string;
-    timeline: string;
-  };
-  
-  // Randomized data
-  seed?: number; // For randomization
-  randomizedIps?: {
-    malicious: string[];
-    benign: string[];
-  };
-  randomizedDomains?: {
-    malicious: string[];
-    benign: string[];
-  };
-  randomizedHashes?: {
-    malicious: string[];
-    benign: string[];
-  };
-  
-  // Alerts in this scenario (mix of true positives and false positives)
-  alerts: SecurityAlert[];
-  
-  // Log data
-  logFiles: string[];
-  logTypes: string[];
-  
-  questions: Question[];
-  hints?: string[];
-  
-  solution: {
-    summary: string;
-    keyFindings: string[];
-    mitreTechniques: string[];
-    recommendations: string[];
-    truePositives: string[]; // Alert IDs
-    falsePositives: string[]; // Alert IDs
-  };
-  
-  estimatedTime: number;
-  tags: string[];
-  
-  // Grading configuration
-  showFeedback: boolean; // Only true for beginner/guided
-  gradingCriteria: {
-    classificationWeight: number;
-    investigationWeight: number;
-    timeWeight: number;
-  };
-}
-
-export interface InvestigationResult {
-  scenarioId: string;
-  alertClassifications: Record<string, AlertClassification>;
-  answers: Record<string, string>;
-  timeSpent: number; // seconds
-  score: number;
-  maxScore: number;
-  percentage: number;
-  breakdown: {
-    classifications: {
-      correct: number;
-      incorrect: number;
-      missed: number; // False negatives
-      falseAlarms: number; // False positives marked as true positives
-    };
-    questions: Array<{
-      questionId: string;
-      score: number;
-      maxScore: number;
-      correct: boolean;
-    }>;
-  };
-  feedback?: {
-    missedThreats: Array<{
-      alertId: string;
-      alertName: string;
-      indicators: string[];
-      explanation: string;
-    }>;
-    falseAlarms: Array<{
-      alertId: string;
-      alertName: string;
-      whyFalsePositive: string;
-      indicators: string[];
-    }>;
-    correctClassifications: Array<{
-      alertId: string;
-      alertName: string;
-      whyCorrect: string;
-    }>;
-  };
-}
-
-export interface Question {
-  id: string;
-  prompt: string;
-  type: 'text' | 'ip' | 'domain' | 'hash' | 'command';
-  correctAnswers: string[]; // Multiple acceptable answers for keyword matching
-  points: number;
-  hint?: string;
-  explanation?: string; // Shown after answering
-}
-
-export interface UserProgress {
-  completedScenarios: string[];
-  scores: Record<string, number>; // scenarioId -> score
-  timeSpent: Record<string, number>; // scenarioId -> seconds
-  achievements: string[];
-  currentScenario?: string;
-  startTime?: number;
-}
+// Classic game mode types removed - platform now uses SOC Simulation Mode only
 
 export interface LogFilter {
   timeRange?: {

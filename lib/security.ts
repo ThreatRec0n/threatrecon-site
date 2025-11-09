@@ -43,91 +43,8 @@ export function validateAlertClassification(value: string): boolean {
   return validClassifications.includes(value);
 }
 
-/**
- * Validates difficulty level
- */
-export function validateDifficultyLevel(value: string): boolean {
-  const validLevels = ['grasshopper', 'beginner', 'intermediate', 'advanced'];
-  return validLevels.includes(value);
-}
 
-/**
- * Creates a hash of game state for integrity checking
- */
-export function hashGameState(state: any): string {
-  const str = JSON.stringify(state);
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(36);
-}
-
-/**
- * Validates game result integrity
- */
-export function validateGameResult(result: any, expectedHash?: string): boolean {
-  if (!result || typeof result !== 'object') return false;
-  
-  // Validate required fields
-  if (typeof result.score !== 'number' || result.score < 0 || result.score > 100) return false;
-  if (typeof result.timeSpent !== 'number' || result.timeSpent < 0) return false;
-  if (!Array.isArray(result.foundIPs)) return false;
-  
-  // Validate IPs in foundIPs
-  for (const ip of result.foundIPs) {
-    if (!validateIP(ip)) return false;
-  }
-  
-  // If hash provided, validate integrity
-  if (expectedHash) {
-    const currentHash = hashGameState({
-      score: result.score,
-      foundIPs: result.foundIPs.sort(),
-      timeSpent: result.timeSpent,
-    });
-    return currentHash === expectedHash;
-  }
-  
-  return true;
-}
-
-/**
- * Detects if DevTools are open (basic detection)
- */
-export function detectDevTools(): boolean {
-  if (typeof window === 'undefined') return false;
-  
-  // Check console object
-  let devtools = false;
-  const element = new Image();
-  Object.defineProperty(element, 'id', {
-    get: function() {
-      devtools = true;
-      return 'devtools-detector';
-    }
-  });
-  
-  // Check window dimensions (DevTools often changes this)
-  const widthThreshold = window.outerWidth - window.innerWidth > 160;
-  const heightThreshold = window.outerHeight - window.innerHeight > 160;
-  
-  return devtools || widthThreshold || heightThreshold;
-}
-
-/**
- * Validates timestamp to prevent time manipulation
- */
-export function validateTimestamp(timestamp: number, startTime: number, maxDuration: number): boolean {
-  const now = Date.now();
-  const elapsed = (now - startTime) / 1000; // Convert to seconds
-  
-  // Check if elapsed time is reasonable (within 10% tolerance)
-  const expectedMax = maxDuration * 1.1;
-  return elapsed >= 0 && elapsed <= expectedMax;
-}
+// Classic game mode validation functions removed - platform now uses SOC Simulation Mode only
 
 /**
  * Rate limiting helper (client-side)
@@ -163,26 +80,7 @@ export class RateLimiter {
   }
 }
 
-/**
- * Validates scenario data structure
- */
-export function validateScenario(scenario: any): boolean {
-  if (!scenario || typeof scenario !== 'object') return false;
-  
-  // Required fields
-  if (!scenario.id || typeof scenario.id !== 'string') return false;
-  if (!scenario.difficulty || !validateDifficultyLevel(scenario.difficulty)) return false;
-  if (!Array.isArray(scenario.alerts)) return false;
-  
-  // Validate alerts
-  for (const alert of scenario.alerts) {
-    if (!alert.id || typeof alert.id !== 'string') return false;
-    if (!validateAlertClassification(alert.correctClassification || 'unclassified')) return false;
-    if (alert.dstIp && !validateIP(alert.dstIp)) return false;
-  }
-  
-  return true;
-}
+// Classic game mode scenario validation removed - platform now uses SOC Simulation Mode only
 
 /**
  * Sanitizes search query
