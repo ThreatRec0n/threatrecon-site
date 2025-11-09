@@ -125,9 +125,7 @@ export default function LogSearchPanel({
                     <div className="flex items-center gap-2">
                       <span className={`log-mono ${
                         selectedIPs.has(event.destinationIP) 
-                          ? maliciousIPs.includes(event.destinationIP)
-                            ? 'text-green-400 font-bold' 
-                            : 'text-red-400 font-bold'
+                          ? 'text-orange-400 font-bold' // Just show it's marked, not if it's correct
                           : 'text-[#58a6ff]'
                       }`}>
                         {event.destinationIP}
@@ -143,18 +141,12 @@ export default function LogSearchPanel({
                           }}
                           className={`text-xs px-2 py-1 rounded ${
                             selectedIPs.has(event.destinationIP)
-                              ? maliciousIPs.includes(event.destinationIP)
-                                ? 'bg-green-900/40 text-green-400 border border-green-800/60'
-                                : 'bg-red-900/40 text-red-400 border border-red-800/60'
+                              ? 'bg-orange-900/40 text-orange-400 border border-orange-800/60' // Neutral color during gameplay
                               : 'bg-[#0d1117] text-[#8b949e] border border-[#30363d] hover:bg-[#161b22]'
                           }`}
                         >
                           {selectedIPs.has(event.destinationIP) 
-                            ? showFeedback && maliciousIPs.includes(event.destinationIP)
-                              ? '✓ Correct'
-                              : showFeedback
-                              ? '✗ Wrong'
-                              : '✓ Marked'
+                            ? 'Marked'
                             : 'Mark Bad'}
                         </button>
                       )}

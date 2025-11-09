@@ -239,15 +239,37 @@ export default function Home() {
               </div>
             </div>
 
-            {gameResult.foundIPs.length > 0 && (
+            {gameResult.foundIPs && gameResult.foundIPs.length > 0 && (
               <div>
-                <div className="text-xs text-[#8b949e] mb-2">Malicious IPs Identified:</div>
+                <div className="text-xs text-green-400 mb-2 font-semibold">✓ Correctly Identified Malicious IPs:</div>
                 <div className="space-y-1">
                   {gameResult.foundIPs.map((ip: string) => (
-                    <div key={ip} className="font-mono text-sm text-[#58a6ff] bg-[#0d1117] p-2 rounded">
+                    <div key={ip} className="font-mono text-sm text-green-400 bg-green-900/20 border border-green-800/40 p-2 rounded">
                       {ip}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {gameResult.missedIPs && gameResult.missedIPs.length > 0 && (
+              <div>
+                <div className="text-xs text-red-400 mb-2 font-semibold">✗ Missed Malicious IPs:</div>
+                <div className="space-y-1">
+                  {gameResult.missedIPs.map((ip: string) => (
+                    <div key={ip} className="font-mono text-sm text-red-400 bg-red-900/20 border border-red-800/40 p-2 rounded">
+                      {ip}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {gameResult.falsePositives > 0 && (
+              <div>
+                <div className="text-xs text-orange-400 mb-2 font-semibold">⚠ Incorrectly Marked IPs (False Positives):</div>
+                <div className="text-sm text-[#8b949e]">
+                  You marked {gameResult.falsePositives} IP{gameResult.falsePositives !== 1 ? 's' : ''} as malicious that were actually benign.
                 </div>
               </div>
             )}

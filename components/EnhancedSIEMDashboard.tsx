@@ -124,32 +124,22 @@ export default function EnhancedSIEMDashboard({
 
           {/* Marked Malicious IPs */}
           {markedIPs.size > 0 && (
-            <div className="siem-card border-l-4 border-red-500">
+            <div className="siem-card border-l-4 border-orange-500">
               <h3 className="text-lg font-semibold text-[#c9d1d9] mb-3">🎯 Marked Malicious IPs</h3>
               <div className="flex flex-wrap gap-2">
                 {Array.from(markedIPs).map(ip => {
-                  const isCorrect = maliciousIPs.includes(ip);
                   return (
                     <div 
                       key={ip} 
-                      className={`flex items-center gap-2 px-3 py-2 border rounded ${
-                        isCorrect 
-                          ? 'bg-green-900/40 border-green-800/60' 
-                          : 'bg-red-900/40 border-red-800/60'
-                      }`}
+                      className="flex items-center gap-2 px-3 py-2 border rounded bg-orange-900/40 border-orange-800/60"
                     >
-                      <span className={`font-mono text-sm ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className="font-mono text-sm text-orange-400">
                         {ip}
                       </span>
-                      {showFeedback && (
-                        <span className="text-xs">
-                          {isCorrect ? '✓ Correct' : '✗ Incorrect'}
-                        </span>
-                      )}
                       {onIPMarked && (
                         <button
                           onClick={() => onIPMarked(ip)}
-                          className={`${isCorrect ? 'text-green-400' : 'text-red-400'} hover:opacity-70`}
+                          className="text-orange-400 hover:opacity-70"
                         >
                           ✕
                         </button>
@@ -158,12 +148,9 @@ export default function EnhancedSIEMDashboard({
                   );
                 })}
               </div>
-              {showFeedback && maliciousIPs.length > 0 && (
-                <div className="mt-3 text-xs text-[#8b949e]">
-                  {Array.from(markedIPs).filter(ip => maliciousIPs.includes(ip)).length} correct, {' '}
-                  {Array.from(markedIPs).filter(ip => !maliciousIPs.includes(ip)).length} incorrect
-                </div>
-              )}
+              <div className="mt-3 text-sm text-[#8b949e]">
+                {markedIPs.size} IP{markedIPs.size !== 1 ? 's' : ''} marked
+              </div>
             </div>
           )}
 
@@ -431,15 +418,9 @@ function EventDetailsPanel({ event, onClose, onMarkIP, maliciousIPs = [], showFe
                  !event.destinationIP?.startsWith('172.') && (
                   <button
                     onClick={() => onMarkIP?.(event.destinationIP)}
-                    className={`text-xs px-2 py-1 border rounded hover:opacity-70 ${
-                      maliciousIPs.includes(event.destinationIP)
-                        ? 'bg-green-900/40 text-green-400 border-green-800/60'
-                        : 'bg-red-900/40 text-red-400 border-red-800/60'
-                    }`}
+                    className="text-xs px-2 py-1 border rounded hover:opacity-70 bg-orange-900/40 text-orange-400 border-orange-800/60"
                   >
-                    {showFeedback && maliciousIPs.includes(event.destinationIP)
-                      ? '✓ Correct IP'
-                      : 'Mark as Malicious'}
+                    Mark as Malicious
                   </button>
                 )}
               </div>

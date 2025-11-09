@@ -367,16 +367,16 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
       </div>
 
       {/* SIEM Dashboard */}
-      <EnhancedSIEMDashboard
-        scenarioId={scenario.id}
-        alerts={scenario.alerts}
-        events={events}
-        onAlertClassify={handleAlertClassify}
-        markedIPs={markedIPs}
-        onIPMarked={handleIPMarked}
-        maliciousIPs={maliciousIPs}
-        showFeedback={scenario.showFeedback}
-      />
+                  <EnhancedSIEMDashboard
+                    scenarioId={scenario.id}
+                    alerts={scenario.alerts}
+                    events={events}
+                    onAlertClassify={handleAlertClassify}
+                    markedIPs={markedIPs}
+                    onIPMarked={handleIPMarked}
+                    maliciousIPs={maliciousIPs}
+                    showFeedback={false} // Never show feedback during gameplay, only at end
+                  />
     </div>
   );
 }
