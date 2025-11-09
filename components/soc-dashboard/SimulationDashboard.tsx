@@ -10,6 +10,7 @@ import EvaluationReport from './EvaluationReport';
 import MitreNavigator from './MitreNavigator';
 import PurpleTeamMode from './PurpleTeamMode';
 import DetectionRuleBuilder, { type DetectionRule } from '@/components/DetectionRuleBuilder';
+import InvestigationGuide from './InvestigationGuide';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -545,6 +546,12 @@ export default function SimulationDashboard() {
           }}
         />
       )}
+
+      {/* Investigation Guide */}
+      <InvestigationGuide
+        scenarioName={currentScenario?.name || 'Active Investigation'}
+        attackStages={stages}
+      />
     </div>
   );
 }

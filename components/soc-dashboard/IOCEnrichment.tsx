@@ -230,56 +230,138 @@ export default function IOCEnrichment({ ioc, type, onClose }: Props) {
             </div>
           )}
 
-          {/* External Links */}
+          {/* External Links - Comprehensive OSINT Resources */}
           <div className="pt-3 border-t border-[#30363d]">
-            <h4 className="text-xs font-semibold text-[#8b949e] mb-2">External Lookups</h4>
-            <div className="flex flex-wrap gap-2">
-              <a
-                href={`https://www.virustotal.com/gui/search/${ioc}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
-              >
-                VirusTotal →
-              </a>
-              {type === 'ip' && (
-                <>
+            <h4 className="text-xs font-semibold text-[#8b949e] mb-2">Free OSINT Lookups (No Login Required)</h4>
+            <div className="space-y-2">
+              <div>
+                <div className="text-xs font-semibold text-[#c9d1d9] mb-1">Primary Sources:</div>
+                <div className="flex flex-wrap gap-2">
                   <a
-                    href={`https://www.abuseipdb.com/check/${ioc}`}
+                    href={`https://www.virustotal.com/gui/search/${ioc}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
+                    className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
                   >
-                    AbuseIPDB →
+                    VirusTotal →
                   </a>
                   <a
-                    href={`https://talosintelligence.com/reputation_center/lookup?search=${ioc}`}
+                    href={`https://otx.alienvault.com/indicator/${type}/${ioc}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
+                    className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
                   >
-                    Cisco Talos →
+                    AlienVault OTX →
                   </a>
-                </>
-              )}
-              <a
-                href={`https://otx.alienvault.com/indicator/${type}/${ioc}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
-              >
-                AlienVault OTX →
-              </a>
-              {type === 'hash' && (
-                <a
-                  href={`https://www.hybrid-analysis.com/search?query=${ioc}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
-                >
-                  Hybrid Analysis →
-                </a>
-              )}
+                  {type === 'ip' && (
+                    <>
+                      <a
+                        href={`https://www.abuseipdb.com/check/${ioc}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
+                      >
+                        AbuseIPDB →
+                      </a>
+                      <a
+                        href={`https://www.threatminer.org/domain.php?q=${ioc}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
+                      >
+                        ThreatMiner →
+                      </a>
+                      <a
+                        href={`https://talosintelligence.com/reputation_center/lookup?search=${ioc}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
+                      >
+                        Cisco Talos →
+                      </a>
+                    </>
+                  )}
+                  {type === 'domain' && (
+                    <>
+                      <a
+                        href={`https://www.threatminer.org/domain.php?q=${ioc}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
+                      >
+                        ThreatMiner →
+                      </a>
+                      <a
+                        href={`https://urlhaus.abuse.ch/browse.php?search=${ioc}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
+                      >
+                        URLhaus →
+                      </a>
+                    </>
+                  )}
+                  {type === 'hash' && (
+                    <>
+                      <a
+                        href={`https://www.hybrid-analysis.com/search?query=${ioc}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
+                      >
+                        Hybrid Analysis →
+                      </a>
+                      <a
+                        href={`https://www.threatminer.org/sample.php?q=${ioc}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
+                      >
+                        ThreatMiner →
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-[#c9d1d9] mb-1">Additional Resources:</div>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={`https://pulsedive.com/indicator/?ioc=${ioc}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#8b949e] hover:text-[#58a6ff]"
+                  >
+                    Pulsedive
+                  </a>
+                  {type === 'ip' && (
+                    <a
+                      href={`https://www.shodan.io/host/${ioc}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#8b949e] hover:text-[#58a6ff]"
+                    >
+                      Shodan
+                    </a>
+                  )}
+                  {(type === 'domain' || type === 'ip') && (
+                    <a
+                      href={`https://www.whois.com/whois/${ioc}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#8b949e] hover:text-[#58a6ff]"
+                    >
+                      WHOIS
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="bg-blue-900/20 border border-blue-800/40 rounded p-2 mt-2">
+                <p className="text-xs text-[#8b949e]">
+                  <strong className="text-blue-400">All tools are free and require no login.</strong> These are the same
+                  OSINT resources used by professional threat hunters.
+                </p>
+              </div>
             </div>
           </div>
         </div>
