@@ -281,7 +281,27 @@ export default function Home() {
 
   // Show scenario introduction
   if (!gameStarted && !gameResult) {
-    return <ScenarioIntroduction scenario={gameScenario.scenario} onStart={handleStartGame} />;
+    if (gameScenario?.scenario) {
+      return <ScenarioIntroduction scenario={gameScenario.scenario} onStart={handleStartGame} />;
+    }
+    // If gameScenario is not ready, show loading or return to difficulty selection
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <div className="text-[#8b949e]">Loading scenario...</div>
+          <button
+            onClick={() => {
+              setSelectedPlatform(null);
+              setDifficulty(null);
+              setGameScenario(null);
+            }}
+            className="text-sm text-[#58a6ff] hover:underline"
+          >
+            ← Back to Platform Selection
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Show game results
@@ -387,8 +407,28 @@ export default function Home() {
   }
 
   // Show game
+  if (!gameScenario) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <div className="text-[#8b949e]">Loading scenario...</div>
+          <button
+            onClick={() => {
+              setSelectedPlatform(null);
+              setDifficulty(null);
+              setGameScenario(null);
+            }}
+            className="text-sm text-[#58a6ff] hover:underline"
+          >
+            ← Back to Platform Selection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <ThreatHuntGame 
+    <ThreatHuntGame
       scenario={gameScenario.scenario}
       events={gameScenario.events}
       onComplete={handleGameComplete}
