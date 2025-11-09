@@ -7,7 +7,7 @@ interface Props {
   onSelectDifficulty: (difficulty: DifficultyLevel) => void;
 }
 
-const DIFFICULTY_INFO: Record<'beginner' | 'intermediate' | 'advanced', {
+const DIFFICULTY_INFO: Record<'grasshopper' | 'beginner' | 'intermediate' | 'advanced', {
   title: string;
   description: string;
   timeLimit: number;
@@ -15,6 +15,22 @@ const DIFFICULTY_INFO: Record<'beginner' | 'intermediate' | 'advanced', {
   features: string[];
   color: string;
 }> = {
+  grasshopper: {
+    title: 'Grasshopper',
+    description: 'Complete learning mode with detailed explanations',
+    timeLimit: 45, // minutes
+    maliciousIPs: 3,
+    features: [
+      '3 malicious IPs to find',
+      '45 minutes (no pressure)',
+      'Detailed explanations for everything',
+      'Step-by-step investigation guides',
+      'MITRE ATT&CK technique explanations',
+      'Real-world examples',
+      'Learning mode on all alerts',
+    ],
+    color: 'bg-blue-900/40 text-blue-400 border-blue-800/60',
+  },
   beginner: {
     title: 'Beginner',
     description: 'Perfect for learning the basics',
@@ -57,8 +73,8 @@ export default function DifficultySelector({ onSelectDifficulty }: Props) {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {(['beginner', 'intermediate', 'advanced'] as const).map((difficulty) => {
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {(['grasshopper', 'beginner', 'intermediate', 'advanced'] as const).map((difficulty) => {
             const info = DIFFICULTY_INFO[difficulty];
             return (
               <button

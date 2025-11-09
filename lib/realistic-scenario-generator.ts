@@ -15,6 +15,7 @@ export function generateRealisticScenario(
   
   // Determine number of malicious IPs based on difficulty
   const maliciousIPCount = 
+    baseScenario.difficulty === 'grasshopper' ? 3 :
     baseScenario.difficulty === 'beginner' ? 3 :
     baseScenario.difficulty === 'intermediate' ? 2 :
     1; // advanced

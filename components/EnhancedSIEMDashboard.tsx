@@ -9,6 +9,7 @@ import CaseManagement from './CaseManagement';
 import LogSearchPanel from './LogSearchPanel';
 import AlertClassificationPanel from './AlertClassificationPanel';
 import DashboardVisualizations from './DashboardVisualizations';
+import LearningMode from './LearningMode';
 
 interface Props {
   scenarioId?: string;
@@ -38,6 +39,11 @@ export default function EnhancedSIEMDashboard({
   const [threatIntelLookup, setThreatIntelLookup] = useState<{ type: string; value: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeRange, setTimeRange] = useState<'15m' | '1h' | '24h' | '7d'>('24h');
+  const [learningModeAlert, setLearningModeAlert] = useState<SecurityAlert | null>(null);
+  const [learningModeEvent, setLearningModeEvent] = useState<SIEMEvent | null>(null);
+  
+  // Check if in learning mode (grasshopper difficulty)
+  const isLearningMode = scenarioId?.includes('grasshopper') || false;
   
   // Sanitize search query on change
   const handleSearchChange = (query: string) => {
@@ -171,7 +177,12 @@ export default function EnhancedSIEMDashboard({
         <div className="space-y-4">
           <AlertClassificationPanel
             alerts={alerts}
-            onSelectAlert={setSelectedAlert}
+            onSelectAlert={(alert) => {
+              setSelectedAlert(alert);
+              if (isLearningMode) {
+                setLearningModeAlert(alert);
+              }
+            }}
             onClassify={onAlertClassify}
           />
           
@@ -194,7 +205,12 @@ export default function EnhancedSIEMDashboard({
             onSearchChange={handleSearchChange}
             timeRange={timeRange}
             onTimeRangeChange={handleTimeRangeChange}
-            onSelectEvent={setSelectedEvent}
+            onSelectEvent={(event) => {
+              setSelectedEvent(event);
+              if (isLearningMode) {
+                setLearningModeEvent(event);
+              }
+            }}
             selectedIPs={markedIPs}
             onToggleIP={(ip) => {
               if (validateIP(ip)) {
@@ -216,6 +232,18 @@ export default function EnhancedSIEMDashboard({
             />
           )}
         </div>
+      )}
+
+      {/* Learning Mode Modal */}
+      {(learningModeAlert || learningModeEvent) && isLearningMode && (
+        <LearningMode
+          alert={learningModeAlert || undefined}
+          event={learningModeEvent || undefined}
+          onClose={() => {
+            setLearningModeAlert(null);
+            setLearningModeEvent(null);
+          }}
+        />
       )}
       
       {/* Cases Tab */}

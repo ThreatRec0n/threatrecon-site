@@ -10,6 +10,39 @@ import { validateDifficultyLevel, validateScenario } from '@/lib/security';
 
 // Base scenario templates
 const SCENARIO_TEMPLATES: Partial<Record<DifficultyLevel, Scenario>> = {
+  grasshopper: {
+    id: 'ransomware-threat-grasshopper',
+    title: 'Ransomware Threat - Learning Mode',
+    difficulty: 'grasshopper',
+    type: 'ransomware',
+    order: 0,
+    narrative: {
+      background: 'Welcome to Learning Mode! You are a new security analyst learning the ropes. This is a safe environment where you can explore and learn without pressure. Every alert and event has detailed explanations to help you understand what to look for and why.',
+      incident: 'A simulated ransomware threat has been detected in the network. This is a training scenario designed to teach you how to identify malicious IP addresses and understand security alerts. Take your time, explore the explanations, and learn at your own pace.',
+      yourRole: 'Your goal is to learn how to identify malicious IPs by exploring alerts and events. Click on any alert or event to see detailed explanations, MITRE ATT&CK techniques, investigation steps, and real-world examples. There\'s no time pressure - focus on learning!',
+      timeline: 'This is a learning scenario - take as much time as you need to explore and understand the concepts.',
+    },
+    logFiles: [],
+    logTypes: ['zeek', 'suricata', 'windows-event'],
+    questions: [],
+    solution: {
+      summary: 'Three malicious IPs were identified. In learning mode, you can see detailed explanations for each.',
+      keyFindings: [],
+      mitreTechniques: ['T1071.001', 'T1059.001', 'T1048'],
+      recommendations: [],
+      truePositives: [],
+      falsePositives: [],
+    },
+    estimatedTime: 45,
+    tags: ['ransomware', 'learning', 'tutorial'],
+    showFeedback: true,
+    gradingCriteria: {
+      classificationWeight: 0.5,
+      investigationWeight: 0.3,
+      timeWeight: 0.2,
+    },
+    alerts: [],
+  },
   beginner: {
     id: 'ransomware-threat-beginner',
     title: 'Ransomware Threat - Beginner',

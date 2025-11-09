@@ -6,6 +6,7 @@ import EnhancedSIEMDashboard from './EnhancedSIEMDashboard';
 import { gradeInvestigation } from '@/lib/scoring';
 import { GameIntegrityMonitor, validateGameStateIntegrity } from '@/lib/anti-cheat';
 import { validateIP, validateAlertClassification, sanitizeInput } from '@/lib/security';
+import { updateProgress } from '@/lib/progress-tracking';
 
 interface Props {
   scenario: Scenario;
@@ -25,6 +26,7 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
   const gameStartTimeRef = useRef<number>(0);
 
   const timeLimit = 
+    scenario.difficulty === 'grasshopper' ? 45 * 60 :
     scenario.difficulty === 'beginner' ? 30 * 60 :
     scenario.difficulty === 'intermediate' ? 20 * 60 :
     15 * 60;
@@ -233,6 +235,25 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
     
     // Get integrity violations if any
     const violations = integrityMonitorRef.current?.getViolations() || [];
+    
+    // Update progress tracking
+    const correctClassifications = Object.values(alertClassifications).filter(
+      (classification, idx) => {
+        const alert = scenario.alerts[idx];
+        return alert && classification === alert.correctClassification;
+      }
+    ).length;
+    
+    const incorrectClassifications = Object.keys(alertClassifications).length - correctClassifications;
+    
+    updateProgress(
+      scenario.difficulty,
+      adjustedScore,
+      elapsedTime,
+      correctIPs,
+      correctClassifications,
+      incorrectClassifications
+    );
     
     onComplete({
       ...result,

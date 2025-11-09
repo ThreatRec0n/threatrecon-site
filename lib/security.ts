@@ -47,7 +47,7 @@ export function validateAlertClassification(value: string): boolean {
  * Validates difficulty level
  */
 export function validateDifficultyLevel(value: string): boolean {
-  const validLevels = ['guided', 'beginner', 'intermediate', 'advanced'];
+  const validLevels = ['grasshopper', 'beginner', 'intermediate', 'advanced'];
   return validLevels.includes(value);
 }
 

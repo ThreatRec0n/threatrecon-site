@@ -2,7 +2,7 @@
 
 import type { Severity, Status } from './siem-types';
 
-export type DifficultyLevel = 'guided' | 'beginner' | 'intermediate' | 'advanced';
+export type DifficultyLevel = 'grasshopper' | 'beginner' | 'intermediate' | 'advanced';
 
 export type ScenarioType = 
   | 'malware-infection'

@@ -34,7 +34,7 @@ export function generateRandomizedScenario(
       benign: benignDomains,
     },
     alerts: alertMix,
-    showFeedback: baseScenario.difficulty === 'guided' || baseScenario.difficulty === 'beginner',
+    showFeedback: baseScenario.difficulty === 'grasshopper' || baseScenario.difficulty === 'beginner',
   };
 }
 
@@ -46,14 +46,14 @@ function generateAlertMix(
   
   // Number of alerts varies by difficulty
   const totalAlerts = 
-    difficulty === 'guided' ? 3 :
+    difficulty === 'grasshopper' ? 5 :
     difficulty === 'beginner' ? 5 :
     difficulty === 'intermediate' ? 8 :
     12;
   
   // Ratio of true positives to false positives
   const truePositiveRatio =
-    difficulty === 'guided' ? 1.0 :
+    difficulty === 'grasshopper' ? 0.8 :
     difficulty === 'beginner' ? 0.7 :
     difficulty === 'intermediate' ? 0.6 :
     0.5; // Advanced: 50/50 mix
