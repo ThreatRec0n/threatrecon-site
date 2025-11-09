@@ -228,13 +228,19 @@ export default function SimulationDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-right">
+            <div className="text-right px-3 py-2 rounded border border-[#30363d] bg-[#0d1117]">
               <div className="text-xs text-[#8b949e]">Events</div>
               <div className="text-xl font-bold text-[#c9d1d9]">{session.events.length}</div>
             </div>
-            <div className="text-right">
+            <div className="text-right px-3 py-2 rounded border border-[#30363d] bg-[#0d1117]">
               <div className="text-xs text-[#8b949e]">Alerts</div>
               <div className="text-xl font-bold text-[#c9d1d9]">{session.alerts.length}</div>
+            </div>
+            <div className="text-right px-3 py-2 rounded border border-[#30363d] bg-[#0d1117]">
+              <div className="text-xs text-[#8b949e]">IOCs Tagged</div>
+              <div className="text-xl font-bold text-[#c9d1d9]">
+                {Object.keys(iocTags).filter(k => iocTags[k] === 'confirmed-threat' || iocTags[k] === 'suspicious').length}
+              </div>
             </div>
             <button
               onClick={() => setLearningMode(!learningMode)}
@@ -305,6 +311,7 @@ export default function SimulationDashboard() {
           <IOCTaggingPanel
             iocs={extractedIOCs}
             tags={iocTags}
+            isLocked={isLocked}
             onTagChange={(ioc, tag) => {
               if (!isLocked) {
                 setIocTags(prev => ({ ...prev, [ioc]: tag }));

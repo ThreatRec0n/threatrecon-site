@@ -14,9 +14,10 @@ interface Props {
   tags: Record<string, IOCTag>;
   onTagChange: (ioc: string, tag: IOCTag) => void;
   onEnrich?: (ioc: string, type: 'ip' | 'domain' | 'hash') => void;
+  isLocked?: boolean;
 }
 
-export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich }: Props) {
+export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich, isLocked = false }: Props) {
   const [activeTab, setActiveTab] = useState<'ips' | 'domains' | 'hashes' | 'pids'>('ips');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -54,11 +55,23 @@ export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich }: P
   };
 
   const currentIOCs = getCurrentIOCs();
-  const tagCounts = {
+  
+  // Calculate counts for current tab
+  const currentTabCounts = {
     'confirmed-threat': currentIOCs.filter(ioc => tags[ioc] === 'confirmed-threat').length,
     'suspicious': currentIOCs.filter(ioc => tags[ioc] === 'suspicious').length,
     'benign': currentIOCs.filter(ioc => tags[ioc] === 'benign').length,
     'unclassified': currentIOCs.filter(ioc => !tags[ioc]).length,
+  };
+  
+  // Calculate total counts across all IOCs
+  const allIOCs = [...iocs.ips, ...iocs.domains, ...iocs.hashes, ...iocs.pids];
+  const totalCounts = {
+    'confirmed-threat': allIOCs.filter(ioc => tags[ioc] === 'confirmed-threat').length,
+    'suspicious': allIOCs.filter(ioc => tags[ioc] === 'suspicious').length,
+    'benign': allIOCs.filter(ioc => tags[ioc] === 'benign').length,
+    'unclassified': allIOCs.filter(ioc => !tags[ioc]).length,
+    'total': allIOCs.length,
   };
 
   return (
@@ -99,23 +112,49 @@ export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich }: P
         className="search-input w-full"
       />
 
-      {/* Tag Summary */}
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-red-900/20 p-2 rounded border border-red-800/40">
-          <div className="text-red-400 font-semibold">Threats</div>
-          <div className="text-[#c9d1d9]">{tagCounts['confirmed-threat']}</div>
+      {/* Tag Summary - Current Tab */}
+      <div className="space-y-2">
+        <div className="text-xs text-[#8b949e] font-medium">Current Tab ({activeTab}):</div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="bg-red-900/20 p-2 rounded border border-red-800/40">
+            <div className="text-red-400 font-semibold">Threats</div>
+            <div className="text-[#c9d1d9]">{currentTabCounts['confirmed-threat']}</div>
+          </div>
+          <div className="bg-orange-900/20 p-2 rounded border border-orange-800/40">
+            <div className="text-orange-400 font-semibold">Suspicious</div>
+            <div className="text-[#c9d1d9]">{currentTabCounts['suspicious']}</div>
+          </div>
+          <div className="bg-green-900/20 p-2 rounded border border-green-800/40">
+            <div className="text-green-400 font-semibold">Benign</div>
+            <div className="text-[#c9d1d9]">{currentTabCounts['benign']}</div>
+          </div>
+          <div className="bg-gray-700/20 p-2 rounded border border-gray-600/40">
+            <div className="text-gray-400 font-semibold">Unclassified</div>
+            <div className="text-[#c9d1d9]">{currentTabCounts['unclassified']}</div>
+          </div>
         </div>
-        <div className="bg-orange-900/20 p-2 rounded border border-orange-800/40">
-          <div className="text-orange-400 font-semibold">Suspicious</div>
-          <div className="text-[#c9d1d9]">{tagCounts['suspicious']}</div>
-        </div>
-        <div className="bg-green-900/20 p-2 rounded border border-green-800/40">
-          <div className="text-green-400 font-semibold">Benign</div>
-          <div className="text-[#c9d1d9]">{tagCounts['benign']}</div>
-        </div>
-        <div className="bg-gray-700/20 p-2 rounded border border-gray-600/40">
-          <div className="text-gray-400 font-semibold">Unclassified</div>
-          <div className="text-[#c9d1d9]">{tagCounts['unclassified']}</div>
+        
+        {/* Total Summary */}
+        <div className="pt-2 border-t border-[#30363d]">
+          <div className="text-xs text-[#8b949e] font-medium mb-2">Total Across All IOCs:</div>
+          <div className="grid grid-cols-4 gap-2 text-xs">
+            <div className="bg-red-900/30 p-2 rounded border border-red-800/60">
+              <div className="text-red-400 font-semibold">Threats</div>
+              <div className="text-[#c9d1d9] font-bold">{totalCounts['confirmed-threat']}</div>
+            </div>
+            <div className="bg-orange-900/30 p-2 rounded border border-orange-800/60">
+              <div className="text-orange-400 font-semibold">Suspicious</div>
+              <div className="text-[#c9d1d9] font-bold">{totalCounts['suspicious']}</div>
+            </div>
+            <div className="bg-green-900/30 p-2 rounded border border-green-800/60">
+              <div className="text-green-400 font-semibold">Benign</div>
+              <div className="text-[#c9d1d9] font-bold">{totalCounts['benign']}</div>
+            </div>
+            <div className="bg-gray-700/30 p-2 rounded border border-gray-600/60">
+              <div className="text-gray-400 font-semibold">Total</div>
+              <div className="text-[#c9d1d9] font-bold">{totalCounts['total']}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -150,35 +189,38 @@ export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich }: P
                   </button>
                 )}
                 <button
-                  onClick={() => onTagChange(ioc, 'confirmed-threat')}
+                  onClick={() => !isLocked && onTagChange(ioc, 'confirmed-threat')}
+                  disabled={isLocked}
                   className={`px-2 py-1 text-xs rounded border transition-colors ${
                     currentTag === 'confirmed-threat'
                       ? 'bg-red-900/40 text-red-400 border-red-800/60'
                       : 'bg-[#161b22] text-[#8b949e] border-[#30363d] hover:border-red-800/60'
-                  }`}
-                  title="Mark as Confirmed Threat"
+                  } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={isLocked ? 'Investigation locked' : 'Mark as Confirmed Threat'}
                 >
                   ✅
                 </button>
                 <button
-                  onClick={() => onTagChange(ioc, 'suspicious')}
+                  onClick={() => !isLocked && onTagChange(ioc, 'suspicious')}
+                  disabled={isLocked}
                   className={`px-2 py-1 text-xs rounded border transition-colors ${
                     currentTag === 'suspicious'
                       ? 'bg-orange-900/40 text-orange-400 border-orange-800/60'
                       : 'bg-[#161b22] text-[#8b949e] border-[#30363d] hover:border-orange-800/60'
-                  }`}
-                  title="Mark as Suspicious"
+                  } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={isLocked ? 'Investigation locked' : 'Mark as Suspicious'}
                 >
                   ❓
                 </button>
                 <button
-                  onClick={() => onTagChange(ioc, 'benign')}
+                  onClick={() => !isLocked && onTagChange(ioc, 'benign')}
+                  disabled={isLocked}
                   className={`px-2 py-1 text-xs rounded border transition-colors ${
                     currentTag === 'benign'
                       ? 'bg-green-900/40 text-green-400 border-green-800/60'
                       : 'bg-[#161b22] text-[#8b949e] border-[#30363d] hover:border-green-800/60'
-                  }`}
-                  title="Mark as Benign"
+                  } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={isLocked ? 'Investigation locked' : 'Mark as Benign'}
                 >
                   ❌
                 </button>

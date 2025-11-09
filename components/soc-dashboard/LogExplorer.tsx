@@ -70,10 +70,18 @@ export default function LogExplorer({ events, selectedStage, onEventSelect }: Pr
 
   const getThreatScoreColor = (score: number | undefined) => {
     if (!score) return 'text-[#8b949e]';
-    if (score >= 80) return 'text-red-400';
-    if (score >= 60) return 'text-orange-400';
-    if (score >= 40) return 'text-yellow-400';
-    return 'text-green-400';
+    if (score >= 80) return 'text-red-400 bg-red-900/20 border-red-800/40';
+    if (score >= 60) return 'text-orange-400 bg-orange-900/20 border-orange-800/40';
+    if (score >= 40) return 'text-yellow-400 bg-yellow-900/20 border-yellow-800/40';
+    return 'text-green-400 bg-green-900/20 border-green-800/40';
+  };
+  
+  const getThreatScoreBar = (score: number | undefined) => {
+    if (!score) return { width: '0%', color: 'bg-gray-600' };
+    if (score >= 80) return { width: `${score}%`, color: 'bg-red-500' };
+    if (score >= 60) return { width: `${score}%`, color: 'bg-orange-500' };
+    if (score >= 40) return { width: `${score}%`, color: 'bg-yellow-500' };
+    return { width: `${score}%`, color: 'bg-green-500' };
   };
 
   const getSourceColor = (source: string) => {
@@ -224,9 +232,21 @@ export default function LogExplorer({ events, selectedStage, onEventSelect }: Pr
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <span className={`text-sm font-bold ${getThreatScoreColor(event.threat_score)}`}>
-                      {event.threat_score || 0}
-                    </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold px-2 py-0.5 rounded border ${getThreatScoreColor(event.threat_score)}`}>
+                          {event.threat_score || 0}
+                        </span>
+                      </div>
+                      {event.threat_score && (
+                        <div className="w-full h-1.5 bg-[#0d1117] rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${getThreatScoreBar(event.threat_score).color} transition-all`}
+                            style={{ width: getThreatScoreBar(event.threat_score).width }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     <button className="text-[#58a6ff] hover:text-[#79c0ff] text-xs">

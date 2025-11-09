@@ -46,6 +46,12 @@ export async function POST(request: NextRequest) {
         });
 
       case 'complete':
+        // Store IOC tags if provided
+        if (config?.ioc_tags) {
+          // In a real implementation, we'd store this in the session
+          // For now, we'll just complete the session
+          // The evaluation happens on the client side
+        }
         engine.completeSession();
         const completedSession = engine.getSession();
         return NextResponse.json({ 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { DifficultyLevel, Scenario } from '@/lib/types';
 import DifficultySelector from '@/components/DifficultySelector';
 import ScenarioIntroduction from '@/components/ScenarioIntroduction';
@@ -145,6 +146,7 @@ const SCENARIO_TEMPLATES: Partial<Record<DifficultyLevel, Scenario>> = {
 };
 
 export default function Home() {
+  const [selectedPlatform, setSelectedPlatform] = useState<'classic' | 'simulation' | null>(null);
   const [difficulty, setDifficulty] = useState<DifficultyLevel | null>(null);
   const [gameScenario, setGameScenario] = useState<ReturnType<typeof generateRealisticScenario> | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
@@ -187,9 +189,94 @@ export default function Home() {
     setGameResult(null);
   }
 
-  // Show difficulty selection
-  if (!difficulty || !gameScenario) {
-    return <DifficultySelector onSelectDifficulty={handleDifficultySelect} />;
+  // Show platform selection
+  if (!selectedPlatform) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[#0d1117]">
+        <div className="max-w-4xl w-full space-y-8">
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold text-[#c9d1d9]">ThreatRecon Training Platform</h1>
+            <p className="text-lg text-[#8b949e]">
+              Choose your training mode to start your threat hunting journey
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Classic Game Mode */}
+            <div className="siem-card p-6 space-y-4 hover:border-[#58a6ff] transition-colors cursor-pointer"
+                 onClick={() => setSelectedPlatform('classic')}>
+              <div className="flex items-center gap-3">
+                <div className="text-4xl">🎮</div>
+                <div>
+                  <h2 className="text-2xl font-bold text-[#c9d1d9]">Classic Game Mode</h2>
+                  <p className="text-sm text-[#8b949e]">Original threat hunting game</p>
+                </div>
+              </div>
+              <p className="text-sm text-[#c9d1d9]">
+                The original threat hunting experience. Identify malicious IPs by analyzing alerts and logs.
+                Perfect for beginners learning the basics.
+              </p>
+              <ul className="text-xs text-[#8b949e] space-y-1 list-disc list-inside">
+                <li>Difficulty-based scenarios</li>
+                <li>Alert analysis and classification</li>
+                <li>IP identification challenges</li>
+                <li>Immediate feedback</li>
+              </ul>
+            </div>
+
+            {/* SOC Simulation Mode */}
+            <div className="siem-card p-6 space-y-4 hover:border-[#58a6ff] transition-colors cursor-pointer"
+                 onClick={() => {
+                   window.location.href = '/simulation';
+                 }}>
+              <div className="flex items-center gap-3">
+                <div className="text-4xl">🛡️</div>
+                <div>
+                  <h2 className="text-2xl font-bold text-[#c9d1d9]">SOC Simulation Mode</h2>
+                  <p className="text-sm text-[#8b949e]">Advanced SOC analyst training</p>
+                </div>
+              </div>
+              <p className="text-sm text-[#c9d1d9]">
+                Realistic SOC environment with comprehensive threat hunting. Analyze multi-source logs,
+                tag IOCs, use learning mode, and generate investigation reports.
+              </p>
+              <ul className="text-xs text-[#8b949e] space-y-1 list-disc list-inside">
+                <li>Multi-stage attack chains</li>
+                <li>IOC tagging and enrichment</li>
+                <li>Learning mode with MITRE explanations</li>
+                <li>Evaluation and scoring system</li>
+                <li>Timeline and correlation analysis</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="text-center text-xs text-[#8b949e]">
+            Both modes are free and require no login. Choose the one that fits your learning style.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show difficulty selection for classic mode
+  if (selectedPlatform === 'classic' && (!difficulty || !gameScenario)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="space-y-4">
+          <button
+            onClick={() => {
+              setSelectedPlatform(null);
+              setDifficulty(null);
+              setGameScenario(null);
+            }}
+            className="text-sm text-[#8b949e] hover:text-[#c9d1d9]"
+          >
+            ← Back to Platform Selection
+          </button>
+          <DifficultySelector onSelectDifficulty={handleDifficultySelect} />
+        </div>
+      </div>
+    );
   }
 
   // Show scenario introduction
