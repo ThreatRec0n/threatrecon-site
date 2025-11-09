@@ -23,18 +23,28 @@ export default function LandingPage() {
             <Link
               href="/simulation"
               className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              aria-label="Launch Threat Hunting Simulation"
             >
               Launch Simulation
             </Link>
             <Link
               href="/docs"
               className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+              aria-label="View Documentation"
             >
               View Docs
+            </Link>
+            <Link
+              href="/simulation"
+              className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+              aria-label="Sign Up for Account (Optional)"
+            >
+              Sign Up (Optional)
             </Link>
             <button
               onClick={() => router.push('/simulation')}
               className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl font-semibold"
+              aria-label="Get Started with Threat Hunting"
             >
               Get Started
             </button>
@@ -59,16 +69,29 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={() => router.push('/simulation')}
-              className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl"
+              className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Launch Threat Hunting Simulation"
             >
               🚀 Launch Simulation
             </button>
             <Link
               href="/docs"
-              className="px-8 py-4 bg-white text-gray-700 text-lg font-semibold rounded-lg border-2 border-gray-300 hover:border-blue-600 hover:text-blue-600 transition-all shadow-md hover:shadow-lg"
+              className="px-8 py-4 bg-white text-gray-700 text-lg font-semibold rounded-lg border-2 border-gray-300 hover:border-blue-600 hover:text-blue-600 transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="View Documentation and Lab Plans"
             >
               📚 View Documentation
             </Link>
+            <button
+              onClick={() => {
+                // Navigate to simulation and trigger auth modal
+                router.push('/simulation');
+                // The ProfileDropdown will handle showing auth modal
+              }}
+              className="px-8 py-4 bg-white text-blue-600 text-lg font-semibold rounded-lg border-2 border-blue-600 hover:bg-blue-50 transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Sign Up for Optional Account to Sync Progress"
+            >
+              ✨ Sign Up (Optional)
+            </button>
           </div>
         </div>
       </section>

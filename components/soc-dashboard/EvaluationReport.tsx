@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
 interface Props {
@@ -11,6 +11,17 @@ interface Props {
 
 export default function EvaluationReport({ result, onClose, onNewInvestigation }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'missed' | 'replay' | 'recommendations'>('overview');
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'text-green-400';

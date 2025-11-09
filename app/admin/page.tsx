@@ -147,7 +147,7 @@ export default function AdminLoginPage() {
               <div className="bg-red-900/20 border-2 border-red-500 rounded-lg max-w-md w-full p-6 shadow-2xl">
                 <div className="text-center">
                   <div className="text-5xl mb-4">🚨</div>
-                  <h2 className="text-2xl font-bold text-red-400 mb-4">
+                  <h2 id="compromised-title" className="text-2xl font-bold text-red-400 mb-4">
                     Security Breach Detected
                   </h2>
                   <p className="text-[#c9d1d9] mb-6 leading-relaxed">
@@ -197,6 +197,9 @@ export default function AdminLoginPage() {
               </label>
               <input
                 id="username"
+                type="text"
+                autoComplete="username"
+                maxLength={100}
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}

@@ -48,6 +48,9 @@ export default function ScenarioSelector({ isOpen, onClose, onRegenerate }: Prop
       <div
         className="fixed inset-0 bg-black/50 z-50"
         onClick={onClose}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose();
+        }}
         aria-hidden="true"
       />
 
@@ -135,6 +138,9 @@ export default function ScenarioSelector({ isOpen, onClose, onRegenerate }: Prop
                       ? 'bg-[#58a6ff]/20 border-[#58a6ff] text-[#58a6ff]'
                       : 'bg-[#0d1117] border-[#30363d] text-[#c9d1d9] hover:border-[#58a6ff]/50'
                   }`}
+                  aria-label={`Set noise level to ${level}`}
+                  aria-pressed={noiseLevel === level}
+                  title={`${level === 'low' ? 'Easier to spot malicious activity' : level === 'medium' ? 'Realistic mix of normal and malicious' : 'Challenging - lots of background noise'}`}
                 >
                   <div className="font-semibold text-sm capitalize">
                     {level === 'low' && '🔇 Low (25 benign events)'}

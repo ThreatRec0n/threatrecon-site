@@ -210,21 +210,25 @@ export default function LeaderboardPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setTimeFilter('all-time')}
-                className={`flex-1 px-3 py-2 text-sm rounded border transition-colors ${
+                className={`flex-1 px-3 py-2 text-sm rounded border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] ${
                   timeFilter === 'all-time'
                     ? 'bg-[#58a6ff] text-white border-[#58a6ff]'
                     : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
                 }`}
+                aria-label="Filter leaderboard to show all-time results"
+                title="Show all-time leaderboard entries"
               >
                 All Time
               </button>
               <button
                 onClick={() => setTimeFilter('monthly')}
-                className={`flex-1 px-3 py-2 text-sm rounded border transition-colors ${
+                className={`flex-1 px-3 py-2 text-sm rounded border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] ${
                   timeFilter === 'monthly'
                     ? 'bg-[#58a6ff] text-white border-[#58a6ff]'
                     : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
                 }`}
+                aria-label="Filter leaderboard to show monthly results"
+                title="Show leaderboard entries from this month only"
               >
                 This Month
               </button>
