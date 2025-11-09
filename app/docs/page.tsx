@@ -11,11 +11,22 @@ export default function DocsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/COMPREHENSIVE_LAB_PLAN.md')
+    // Check URL for specific doc
+    const params = new URLSearchParams(window.location.search);
+    const doc = params.get('doc') || 'comprehensive';
+    
+    const docMap: Record<string, string> = {
+      'comprehensive': '/COMPREHENSIVE_LAB_PLAN.md',
+      'ultimate': '/ULTIMATE_FREE_THREAT_HUNTING_LAB.md',
+      'phoenix': '/OPERATION_PHOENIX_BLUEPRINT.md',
+    };
+    
+    const docPath = docMap[doc] || docMap['comprehensive'];
+    
+    fetch(docPath)
       .then(res => {
         if (!res.ok) {
-          // Fallback: try to load from root
-          return fetch('/COMPREHENSIVE_LAB_PLAN.md', { cache: 'no-cache' });
+          return fetch(docPath, { cache: 'no-cache' });
         }
         return res;
       })

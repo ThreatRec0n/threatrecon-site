@@ -348,15 +348,22 @@ export default function SimulationDashboard() {
                 </button>
                 <div
                   id="docs-menu"
-                  className="absolute top-full left-0 mt-1 w-48 bg-[#161b22] border border-[#30363d] rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50"
+                  className="absolute top-full left-0 mt-1 w-56 bg-[#161b22] border border-[#30363d] rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50"
                   role="menu"
                 >
                   <a
-                    href="/docs"
+                    href="/docs?doc=comprehensive"
                     role="menuitem"
-                    className="block px-4 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] hover:text-[#58a6ff] border-b border-[#30363d] first:rounded-t last:rounded-b last:border-b-0 focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                    className="block px-4 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] hover:text-[#58a6ff] border-b border-[#30363d] first:rounded-t focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
                   >
                     📘 Lab Plan & Docs
+                  </a>
+                  <a
+                    href="/docs?doc=ultimate"
+                    role="menuitem"
+                    className="block px-4 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] hover:text-[#58a6ff] border-b border-[#30363d] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                  >
+                    🎯 Ultimate Free Lab
                   </a>
                   <a
                     href="/phoenix"
