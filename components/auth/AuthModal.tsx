@@ -39,6 +39,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Guard: prevent submission if Supabase is not enabled
+    if (!isSupabaseEnabled) {
+      return;
+    }
+    
     setLoading(true);
     setError('');
     setMessage('');
