@@ -52,8 +52,8 @@ const SCENARIO_TEMPLATES: Partial<Record<DifficultyLevel, Scenario>> = {
     narrative: {
       background: 'You are a junior security analyst at TechCorp, a mid-sized technology company. It\'s Monday morning, and you\'ve just received an alert from your SIEM about suspicious network activity detected over the weekend.',
       incident: 'Initial investigation shows that an employee clicked on a phishing email on Friday afternoon. The email contained a malicious attachment that appears to have installed malware on their workstation. Your security team has detected unusual outbound connections, but the full scope of the compromise is unknown.',
-      yourRole: 'Your mission is to identify all malicious IP addresses that the malware is communicating with. These IPs are part of a ransomware command and control infrastructure. You must find and block them before the attackers deploy ransomware across the network.',
-      timeline: 'Phishing email clicked: Friday, 2:30 PM | Malware detected: Saturday, 10:15 AM | Current time: Monday, 9:00 AM | Ransomware deployment estimated: Monday, 9:30 AM (30 minutes from now)',
+      yourRole: 'Your mission is to identify all malicious IP addresses that the malware is communicating with. These IPs are part of a ransomware command and control infrastructure. Investigate thoroughly and find all malicious IPs.',
+      timeline: 'Phishing email clicked: Friday, 2:30 PM | Malware detected: Saturday, 10:15 AM | Current time: Monday, 9:00 AM',
     },
     logFiles: [],
     logTypes: ['zeek', 'suricata', 'windows-event'],
@@ -85,8 +85,8 @@ const SCENARIO_TEMPLATES: Partial<Record<DifficultyLevel, Scenario>> = {
     narrative: {
       background: 'You are a security analyst at GlobalTech Industries. Over the past 48 hours, your organization has been experiencing intermittent network issues and unusual system behavior. Initial scans have revealed nothing, but your gut tells you something is wrong.',
       incident: 'A sophisticated phishing campaign targeted multiple employees last week. While most didn\'t fall for it, security logs show that at least one workstation established connections to external IPs that don\'t match any known business services. The threat actors appear to be preparing for a ransomware deployment.',
-      yourRole: 'You need to identify the malicious IP addresses that are part of the attack infrastructure. Time is critical - the attackers are likely preparing to deploy ransomware across the network. Find the IPs before it\'s too late.',
-      timeline: 'Phishing campaign: Last Tuesday | First suspicious activity: Thursday, 11:00 PM | Current time: Monday, 8:00 AM | Estimated ransomware deployment: Monday, 8:20 AM (20 minutes from now)',
+      yourRole: 'You need to identify the malicious IP addresses that are part of the attack infrastructure. Investigate the alerts and logs to find all malicious IPs.',
+      timeline: 'Phishing campaign: Last Tuesday | First suspicious activity: Thursday, 11:00 PM | Current time: Monday, 8:00 AM',
     },
     logFiles: [],
     logTypes: ['zeek', 'suricata', 'windows-event'],
@@ -119,7 +119,7 @@ const SCENARIO_TEMPLATES: Partial<Record<DifficultyLevel, Scenario>> = {
       background: 'You are a senior security analyst at a critical infrastructure organization. Your threat intelligence team has identified indicators that a known ransomware group has been conducting reconnaissance on your network for the past two weeks.',
       incident: 'The attackers have been extremely careful, using legitimate-looking traffic patterns and rotating through multiple IP addresses. Only one IP address in your logs is actually malicious - the rest is noise. The ransomware deployment is imminent, and you have very little time to identify the threat.',
       yourRole: 'Find the single malicious IP address that is part of the ransomware infrastructure. The attackers have hidden their tracks well, and most of what you\'ll see is normal network traffic. Trust your instincts and look for the subtle indicators.',
-      timeline: 'Reconnaissance began: 2 weeks ago | Current time: Monday, 7:45 AM | Estimated ransomware deployment: Monday, 8:00 AM (15 minutes from now)',
+      timeline: 'Reconnaissance began: 2 weeks ago | Current time: Monday, 7:45 AM',
     },
     logFiles: [],
     logTypes: ['zeek', 'suricata', 'windows-event'],
@@ -222,9 +222,9 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <div className="text-xs text-[#8b949e] mb-1">Time Remaining</div>
+                <div className="text-xs text-[#8b949e] mb-1">Time Spent</div>
                 <div className="text-2xl font-bold text-[#c9d1d9]">
-                  {Math.floor(gameResult.timeRemaining / 60)}:{(gameResult.timeRemaining % 60).toString().padStart(2, '0')}
+                  {gameResult.timeSpent ? `${Math.floor(gameResult.timeSpent / 60)}:${(Math.floor(gameResult.timeSpent % 60)).toString().padStart(2, '0')}` : 'N/A'}
                 </div>
               </div>
               <div>

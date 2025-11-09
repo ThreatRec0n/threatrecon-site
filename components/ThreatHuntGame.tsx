@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Scenario, SecurityAlert, SIEMEvent, AlertClassification } from '@/lib/types';
 import EnhancedSIEMDashboard from './EnhancedSIEMDashboard';
 import { gradeInvestigation } from '@/lib/scoring';
-import { GameIntegrityMonitor, validateGameStateIntegrity } from '@/lib/anti-cheat';
+import { validateGameStateIntegrity } from '@/lib/anti-cheat';
 import { validateIP, validateAlertClassification, sanitizeInput } from '@/lib/security';
 import { updateProgress } from '@/lib/progress-tracking';
 
@@ -15,21 +15,12 @@ interface Props {
 }
 
 export default function ThreatHuntGame({ scenario, events, onComplete }: Props) {
-  const [timeRemaining, setTimeRemaining] = useState<number>(0); // in seconds
-  const [isRunning, setIsRunning] = useState(false);
   const [alertClassifications, setAlertClassifications] = useState<Record<string, AlertClassification>>({});
   const [markedIPs, setMarkedIPs] = useState<Set<string>>(new Set());
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
-  const integrityMonitorRef = useRef<GameIntegrityMonitor | null>(null);
-  const gameStartTimeRef = useRef<number>(0);
-
-  const timeLimit = 
-    scenario.difficulty === 'grasshopper' ? 45 * 60 :
-    scenario.difficulty === 'beginner' ? 30 * 60 :
-    scenario.difficulty === 'intermediate' ? 20 * 60 :
-    15 * 60;
+  const gameStartTimeRef = useRef<number>(Date.now());
 
   // Get malicious IPs from scenario (the actual answer)
   const maliciousIPs = useMemo(() => {
@@ -77,69 +68,17 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
     return Array.from(incorrect);
   }, [markedIPs, maliciousIPs]);
 
+  // Initialize game start time
   useEffect(() => {
-    setTimeRemaining(timeLimit);
-  }, [timeLimit]);
-
-  useEffect(() => {
-    if (!isRunning || gameOver) return;
-
-    // Initialize integrity monitor
-    if (!integrityMonitorRef.current) {
-      integrityMonitorRef.current = new GameIntegrityMonitor(timeLimit);
-      integrityMonitorRef.current.start();
+    if (gameStartTimeRef.current === 0) {
       gameStartTimeRef.current = Date.now();
     }
-
-    // Use server time reference to prevent client-side time manipulation
-    const startTime = Date.now();
-    let expectedElapsed = 0;
-
-    const timer = setInterval(() => {
-      // Calculate elapsed time based on actual system time
-      const actualElapsed = (Date.now() - startTime) / 1000;
-      expectedElapsed += 1;
-      
-      // Detect time manipulation (if actual time differs significantly from expected)
-      if (Math.abs(actualElapsed - expectedElapsed) > 2) {
-        console.warn('[Security] Time manipulation detected');
-        setIsRunning(false);
-        setGameOver(true);
-        return;
-      }
-
-      // Validate integrity
-      if (integrityMonitorRef.current && !integrityMonitorRef.current.validateTimeElapsed()) {
-        console.warn('[Security] Game integrity violation detected');
-        setIsRunning(false);
-        setGameOver(true);
-        return;
-      }
-
-      setTimeRemaining(prev => {
-        const newTime = prev - 1;
-        if (newTime <= 0) {
-          setIsRunning(false);
-          setGameOver(true);
-          return 0;
-        }
-        return newTime;
-      });
-    }, 1000);
-
-    return () => {
-      clearInterval(timer);
-      if (integrityMonitorRef.current) {
-        integrityMonitorRef.current.stop();
-      }
-    };
-  }, [isRunning, gameOver, timeLimit]);
+  }, []);
 
   // Check win condition - must find ALL malicious IPs
   useEffect(() => {
     if (foundIPs.length === maliciousIPs.length && maliciousIPs.length > 0 && foundIPs.length > 0) {
       setGameWon(true);
-      setIsRunning(false);
       setGameOver(true);
     }
   }, [foundIPs, maliciousIPs]);
@@ -188,22 +127,17 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
     });
   }
 
-  function formatTime(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }
-
   function handleComplete() {
-    // Validate game state integrity before completing
+    // Calculate elapsed time
     const elapsedTime = gameStartTimeRef.current > 0 
       ? (Date.now() - gameStartTimeRef.current) / 1000 
-      : timeLimit - timeRemaining;
+      : 0;
     
+    // Simplified integrity check without time limit
     const integrityCheck = validateGameStateIntegrity(
       { score: 0, foundIPs: Array.from(foundIPs), timeSpent: elapsedTime },
       gameStartTimeRef.current || Date.now(),
-      timeLimit
+      999999 // Very large time limit (effectively no limit)
     );
     
     if (!integrityCheck.valid) {
@@ -233,9 +167,6 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
       return;
     }
     
-    // Get integrity violations if any
-    const violations = integrityMonitorRef.current?.getViolations() || [];
-    
     // Update progress tracking
     const correctClassifications = Object.values(alertClassifications).filter(
       (classification, idx) => {
@@ -260,56 +191,24 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
       score: adjustedScore,
       percentage: adjustedScore,
       gameWon,
-      timeRemaining,
+      timeRemaining: 0, // No timer
       foundIPs: Array.from(foundIPs).sort(), // Sort for consistency
       totalMaliciousIPs: maliciousIPs.length,
       correctIPs,
       falsePositives: incorrectIPs.length,
       missedIPs,
       ipAccuracy: Math.round(ipAccuracy),
-      integrityViolations: violations,
+      integrityViolations: [],
       integrityValid: integrityCheck.valid,
     });
-    
-    // Clean up
-    if (integrityMonitorRef.current) {
-      integrityMonitorRef.current.stop();
-    }
-  }
-
-  if (!isRunning && !gameOver) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <h2 className="text-2xl font-bold text-[#c9d1d9]">Ready to Start?</h2>
-          <p className="text-[#8b949e]">Click the button below to begin the timer</p>
-          <button
-            onClick={() => setIsRunning(true)}
-            className="btn-primary px-8 py-3 text-lg"
-          >
-            Start Timer
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (
     <div className="space-y-4">
-      {/* Game Header with Timer */}
+      {/* Game Header */}
       <div className="siem-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <div>
-              <div className="text-xs text-[#8b949e] mb-1">Time Remaining</div>
-              <div className={`text-2xl font-bold font-mono ${
-                timeRemaining < 300 ? 'text-red-400 animate-pulse' :
-                timeRemaining < 600 ? 'text-orange-400' :
-                'text-[#3fb950]'
-              }`}>
-                {formatTime(timeRemaining)}
-              </div>
-            </div>
             <div>
               <div className="text-xs text-[#8b949e] mb-1">Malicious IPs Found</div>
               <div className="text-2xl font-bold text-[#c9d1d9]">
@@ -326,20 +225,13 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
                 ✓ All Threats Identified!
               </div>
             )}
-            {gameOver && !gameWon && (
-              <div className="px-4 py-2 bg-red-900/40 text-red-400 border border-red-800/60 rounded">
-                ⚠ Ransomware Deployed
-              </div>
-            )}
           </div>
-          {gameOver && (
-            <button
-              onClick={handleComplete}
-              className="btn-primary"
-            >
-              View Results
-            </button>
-          )}
+          <button
+            onClick={handleComplete}
+            className="btn-primary"
+          >
+            Complete Investigation
+          </button>
         </div>
         
         {/* Progress indicator */}

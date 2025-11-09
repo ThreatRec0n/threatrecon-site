@@ -10,7 +10,6 @@ interface Props {
 const DIFFICULTY_INFO: Record<'grasshopper' | 'beginner' | 'intermediate' | 'advanced', {
   title: string;
   description: string;
-  timeLimit: number;
   maliciousIPs: number;
   features: string[];
   color: string;
@@ -18,11 +17,10 @@ const DIFFICULTY_INFO: Record<'grasshopper' | 'beginner' | 'intermediate' | 'adv
   grasshopper: {
     title: 'Grasshopper',
     description: 'Complete learning mode with detailed explanations',
-    timeLimit: 45, // minutes
     maliciousIPs: 3,
     features: [
       '3 malicious IPs to find',
-      '45 minutes (no pressure)',
+      'No time pressure - learn at your own pace',
       'Detailed explanations for everything',
       'Step-by-step investigation guides',
       'MITRE ATT&CK technique explanations',
@@ -34,25 +32,22 @@ const DIFFICULTY_INFO: Record<'grasshopper' | 'beginner' | 'intermediate' | 'adv
   beginner: {
     title: 'Beginner',
     description: 'Perfect for learning the basics',
-    timeLimit: 30, // minutes
     maliciousIPs: 3,
-    features: ['3 malicious IPs to find', '30 minutes', 'Helpful hints available', 'Detailed feedback'],
+    features: ['3 malicious IPs to find', 'No time limit', 'Helpful hints available', 'Detailed feedback'],
     color: 'bg-green-900/40 text-green-400 border-green-800/60',
   },
   intermediate: {
     title: 'Intermediate',
     description: 'For analysts with some experience',
-    timeLimit: 20,
     maliciousIPs: 2,
-    features: ['2 malicious IPs to find', '20 minutes', 'Limited hints', 'Basic feedback'],
+    features: ['2 malicious IPs to find', 'No time limit', 'Limited hints', 'Basic feedback'],
     color: 'bg-yellow-900/40 text-yellow-400 border-yellow-800/60',
   },
   advanced: {
     title: 'Advanced',
     description: 'Expert level - find the needle in the haystack',
-    timeLimit: 15,
     maliciousIPs: 1,
-    features: ['1 malicious IP to find', '15 minutes', 'No hints', 'No feedback'],
+    features: ['1 malicious IP to find', 'No time limit', 'No hints', 'No feedback'],
     color: 'bg-red-900/40 text-red-400 border-red-800/60',
   },
 };
@@ -91,7 +86,7 @@ export default function DifficultySelector({ onSelectDifficulty }: Props) {
                   <div className="flex items-center justify-between">
                     <h3 className="text-xl font-semibold text-[#c9d1d9]">{info.title}</h3>
                     <span className={`px-3 py-1 text-xs font-medium rounded border ${info.color}`}>
-                      {info.timeLimit} min
+                      {info.maliciousIPs} IP{info.maliciousIPs > 1 ? 's' : ''}
                     </span>
                   </div>
                   <p className="text-sm text-[#8b949e]">{info.description}</p>

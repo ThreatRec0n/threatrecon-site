@@ -23,6 +23,15 @@ export interface SIEMEvent {
   destinationIP: string;
   eventType: string;
   message: string;
+  // Enhanced fields for simulation engine
+  source?: 'sysmon' | 'zeek' | 'suricata' | 'edr' | 'cloudtrail' | 'windows-event';
+  scenario_id?: string;
+  session_id?: string;
+  technique_id?: string; // MITRE ATT&CK technique ID
+  stage?: string; // Attack stage
+  correlation_key?: string;
+  related_event_ids?: string[];
+  threat_score?: number;
 }
 
 export interface SecurityAlert {
