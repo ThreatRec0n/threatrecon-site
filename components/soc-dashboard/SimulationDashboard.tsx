@@ -14,6 +14,9 @@ import InvestigationGuide from './InvestigationGuide';
 import OnboardingModal from './OnboardingModal';
 import ScenarioSelector from './ScenarioSelector';
 import ProgressTracker, { markScenarioCompleted } from './ProgressTracker';
+import CaseNotes, { type CaseNote } from './CaseNotes';
+import EvidenceBinder, { type EvidenceItem } from './EvidenceBinder';
+import ReportExport from './ReportExport';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -47,9 +50,11 @@ export default function SimulationDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [isLocked, setIsLocked] = useState(false);
-  const [activeView, setActiveView] = useState<'main' | 'mitre' | 'purple' | 'rules'>('main');
+  const [activeView, setActiveView] = useState<'main' | 'mitre' | 'purple' | 'rules' | 'case'>('main');
   const [detectedTechniques, setDetectedTechniques] = useState<string[]>([]);
   const [savedRules, setSavedRules] = useState<DetectionRule[]>([]);
+  const [caseNotes, setCaseNotes] = useState<CaseNote[]>([]);
+  const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [showScenarioIntro, setShowScenarioIntro] = useState(true);
   const [showScenarioSelector, setShowScenarioSelector] = useState(false);
   const [currentScenarioType, setCurrentScenarioType] = useState<string>('');
@@ -554,6 +559,18 @@ export default function SimulationDashboard() {
                 📝 Detection Rules
               </button>
               <button
+                onClick={() => setActiveView(activeView === 'case' ? 'main' : 'case')}
+                className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  activeView === 'case'
+                    ? 'bg-blue-900/40 text-blue-400 border-blue-800/60'
+                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-blue-800/60'
+                }`}
+                aria-label={activeView === 'case' ? "Close Case Notes and return to main view" : "Open Case Notes - Document investigation findings"}
+                title={activeView === 'case' ? "Close Case Notes" : "Case Notes - Document findings, attach evidence, and export reports"}
+              >
+                📋 Case Notes
+              </button>
+              <button
                 onClick={handleFinalizeInvestigation}
                 disabled={isLocked || isSubmitting}
                 className={`px-4 py-1.5 rounded border text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 ${
@@ -674,6 +691,37 @@ export default function SimulationDashboard() {
               }}
               onTest={(rule) => {
                 console.log('Testing rule:', rule);
+              }}
+            />
+          </div>
+        )}
+
+        {activeView === 'case' && session && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <CaseNotes
+              scenarioId={session.session_id}
+              onNotesChange={setCaseNotes}
+            />
+            <EvidenceBinder
+              scenarioId={session.session_id}
+              onEvidenceChange={setEvidence}
+            />
+          </div>
+        )}
+
+        {activeView === 'case' && session && (
+          <div className="mb-4">
+            <ReportExport
+              scenarioName={currentScenario?.name || 'Active Investigation'}
+              scenarioId={session.session_id}
+              notes={caseNotes}
+              evidence={evidence}
+              events={session.events}
+              evaluationResult={evaluationResult}
+              iocTags={iocTags}
+              onExport={(format) => {
+                console.log('Exporting report in format:', format);
+                // Export logic is handled in ReportExport component
               }}
             />
           </div>
