@@ -53,7 +53,7 @@ export default function SimulationDashboard() {
         body: JSON.stringify({
           action: 'initialize',
           config: {
-            story_type: 'ransomware-deployment',
+            story_type: ['ransomware-deployment', 'apt29-cozy-bear', 'credential-harvesting', 'ransomware-lockbit', 'insider-threat'][Math.floor(Math.random() * 5)] as any,
             difficulty: 'intermediate',
             add_noise: true,
             noise_count: 50,

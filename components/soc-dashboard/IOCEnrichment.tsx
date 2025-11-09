@@ -66,6 +66,14 @@ export default function IOCEnrichment({ ioc, type, onClose }: Props) {
               name: 'AlienVault OTX',
               reputation: Math.random() > 0.5 ? 'suspicious' : 'clean',
             },
+            {
+              name: 'Cisco Talos Intelligence',
+              reputation: Math.random() > 0.65 ? 'malicious' : 'clean',
+            },
+            {
+              name: 'Hybrid Analysis',
+              reputation: type === 'hash' && Math.random() > 0.5 ? 'malicious' : 'clean',
+            },
           ],
           categories: type === 'ip' && Math.random() > 0.5
             ? ['C2 Server', 'Malware Distribution', 'Phishing']
@@ -235,14 +243,24 @@ export default function IOCEnrichment({ ioc, type, onClose }: Props) {
                 VirusTotal →
               </a>
               {type === 'ip' && (
-                <a
-                  href={`https://www.abuseipdb.com/check/${ioc}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
-                >
-                  AbuseIPDB →
-                </a>
+                <>
+                  <a
+                    href={`https://www.abuseipdb.com/check/${ioc}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
+                  >
+                    AbuseIPDB →
+                  </a>
+                  <a
+                    href={`https://talosintelligence.com/reputation_center/lookup?search=${ioc}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
+                  >
+                    Cisco Talos →
+                  </a>
+                </>
               )}
               <a
                 href={`https://otx.alienvault.com/indicator/${type}/${ioc}`}
@@ -252,6 +270,16 @@ export default function IOCEnrichment({ ioc, type, onClose }: Props) {
               >
                 AlienVault OTX →
               </a>
+              {type === 'hash' && (
+                <a
+                  href={`https://www.hybrid-analysis.com/search?query=${ioc}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#58a6ff] hover:text-[#79c0ff]"
+                >
+                  Hybrid Analysis →
+                </a>
+              )}
             </div>
           </div>
         </div>

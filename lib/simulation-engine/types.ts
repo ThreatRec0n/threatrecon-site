@@ -94,11 +94,16 @@ export interface ScenarioStory {
   id: string;
   name: string;
   description: string;
-  initial_infection_vector: 'phishing' | 'usb' | 'drive-by' | 'supply-chain' | 'credential-theft';
+  initial_infection_vector: 'phishing' | 'usb' | 'drive-by' | 'supply-chain' | 'credential-theft' | 'valid-accounts';
   attack_chains: string[]; // Attack chain IDs
   timeline: ScenarioTimelineEvent[];
   learning_objectives: string[];
   difficulty: 'grasshopper' | 'beginner' | 'intermediate' | 'advanced';
+  narrative?: {
+    background: string;
+    incident: string;
+    yourRole: string;
+  };
 }
 
 export interface ScenarioTimelineEvent {
