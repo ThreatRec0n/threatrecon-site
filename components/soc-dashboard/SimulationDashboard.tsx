@@ -14,6 +14,7 @@ import InvestigationGuide from './InvestigationGuide';
 import OnboardingModal from './OnboardingModal';
 import ScenarioSelector from './ScenarioSelector';
 import ProgressTracker, { markScenarioCompleted } from './ProgressTracker';
+import ProfileDropdown from '@/components/auth/ProfileDropdown';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -250,6 +251,27 @@ export default function SimulationDashboard() {
         markScenarioCompleted(currentScenarioType);
       }
       
+      // Save progress to localStorage
+      const progress = JSON.parse(localStorage.getItem('threatrecon_scenario_progress') || '{}');
+      if (currentScenarioType) {
+        progress[currentScenarioType] = true;
+        localStorage.setItem('threatrecon_scenario_progress', JSON.stringify(progress));
+      }
+
+      // Save score
+      const scores = JSON.parse(localStorage.getItem('threatrecon_scores') || '[]');
+      const skillLevel = result.score >= 90 ? 'Incident Commander' :
+                        result.score >= 70 ? 'Threat Hunter' :
+                        result.score >= 50 ? 'SOC Analyst' : 'Analyst in Training';
+      
+      scores.push({
+        scenario: currentScenarioType,
+        score: result.score,
+        timestamp: new Date().toISOString(),
+        skill_level: skillLevel,
+      });
+      localStorage.setItem('threatrecon_scores', JSON.stringify(scores));
+
       // Save to leaderboard if timed mode
       if (timedMode && startTime) {
         const completionTime = elapsedTime;
@@ -258,9 +280,7 @@ export default function SimulationDashboard() {
           time: completionTime,
           scenario: currentScenarioType,
           timestamp: new Date().toISOString(),
-          skillLevel: result.score >= 90 ? 'Incident Commander' :
-                     result.score >= 70 ? 'Threat Hunter' :
-                     result.score >= 50 ? 'SOC Analyst' : 'Analyst in Training',
+          skillLevel: skillLevel,
         };
         
         // Save to localStorage
@@ -433,6 +453,12 @@ export default function SimulationDashboard() {
               >
                 🏆 Leaderboard
               </a>
+              
+              <ProfileDropdown onProgressSync={() => {
+                // Progress synced, refresh if needed
+                console.log('Progress synced successfully');
+              }} />
+              
               <div className="relative group">
                 <button
                   className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
