@@ -12,6 +12,8 @@ interface Props {
   onSelectEvent: (event: SIEMEvent) => void;
   selectedIPs?: Set<string>;
   onToggleIP?: (ip: string) => void;
+  maliciousIPs?: string[];
+  showFeedback?: boolean;
 }
 
 export default function LogSearchPanel({
@@ -23,6 +25,8 @@ export default function LogSearchPanel({
   onSelectEvent,
   selectedIPs = new Set(),
   onToggleIP,
+  maliciousIPs = [],
+  showFeedback = false,
 }: Props) {
   const filteredEvents = useMemo(() => {
     if (!searchQuery.trim()) return events;
@@ -106,11 +110,18 @@ export default function LogSearchPanel({
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className={`log-mono ${
-                        selectedIPs.has(event.destinationIP) ? 'text-red-400 font-bold' : 'text-[#58a6ff]'
+                        selectedIPs.has(event.destinationIP) 
+                          ? maliciousIPs.includes(event.destinationIP)
+                            ? 'text-green-400 font-bold' 
+                            : 'text-red-400 font-bold'
+                          : 'text-[#58a6ff]'
                       }`}>
                         {event.destinationIP}
                       </span>
-                      {!event.destinationIP?.startsWith('10.') && !event.destinationIP?.startsWith('192.168.') && onToggleIP && (
+                      {!event.destinationIP?.startsWith('10.') && 
+                       !event.destinationIP?.startsWith('192.168.') && 
+                       !event.destinationIP?.startsWith('172.') &&
+                       onToggleIP && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -118,11 +129,19 @@ export default function LogSearchPanel({
                           }}
                           className={`text-xs px-2 py-1 rounded ${
                             selectedIPs.has(event.destinationIP)
-                              ? 'bg-red-900/40 text-red-400 border border-red-800/60'
+                              ? maliciousIPs.includes(event.destinationIP)
+                                ? 'bg-green-900/40 text-green-400 border border-green-800/60'
+                                : 'bg-red-900/40 text-red-400 border border-red-800/60'
                               : 'bg-[#0d1117] text-[#8b949e] border border-[#30363d] hover:bg-[#161b22]'
                           }`}
                         >
-                          {selectedIPs.has(event.destinationIP) ? '✓ Marked' : 'Mark Bad'}
+                          {selectedIPs.has(event.destinationIP) 
+                            ? showFeedback && maliciousIPs.includes(event.destinationIP)
+                              ? '✓ Correct'
+                              : showFeedback
+                              ? '✗ Wrong'
+                              : '✓ Marked'
+                            : 'Mark Bad'}
                         </button>
                       )}
                     </div>

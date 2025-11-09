@@ -14,11 +14,23 @@ interface Props {
   alerts?: SecurityAlert[];
   events?: SIEMEvent[];
   onAlertClassify?: (alertId: string, classification: AlertClassification) => void;
+  markedIPs?: Set<string>;
+  onIPMarked?: (ip: string) => void;
+  maliciousIPs?: string[];
+  showFeedback?: boolean;
 }
 
-export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events = [], onAlertClassify }: Props) {
+export default function EnhancedSIEMDashboard({ 
+  scenarioId, 
+  alerts = [], 
+  events = [], 
+  onAlertClassify,
+  markedIPs = new Set(),
+  onIPMarked,
+  maliciousIPs = [],
+  showFeedback = false,
+}: Props) {
   const [activeTab, setActiveTab] = useState<'alerts' | 'logs' | 'cases' | 'dashboard'>('dashboard');
-  const [selectedIPs, setSelectedIPs] = useState<Set<string>>(new Set());
   const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<SIEMEvent | null>(null);
   const [cases, setCases] = useState<IncidentCase[]>([]);
@@ -90,26 +102,47 @@ export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events 
           </div>
 
           {/* Marked Malicious IPs */}
-          {selectedIPs.size > 0 && (
+          {markedIPs.size > 0 && (
             <div className="siem-card border-l-4 border-red-500">
               <h3 className="text-lg font-semibold text-[#c9d1d9] mb-3">🎯 Marked Malicious IPs</h3>
               <div className="flex flex-wrap gap-2">
-                {Array.from(selectedIPs).map(ip => (
-                  <div key={ip} className="flex items-center gap-2 px-3 py-2 bg-red-900/40 border border-red-800/60 rounded">
-                    <span className="font-mono text-sm text-red-400">{ip}</span>
-                    <button
-                      onClick={() => setSelectedIPs(prev => {
-                        const next = new Set(prev);
-                        next.delete(ip);
-                        return next;
-                      })}
-                      className="text-red-400 hover:text-red-300"
+                {Array.from(markedIPs).map(ip => {
+                  const isCorrect = maliciousIPs.includes(ip);
+                  return (
+                    <div 
+                      key={ip} 
+                      className={`flex items-center gap-2 px-3 py-2 border rounded ${
+                        isCorrect 
+                          ? 'bg-green-900/40 border-green-800/60' 
+                          : 'bg-red-900/40 border-red-800/60'
+                      }`}
                     >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                      <span className={`font-mono text-sm ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                        {ip}
+                      </span>
+                      {showFeedback && (
+                        <span className="text-xs">
+                          {isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                        </span>
+                      )}
+                      {onIPMarked && (
+                        <button
+                          onClick={() => onIPMarked(ip)}
+                          className={`${isCorrect ? 'text-green-400' : 'text-red-400'} hover:opacity-70`}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
+              {showFeedback && maliciousIPs.length > 0 && (
+                <div className="mt-3 text-xs text-[#8b949e]">
+                  {Array.from(markedIPs).filter(ip => maliciousIPs.includes(ip)).length} correct, {' '}
+                  {Array.from(markedIPs).filter(ip => !maliciousIPs.includes(ip)).length} incorrect
+                </div>
+              )}
             </div>
           )}
 
@@ -147,26 +180,18 @@ export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events 
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
             onSelectEvent={setSelectedEvent}
-            selectedIPs={selectedIPs}
-            onToggleIP={(ip) => {
-              setSelectedIPs(prev => {
-                const next = new Set(prev);
-                if (next.has(ip)) {
-                  next.delete(ip);
-                } else {
-                  next.add(ip);
-                }
-                return next;
-              });
-            }}
+            selectedIPs={markedIPs}
+            onToggleIP={onIPMarked}
+            maliciousIPs={maliciousIPs}
+            showFeedback={showFeedback}
           />
           {selectedEvent && (
             <EventDetailsPanel
               event={selectedEvent}
               onClose={() => setSelectedEvent(null)}
-              onMarkIP={(ip: string) => {
-                setSelectedIPs(prev => new Set([...prev, ip]));
-              }}
+              onMarkIP={onIPMarked}
+              maliciousIPs={maliciousIPs}
+              showFeedback={showFeedback}
             />
           )}
         </div>
@@ -326,7 +351,7 @@ function AlertDetailsPanel({ alert, onClose, onThreatIntelLookup }: any) {
   );
 }
 
-function EventDetailsPanel({ event, onClose, onMarkIP }: any) {
+function EventDetailsPanel({ event, onClose, onMarkIP, maliciousIPs = [], showFeedback = false }: any) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-[#161b22] border border-[#30363d] rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -352,12 +377,20 @@ function EventDetailsPanel({ event, onClose, onMarkIP }: any) {
               <div className="text-xs text-[#8b949e] mb-1">Destination IP</div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-mono text-[#58a6ff]">{event.destinationIP}</span>
-                {!event.destinationIP?.startsWith('10.') && !event.destinationIP?.startsWith('192.168.') && (
+                {!event.destinationIP?.startsWith('10.') && 
+                 !event.destinationIP?.startsWith('192.168.') && 
+                 !event.destinationIP?.startsWith('172.') && (
                   <button
                     onClick={() => onMarkIP?.(event.destinationIP)}
-                    className="text-xs px-2 py-1 bg-red-900/40 text-red-400 border border-red-800/60 rounded hover:bg-red-900/60"
+                    className={`text-xs px-2 py-1 border rounded hover:opacity-70 ${
+                      maliciousIPs.includes(event.destinationIP)
+                        ? 'bg-green-900/40 text-green-400 border-green-800/60'
+                        : 'bg-red-900/40 text-red-400 border-red-800/60'
+                    }`}
                   >
-                    Mark as Malicious
+                    {showFeedback && maliciousIPs.includes(event.destinationIP)
+                      ? '✓ Correct IP'
+                      : 'Mark as Malicious'}
                   </button>
                 )}
               </div>
