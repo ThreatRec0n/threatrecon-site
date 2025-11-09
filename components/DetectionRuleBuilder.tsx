@@ -1,159 +1,263 @@
 'use client';
 
 import { useState } from 'react';
-import type { DetectionRule } from '@/lib/types';
 
-export default function DetectionRuleBuilder() {
-  const [rules, setRules] = useState<DetectionRule[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [newRule, setNewRule] = useState<Partial<DetectionRule>>({
-    name: '',
-    description: '',
-    enabled: true,
-    severity: 'medium',
-    query: '',
-    mitreTechniques: [],
-    tags: [],
-  });
+export type RuleType = 'sigma' | 'yara' | 'kql' | 'splunk';
 
-  function handleCreateRule() {
-    if (!newRule.name || !newRule.query) return;
-    
-    const rule: DetectionRule = {
+interface Props {
+  onSave: (rule: DetectionRule) => void;
+  onTest: (rule: DetectionRule) => void;
+  existingRule?: DetectionRule;
+}
+
+export interface DetectionRule {
+  id: string;
+  name: string;
+  description: string;
+  type: RuleType;
+  enabled: boolean;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  rule: string; // The actual rule content
+  mitreTechniques: string[];
+  tags: string[];
+  threshold?: number;
+  timeWindow?: string;
+  testResults?: {
+    matches: number;
+    falsePositives: number;
+    testedAt: string;
+  };
+}
+
+export default function DetectionRuleBuilder({ onSave, onTest, existingRule }: Props) {
+  const [rule, setRule] = useState<DetectionRule>(
+    existingRule || {
       id: `rule-${Date.now()}`,
-      name: newRule.name,
-      description: newRule.description || '',
-      enabled: newRule.enabled ?? true,
-      severity: newRule.severity || 'medium',
-      query: newRule.query,
-      mitreTechniques: newRule.mitreTechniques || [],
-      tags: newRule.tags || [],
-    };
-    
-    setRules([...rules, rule]);
-    setNewRule({
       name: '',
       description: '',
+      type: 'sigma',
       enabled: true,
       severity: 'medium',
-      query: '',
+      rule: '',
       mitreTechniques: [],
       tags: [],
-    });
-    setShowForm(false);
+    }
+  );
+
+  const [testResults, setTestResults] = useState<DetectionRule['testResults']>();
+
+  const sigmaTemplate = `title: Suspicious PowerShell Execution
+id: ${rule.id}
+status: experimental
+description: Detects suspicious PowerShell execution patterns
+references:
+    - https://attack.mitre.org/techniques/T1059/001/
+author: SOC Analyst
+date: ${new Date().toISOString().split('T')[0]}
+tags:
+    - attack.execution
+    - attack.t1059.001
+logsource:
+    product: windows
+    service: powershell
+detection:
+    selection:
+        EventID: 4104
+        ScriptBlockText|contains:
+            - 'Base64'
+            - 'EncodedCommand'
+    condition: selection
+falsepositives:
+    - Legitimate administrative scripts
+level: ${rule.severity}`;
+
+  const yaraTemplate = `rule ${rule.name.replace(/\s+/g, '_')}
+{
+    meta:
+        description = "${rule.description}"
+        author = "SOC Analyst"
+        date = "${new Date().toISOString().split('T')[0]}"
+        mitre_technique = "${rule.mitreTechniques.join(', ')}"
+    strings:
+        $s1 = "powershell" nocase
+        $s2 = /-enc[odedcommand]*\s+[A-Za-z0-9+\/]{100,}/
+    condition:
+        all of them
+}`;
+
+  const kqlTemplate = `SecurityEvent
+| where EventID == 4104
+| where EventData contains "Base64" or EventData contains "EncodedCommand"
+| project TimeGenerated, Computer, Account, EventData`;
+
+  function handleTypeChange(type: RuleType) {
+    setRule(prev => ({
+      ...prev,
+      type,
+      rule: type === 'sigma' ? sigmaTemplate :
+            type === 'yara' ? yaraTemplate :
+            type === 'kql' ? kqlTemplate : '',
+    }));
+  }
+
+  function handleTest() {
+    // Simulate rule testing
+    const results = {
+      matches: Math.floor(Math.random() * 50),
+      falsePositives: Math.floor(Math.random() * 5),
+      testedAt: new Date().toISOString(),
+    };
+    setTestResults(results);
+    onTest({ ...rule, testResults: results });
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-[#c9d1d9]">Detection Rules</h3>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="btn-primary text-sm"
-        >
-          {showForm ? 'Cancel' : '+ New Rule'}
-        </button>
-      </div>
+      <div className="siem-card">
+        <h3 className="text-lg font-semibold text-[#c9d1d9] mb-4">Detection Rule Builder</h3>
 
-      {showForm && (
-        <div className="siem-card">
-          <h4 className="text-sm font-semibold text-[#c9d1d9] mb-4">Create Detection Rule</h4>
-          <div className="space-y-3">
+        {/* Rule Metadata */}
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="block text-sm text-[#8b949e] mb-1">Rule Name</label>
+            <input
+              type="text"
+              value={rule.name}
+              onChange={e => setRule(prev => ({ ...prev, name: e.target.value }))}
+              className="search-input w-full"
+              placeholder="e.g., Suspicious PowerShell Execution"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-[#8b949e] mb-1">Description</label>
+            <textarea
+              value={rule.description}
+              onChange={e => setRule(prev => ({ ...prev, description: e.target.value }))}
+              className="search-input w-full"
+              rows={3}
+              placeholder="Describe what this rule detects..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-[#8b949e] mb-1 block">Rule Name</label>
-              <input
-                type="text"
-                value={newRule.name}
-                onChange={e => setNewRule({ ...newRule, name: e.target.value })}
-                className="search-input w-full"
-                placeholder="e.g., Suspicious PowerShell Execution"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-[#8b949e] mb-1 block">Description</label>
-              <textarea
-                value={newRule.description}
-                onChange={e => setNewRule({ ...newRule, description: e.target.value })}
-                className="search-input w-full min-h-[60px]"
-                placeholder="Describe what this rule detects..."
-              />
-            </div>
-            <div>
-              <label className="text-xs text-[#8b949e] mb-1 block">Query (KQL/Lucene)</label>
-              <textarea
-                value={newRule.query}
-                onChange={e => setNewRule({ ...newRule, query: e.target.value })}
-                className="search-input w-full min-h-[100px] font-mono text-sm"
-                placeholder="process_name:powershell.exe AND command:*base64*"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-[#8b949e] mb-1 block">Severity</label>
+              <label className="block text-sm text-[#8b949e] mb-1">Rule Type</label>
               <select
-                value={newRule.severity}
-                onChange={e => setNewRule({ ...newRule, severity: e.target.value as any })}
+                value={rule.type}
+                onChange={e => handleTypeChange(e.target.value as RuleType)}
+                className="search-input w-full"
+              >
+                <option value="sigma">Sigma</option>
+                <option value="yara">YARA</option>
+                <option value="kql">KQL (Azure Sentinel)</option>
+                <option value="splunk">Splunk SPL</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-[#8b949e] mb-1">Severity</label>
+              <select
+                value={rule.severity}
+                onChange={e => setRule(prev => ({ ...prev, severity: e.target.value as any }))}
                 className="search-input w-full"
               >
                 <option value="critical">Critical</option>
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
-                <option value="info">Info</option>
               </select>
             </div>
-            <button onClick={handleCreateRule} className="btn-primary">
-              Create Rule
-            </button>
+          </div>
+
+          <div>
+            <label className="block text-sm text-[#8b949e] mb-1">MITRE ATT&CK Techniques</label>
+            <input
+              type="text"
+              value={rule.mitreTechniques.join(', ')}
+              onChange={e => setRule(prev => ({ ...prev, mitreTechniques: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }))}
+              className="search-input w-full"
+              placeholder="T1059.001, T1071.001 (comma-separated)"
+            />
           </div>
         </div>
-      )}
 
-      {rules.length === 0 ? (
-        <div className="siem-card text-center py-12">
-          <div className="text-4xl mb-4">🔍</div>
-          <p className="text-[#8b949e]">No detection rules created yet</p>
-          <p className="text-sm text-[#484f58] mt-2">Create a new rule to start detecting threats</p>
+        {/* Rule Editor */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm text-[#8b949e]">Rule Content ({rule.type.toUpperCase()})</label>
+            <button
+              onClick={() => {
+                const template = rule.type === 'sigma' ? sigmaTemplate :
+                                rule.type === 'yara' ? yaraTemplate :
+                                rule.type === 'kql' ? kqlTemplate : '';
+                setRule(prev => ({ ...prev, rule: template }));
+              }}
+              className="text-xs text-[#58a6ff] hover:underline"
+            >
+              Load Template
+            </button>
+          </div>
+          <textarea
+            value={rule.rule}
+            onChange={e => setRule(prev => ({ ...prev, rule: e.target.value }))}
+            className="w-full bg-[#0d1117] border border-[#30363d] rounded p-3 text-sm font-mono text-[#c9d1d9] resize-none"
+            rows={15}
+            placeholder={`Enter your ${rule.type.toUpperCase()} rule here...`}
+          />
         </div>
-      ) : (
-        <div className="space-y-3">
-          {rules.map(rule => (
-            <div key={rule.id} className="siem-card">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-semibold text-[#c9d1d9]">{rule.name}</h4>
-                    <span className={`px-2 py-1 text-xs rounded ${
-                      rule.severity === 'critical' ? 'bg-red-900/40 text-red-400 border border-red-800/60' :
-                      rule.severity === 'high' ? 'bg-orange-900/40 text-orange-400 border border-orange-800/60' :
-                      rule.severity === 'medium' ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-800/60' :
-                      rule.severity === 'low' ? 'bg-blue-900/40 text-blue-400 border border-blue-800/60' :
-                      'bg-gray-700/40 text-gray-400 border border-gray-600/60'
-                    }`}>
-                      {rule.severity}
-                    </span>
-                    {rule.enabled ? (
-                      <span className="px-2 py-1 text-xs bg-green-900/40 text-green-400 border border-green-800/60 rounded">
-                        Enabled
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 text-xs bg-gray-700/40 text-gray-400 border border-gray-600/60 rounded">
-                        Disabled
-                      </span>
-                    )}
-                  </div>
-                  {rule.description && (
-                    <p className="text-xs text-[#8b949e] mb-2">{rule.description}</p>
-                  )}
-                  <div className="bg-[#0d1117] p-2 rounded border border-[#30363d]">
-                    <code className="text-xs text-[#58a6ff] font-mono">{rule.query}</code>
-                  </div>
+
+        {/* Test Results */}
+        {testResults && (
+          <div className="mt-4 p-4 bg-[#0d1117] border border-[#30363d] rounded">
+            <h4 className="text-sm font-semibold text-[#c9d1d9] mb-2">Test Results</h4>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>
+                <div className="text-[#8b949e]">Matches</div>
+                <div className="text-[#c9d1d9] font-semibold">{testResults.matches}</div>
+              </div>
+              <div>
+                <div className="text-[#8b949e]">False Positives</div>
+                <div className="text-[#c9d1d9] font-semibold">{testResults.falsePositives}</div>
+              </div>
+              <div>
+                <div className="text-[#8b949e]">Tested At</div>
+                <div className="text-[#c9d1d9] font-semibold text-xs">
+                  {new Date(testResults.testedAt).toLocaleString()}
                 </div>
               </div>
             </div>
-          ))}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 mt-4">
+          <button
+            onClick={handleTest}
+            className="px-4 py-2 text-sm bg-yellow-900/40 text-yellow-400 border border-yellow-800/60 rounded hover:bg-yellow-900/60"
+          >
+            Test Rule
+          </button>
+          <button
+            onClick={() => onSave(rule)}
+            className="px-4 py-2 text-sm bg-[#58a6ff] text-white rounded hover:bg-[#4493f8]"
+          >
+            Save Rule
+          </button>
         </div>
-      )}
+      </div>
+
+      {/* Help Section */}
+      <div className="siem-card">
+        <h4 className="text-sm font-semibold text-[#c9d1d9] mb-2">Rule Writing Tips</h4>
+        <ul className="text-xs text-[#8b949e] space-y-1 list-disc list-inside">
+          <li>Start with specific indicators to reduce false positives</li>
+          <li>Include MITRE ATT&CK technique mappings for context</li>
+          <li>Test rules against both malicious and benign data</li>
+          <li>Document false positive scenarios in rule description</li>
+          <li>Use time windows and thresholds to reduce noise</li>
+        </ul>
+      </div>
     </div>
   );
 }
-

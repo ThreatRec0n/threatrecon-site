@@ -108,7 +108,6 @@ export function addStepToChain(
   return {
     ...chain,
     steps: [...chain.steps, step],
-    updatedAt: new Date().toISOString(),
   };
 }
 
