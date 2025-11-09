@@ -163,7 +163,9 @@ export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events 
           onCreateCase={(caseData) => {
             const newCase: IncidentCase = {
               id: `case-${Date.now()}`,
-              ...caseData,
+              title: caseData.title || 'Untitled Case',
+              severity: caseData.severity || 'medium',
+              status: caseData.status || 'open',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
               alerts: [],
