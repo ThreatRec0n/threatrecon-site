@@ -1,42 +1,64 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+let client: SupabaseClient | null = null;
 
-// Create client only if credentials are provided
-// If not provided, create a placeholder client that will be checked at runtime
-let supabase: SupabaseClient;
+export const isSupabaseEnabled =
+  !!process.env.NEXT_PUBLIC_SUPABASE_URL && 
+  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+  process.env.NEXT_PUBLIC_SUPABASE_URL !== 'your_supabase_project_url' &&
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'your_supabase_anon_key';
 
-if (supabaseUrl && supabaseAnonKey && supabaseUrl !== 'your_supabase_project_url' && supabaseAnonKey !== 'your_supabase_anon_key') {
-  supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
+export function getSupabaseClient(): SupabaseClient | null {
+  if (!isSupabaseEnabled) return null;
+  if (typeof window === 'undefined') return null;
+  
+  if (!client) {
+    client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+      { 
+        auth: { 
+          persistSession: true, 
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        } 
+      }
+    );
+  }
+  
+  return client;
+}
+
+// Legacy export for backward compatibility
+export const supabase = {
+  auth: {
+    getSession: async () => {
+      const c = getSupabaseClient();
+      return c ? c.auth.getSession() : { data: { session: null }, error: null };
     },
-  });
-} else {
-  // Create a minimal client for build-time (will fail gracefully at runtime)
-  supabase = createClient(
-    'https://placeholder.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTIwMDAsImV4cCI6MTk2MDc2ODAwMH0.placeholder',
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    }
-  );
-}
-
-// Helper to check if Supabase is properly configured
-export function isSupabaseConfigured(): boolean {
-  return !!(supabaseUrl && supabaseAnonKey && 
-           supabaseUrl !== 'your_supabase_project_url' && 
-           supabaseAnonKey !== 'your_supabase_anon_key' &&
-           !supabaseUrl.includes('placeholder'));
-}
-
-export { supabase };
+    getUser: async () => {
+      const c = getSupabaseClient();
+      return c ? c.auth.getUser() : { data: { user: null }, error: null };
+    },
+    onAuthStateChange: (callback: any) => {
+      const c = getSupabaseClient();
+      if (!c) {
+        return { data: { subscription: null }, unsubscribe: () => {} };
+      }
+      return c.auth.onAuthStateChange(callback);
+    },
+    signOut: async () => {
+      const c = getSupabaseClient();
+      return c ? c.auth.signOut() : { error: null };
+    },
+    signInWithPassword: async (credentials: any) => {
+      const c = getSupabaseClient();
+      return c ? c.auth.signInWithPassword(credentials) : { data: null, error: { message: 'Supabase not configured' } };
+    },
+    signUp: async (credentials: any) => {
+      const c = getSupabaseClient();
+      return c ? c.auth.signUp(credentials) : { data: null, error: { message: 'Supabase not configured' } };
+    },
+  },
+};
 

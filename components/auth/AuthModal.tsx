@@ -1,24 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { createPortal } from 'react-dom';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   initialMode?: 'login' | 'signup';
+  mode?: 'login' | 'signup';
 }
 
-export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }: Props) {
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
+export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', mode: propMode }: Props) {
+  const [mode, setMode] = useState<'login' | 'signup'>(propMode || initialMode);
   
-  // Update mode when initialMode changes
+  // Update mode when initialMode or propMode changes
   useEffect(() => {
     if (isOpen) {
-      setMode(initialMode);
+      setMode(propMode || initialMode);
     }
-  }, [initialMode, isOpen]);
+  }, [initialMode, propMode, isOpen]);
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,84 +34,102 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
     setError('');
     setMessage('');
 
-    try {
-      // Check if Supabase is configured
-      if (typeof window !== 'undefined' && 
-          (!process.env.NEXT_PUBLIC_SUPABASE_URL || 
-           !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-           process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_project_url')) {
-        throw new Error('User accounts are not configured. Please contact the administrator.');
-      }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setError('Authentication is not available');
+      setLoading(false);
+      return;
+    }
 
-      if (mode === 'signup') {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
+    try {
+      if (mode === 'login') {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
 
-        if (signUpError) throw signUpError;
+        if (authError) {
+          if (authError.message.includes('Invalid login credentials')) {
+            setError('Invalid email or password. Please try again.');
+          } else if (authError.message.includes('Email not confirmed')) {
+            setError('Please check your email and confirm your account before signing in.');
+          } else {
+            setError(authError.message || 'Failed to sign in. Please try again.');
+          }
+          setLoading(false);
+          return;
+        }
 
-        if (data.user) {
-          setMessage('Account created! Please check your email to verify your account.');
-          // Auto-switch to login after signup
+        if (data?.user) {
+          setMessage('Successfully signed in!');
           setTimeout(() => {
-            setMode('login');
-            setMessage('');
-          }, 3000);
+            onSuccess();
+            // Redirect to simulation
+            if (typeof window !== 'undefined') {
+              window.location.href = '/simulation';
+            }
+          }, 1000);
         }
       } else {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim(),
+        const { data, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
         });
 
-        if (signInError) throw signInError;
-
-        if (data.user) {
-          onSuccess();
-          onClose();
-          // Redirect to simulation after successful login
-          if (typeof window !== 'undefined') {
-            setTimeout(() => {
-              window.location.href = '/simulation';
-            }, 500);
+        if (authError) {
+          if (authError.message.includes('already registered')) {
+            setError('An account with this email already exists. Please sign in instead.');
+            setMode('login');
+          } else if (authError.message.includes('Password')) {
+            setError('Password is too weak. Please use a stronger password.');
+          } else {
+            setError(authError.message || 'Failed to create account. Please try again.');
           }
+          setLoading(false);
+          return;
+        }
+
+        if (data?.user) {
+          setMessage('Account created! Please check your email to confirm your account.');
+          setTimeout(() => {
+            setMode('login');
+            setMessage('You can now sign in with your credentials.');
+          }, 2000);
         }
       }
     } catch (err: any) {
-      // Show clearer error messages
-      if (err.message?.includes('Invalid login')) {
-        setError('Invalid email or password. Please check your credentials and try again.');
-      } else if (err.message?.includes('Email not confirmed')) {
-        setError('Please check your email and verify your account before signing in.');
-      } else if (err.message?.includes('Password')) {
-        setError('Password must be at least 8 characters long.');
-      } else if (err.message?.includes('already registered')) {
-        setError('An account with this email already exists. Please sign in instead.');
-      } else {
-        setError(err.message || 'An error occurred. Please try again.');
-      }
+      setError(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="auth-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-      }}
-    >
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg max-w-md w-full shadow-2xl">
+  const modal = (
+    <div className="fixed inset-0 z-[2000]">
+      <div 
+        className="absolute inset-0 bg-black/60" 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div 
+        className="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-[#161b22] border border-[#30363d] p-6 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-title"
+      >
         {/* Header */}
         <div className="p-6 border-b border-[#30363d] flex items-center justify-between">
           <h2 id="auth-title" className="text-2xl font-bold text-[#c9d1d9]">
@@ -169,10 +190,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               className="w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded text-[#c9d1d9] placeholder-[#8b949e] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:border-transparent disabled:opacity-50"
-              placeholder={mode === 'login' ? 'Enter your password' : 'At least 8 characters'}
+              placeholder="••••••••"
               required
-              minLength={8}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              minLength={6}
             />
           </div>
 
@@ -180,13 +201,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded font-semibold transition-colors bg-[#58a6ff] text-white hover:bg-[#4493f8] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+            className="w-full px-4 py-3 bg-[#58a6ff] text-white rounded font-semibold hover:bg-[#4493f8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
           >
             {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
 
-          {/* Mode Toggle */}
-          <div className="text-center pt-4 border-t border-[#30363d]">
+          {/* Toggle Mode */}
+          <div className="text-center text-sm text-[#8b949e]">
             <button
               type="button"
               onClick={() => {
@@ -194,25 +215,18 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
                 setError('');
                 setMessage('');
               }}
-              className="text-sm text-[#58a6ff] hover:text-[#79c0ff]"
+              className="text-[#58a6ff] hover:text-[#4493f8] underline focus:outline-none focus:ring-2 focus:ring-[#58a6ff] rounded px-1"
             >
-              {mode === 'login' 
+              {mode === 'login'
                 ? "Don't have an account? Sign up" 
                 : 'Already have an account? Sign in'}
             </button>
-          </div>
-
-          {/* Privacy Notice */}
-          <div className="pt-4 border-t border-[#30363d]">
-            <p className="text-xs text-center text-[#8b949e]">
-              🔒 Your email is only used for account management. No personal data is collected.
-              <br />
-              Account is optional - you can use the platform without signing in.
-            </p>
           </div>
         </form>
       </div>
     </div>
   );
-}
 
+  if (typeof window === 'undefined') return null;
+  return createPortal(modal, document.body);
+}
