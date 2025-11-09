@@ -54,11 +54,47 @@ export default function SimulationDashboard() {
   const [showScenarioSelector, setShowScenarioSelector] = useState(false);
   const [currentScenarioType, setCurrentScenarioType] = useState<string>('');
   const [investigationGuideOpen, setInvestigationGuideOpen] = useState(false);
+  const [timedMode, setTimedMode] = useState(false);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   // Initialize simulation on mount
   useEffect(() => {
     initializeSimulation();
+    
+    // Track simulation visit
+    fetch('/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'simulation_visit',
+        timestamp: new Date().toISOString(),
+      }),
+    }).catch(() => {});
   }, []);
+
+  // Timer effect
+  useEffect(() => {
+    if (!timedMode || !startTime || isLocked) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+      setElapsedTime(elapsed);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timedMode, startTime, isLocked]);
+
+  // Format time display
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Initialize simulation
   const initializeSimulation = async (config?: {
@@ -102,6 +138,12 @@ export default function SimulationDashboard() {
       }
 
       setSession(data.session);
+      
+      // Start timer if timed mode is enabled
+      if (timedMode) {
+        setStartTime(new Date());
+        setElapsedTime(0);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load simulation');
       console.error('Simulation initialization error:', err);
@@ -206,6 +248,31 @@ export default function SimulationDashboard() {
       // Mark scenario as completed
       if (currentScenarioType) {
         markScenarioCompleted(currentScenarioType);
+      }
+      
+      // Save to leaderboard if timed mode
+      if (timedMode && startTime) {
+        const completionTime = elapsedTime;
+        const leaderboardEntry = {
+          score: result.score,
+          time: completionTime,
+          scenario: currentScenarioType,
+          timestamp: new Date().toISOString(),
+          skillLevel: result.score >= 90 ? 'Incident Commander' :
+                     result.score >= 70 ? 'Threat Hunter' :
+                     result.score >= 50 ? 'SOC Analyst' : 'Analyst in Training',
+        };
+        
+        // Save to localStorage
+        const leaderboard = JSON.parse(localStorage.getItem('threatrecon_leaderboard') || '[]');
+        leaderboard.push(leaderboardEntry);
+        // Keep only top 100 entries
+        leaderboard.sort((a: any, b: any) => {
+          // Sort by score first, then by time (faster is better)
+          if (b.score !== a.score) return b.score - a.score;
+          return a.time - b.time;
+        });
+        localStorage.setItem('threatrecon_leaderboard', JSON.stringify(leaderboard.slice(0, 100)));
       }
       
       // Update detected techniques based on evaluation
@@ -319,6 +386,37 @@ export default function SimulationDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Timer Display */}
+              {timedMode && startTime && (
+                <div className="px-3 py-1.5 rounded border border-[#30363d] bg-[#0d1117] text-[#c9d1d9] font-mono text-sm">
+                  ⏱️ {formatTime(elapsedTime)}
+                </div>
+              )}
+              
+              {/* Timed Mode Toggle */}
+              <button
+                onClick={() => {
+                  const newTimedMode = !timedMode;
+                  setTimedMode(newTimedMode);
+                  if (newTimedMode && session && !startTime) {
+                    setStartTime(new Date());
+                    setElapsedTime(0);
+                  } else if (!newTimedMode) {
+                    setStartTime(null);
+                    setElapsedTime(0);
+                  }
+                }}
+                disabled={isLocked}
+                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
+                  timedMode
+                    ? 'bg-yellow-900/40 text-yellow-400 border-yellow-800/60'
+                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff]'
+                } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-[#58a6ff]`}
+                aria-label="Toggle Timed Mode"
+              >
+                {timedMode ? '⏱️ Timed ON' : '⏱️ Timed OFF'}
+              </button>
+              
               <ProgressTracker />
               <button
                 onClick={() => setShowScenarioSelector(true)}
@@ -327,6 +425,14 @@ export default function SimulationDashboard() {
               >
                 🧬 Scenario Settings
               </button>
+              
+              <a
+                href="/leaderboard"
+                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                aria-label="View Leaderboard"
+              >
+                🏆 Leaderboard
+              </a>
               <div className="relative group">
                 <button
                   className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"

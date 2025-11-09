@@ -1,0 +1,12 @@
+# robots.txt - Red herring for honeypot
+User-agent: *
+Disallow: /admin
+Disallow: /api/
+Disallow: /admin-analytics
+
+# Fake admin paths
+Allow: /admin/login
+Allow: /admin/dashboard
+
+# This file is intentionally misleading for security research purposes
+
