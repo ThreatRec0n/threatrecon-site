@@ -11,7 +11,49 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        {/* HTML Comment for View Source */}
+        <script
+          type="text/html"
+          dangerouslySetInnerHTML={{
+            __html: `<!--
+
+██████   ██████  ███████ ███████ ███████ 
+██   ██ ██    ██ ██        ███      ███  
+██████  ██    ██ ███████   ███     ███   
+██      ██    ██      ██  ███     ███    
+██       ██████  ███████ ███████ ███████ 
+
+Roses are red,  
+Violets are blue,  
+You think you see me...  
+But I see you too 👀  
+
+-->`,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-[#0d1117] text-[#c9d1d9] antialiased">
+        {/* HTML Comment visible in source */}
+        <div
+          style={{ display: 'none' }}
+          dangerouslySetInnerHTML={{
+            __html: `<!--
+
+██████   ██████  ███████ ███████ ███████ 
+██   ██ ██    ██ ██        ███      ███  
+██████  ██    ██ ███████   ███     ███   
+██      ██    ██      ██  ███     ███    
+██       ██████  ███████ ███████ ███████ 
+
+Roses are red,  
+Violets are blue,  
+You think you see me...  
+But I see you too 👀  
+
+-->`,
+          }}
+        />
         <div className="flex flex-col h-screen overflow-hidden">
           <header className="h-14 border-b border-[#30363d] bg-[#161b22] flex items-center px-6">
             <div className="flex items-center gap-3">
