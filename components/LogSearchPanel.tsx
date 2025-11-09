@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { SIEMEvent } from '@/lib/types';
+import { sanitizeSearchQuery, validateTimeRange } from '@/lib/security';
 
 interface Props {
   events: SIEMEvent[];
@@ -31,7 +32,13 @@ export default function LogSearchPanel({
   const filteredEvents = useMemo(() => {
     if (!searchQuery.trim()) return events;
     
-    const query = searchQuery.toLowerCase();
+    // Sanitize search query
+    const sanitizedQuery = sanitizeSearchQuery(searchQuery);
+    if (sanitizedQuery !== searchQuery) {
+      console.warn('[Security] Search query contained invalid characters');
+    }
+    
+    const query = sanitizedQuery.toLowerCase();
     return events.filter(event => 
       event.sourceIP?.toLowerCase().includes(query) ||
       event.destinationIP?.toLowerCase().includes(query) ||
@@ -70,7 +77,14 @@ export default function LogSearchPanel({
           </div>
           <select
             value={timeRange}
-            onChange={e => onTimeRangeChange(e.target.value as any)}
+            onChange={e => {
+              const newRange = e.target.value;
+              if (validateTimeRange(newRange)) {
+                onTimeRangeChange(newRange as any);
+              } else {
+                console.warn('[Security] Invalid time range selected');
+              }
+            }}
             className="search-input"
           >
             <option value="15m">Last 15 minutes</option>

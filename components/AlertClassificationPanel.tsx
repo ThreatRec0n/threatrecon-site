@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { SecurityAlert } from '@/lib/types';
 import type { AlertClassification } from '@/lib/types';
+import { validateAlertClassification, sanitizeInput } from '@/lib/security';
 
 interface Props {
   alerts: SecurityAlert[];
@@ -14,9 +15,27 @@ export default function AlertClassificationPanel({ alerts, onSelectAlert, onClas
   const [selectedClassification, setSelectedClassification] = useState<Record<string, AlertClassification>>({});
 
   function handleClassify(alertId: string, classification: AlertClassification) {
-    setSelectedClassification(prev => ({ ...prev, [alertId]: classification }));
+    // Validate inputs
+    if (!alertId || typeof alertId !== 'string') {
+      console.warn('[Security] Invalid alert ID');
+      return;
+    }
+    
+    if (!validateAlertClassification(classification)) {
+      console.warn('[Security] Invalid classification value');
+      return;
+    }
+    
+    // Sanitize alert ID
+    const sanitizedId = sanitizeInput(alertId);
+    if (sanitizedId !== alertId) {
+      console.warn('[Security] Alert ID contains invalid characters');
+      return;
+    }
+    
+    setSelectedClassification(prev => ({ ...prev, [sanitizedId]: classification }));
     if (onClassify) {
-      onClassify(alertId, classification);
+      onClassify(sanitizedId, classification);
     }
   }
 

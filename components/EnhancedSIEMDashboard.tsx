@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { SIEMEvent, SecurityAlert, IncidentCase, DetectionRule, AlertClassification } from '@/lib/types';
 import { lookupThreatIntel } from '@/lib/threat-intel';
+import { sanitizeInput, validateIP } from '@/lib/security';
 import ThreatIntelPanel from './ThreatIntelPanel';
 import CaseManagement from './CaseManagement';
 import LogSearchPanel from './LogSearchPanel';
@@ -37,6 +38,20 @@ export default function EnhancedSIEMDashboard({
   const [threatIntelLookup, setThreatIntelLookup] = useState<{ type: string; value: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeRange, setTimeRange] = useState<'15m' | '1h' | '24h' | '7d'>('24h');
+  
+  // Sanitize search query on change
+  const handleSearchChange = (query: string) => {
+    const sanitized = sanitizeInput(query);
+    setSearchQuery(sanitized);
+  };
+  
+  // Validate time range
+  const handleTimeRangeChange = (range: string) => {
+    const validRanges = ['15m', '1h', '24h', '7d'];
+    if (validRanges.includes(range)) {
+      setTimeRange(range as any);
+    }
+  };
   
   // Dashboard statistics
   const stats = useMemo(() => {
@@ -176,12 +191,18 @@ export default function EnhancedSIEMDashboard({
           <LogSearchPanel
             events={events}
             searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
+            onSearchChange={handleSearchChange}
             timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
+            onTimeRangeChange={handleTimeRangeChange}
             onSelectEvent={setSelectedEvent}
             selectedIPs={markedIPs}
-            onToggleIP={onIPMarked}
+            onToggleIP={(ip) => {
+              if (validateIP(ip)) {
+                onIPMarked?.(ip);
+              } else {
+                console.warn('[Security] Invalid IP address attempted');
+              }
+            }}
             maliciousIPs={maliciousIPs}
             showFeedback={showFeedback}
           />

@@ -6,6 +6,7 @@ import DifficultySelector from '@/components/DifficultySelector';
 import ScenarioIntroduction from '@/components/ScenarioIntroduction';
 import ThreatHuntGame from '@/components/ThreatHuntGame';
 import { generateRealisticScenario } from '@/lib/realistic-scenario-generator';
+import { validateDifficultyLevel, validateScenario } from '@/lib/security';
 
 // Base scenario templates
 const SCENARIO_TEMPLATES: Partial<Record<DifficultyLevel, Scenario>> = {
@@ -117,9 +118,23 @@ export default function Home() {
   const [gameResult, setGameResult] = useState<any>(null);
 
   function handleDifficultySelect(selectedDifficulty: DifficultyLevel) {
+    // Validate difficulty level
+    if (!validateDifficultyLevel(selectedDifficulty)) {
+      console.error('[Security] Invalid difficulty level');
+      return;
+    }
+    
     const template = SCENARIO_TEMPLATES[selectedDifficulty];
     if (!template) return;
+    
     const generated = generateRealisticScenario(template);
+    
+    // Validate generated scenario
+    if (!validateScenario(generated.scenario)) {
+      console.error('[Security] Generated scenario failed validation');
+      return;
+    }
+    
     setDifficulty(selectedDifficulty);
     setGameScenario(generated);
   }

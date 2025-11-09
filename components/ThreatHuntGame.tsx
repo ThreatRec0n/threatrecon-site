@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Scenario, SecurityAlert, SIEMEvent, AlertClassification } from '@/lib/types';
 import EnhancedSIEMDashboard from './EnhancedSIEMDashboard';
 import { gradeInvestigation } from '@/lib/scoring';
+import { GameIntegrityMonitor, validateGameStateIntegrity } from '@/lib/anti-cheat';
+import { validateIP, validateAlertClassification, sanitizeInput } from '@/lib/security';
 
 interface Props {
   scenario: Scenario;
@@ -19,6 +21,8 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
+  const integrityMonitorRef = useRef<GameIntegrityMonitor | null>(null);
+  const gameStartTimeRef = useRef<number>(0);
 
   const timeLimit = 
     scenario.difficulty === 'beginner' ? 30 * 60 :
@@ -78,19 +82,56 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
   useEffect(() => {
     if (!isRunning || gameOver) return;
 
+    // Initialize integrity monitor
+    if (!integrityMonitorRef.current) {
+      integrityMonitorRef.current = new GameIntegrityMonitor(timeLimit);
+      integrityMonitorRef.current.start();
+      gameStartTimeRef.current = Date.now();
+    }
+
+    // Use server time reference to prevent client-side time manipulation
+    const startTime = Date.now();
+    let expectedElapsed = 0;
+
     const timer = setInterval(() => {
+      // Calculate elapsed time based on actual system time
+      const actualElapsed = (Date.now() - startTime) / 1000;
+      expectedElapsed += 1;
+      
+      // Detect time manipulation (if actual time differs significantly from expected)
+      if (Math.abs(actualElapsed - expectedElapsed) > 2) {
+        console.warn('[Security] Time manipulation detected');
+        setIsRunning(false);
+        setGameOver(true);
+        return;
+      }
+
+      // Validate integrity
+      if (integrityMonitorRef.current && !integrityMonitorRef.current.validateTimeElapsed()) {
+        console.warn('[Security] Game integrity violation detected');
+        setIsRunning(false);
+        setGameOver(true);
+        return;
+      }
+
       setTimeRemaining(prev => {
-        if (prev <= 1) {
+        const newTime = prev - 1;
+        if (newTime <= 0) {
           setIsRunning(false);
           setGameOver(true);
           return 0;
         }
-        return prev - 1;
+        return newTime;
       });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [isRunning, gameOver]);
+    return () => {
+      clearInterval(timer);
+      if (integrityMonitorRef.current) {
+        integrityMonitorRef.current.stop();
+      }
+    };
+  }, [isRunning, gameOver, timeLimit]);
 
   // Check win condition - must find ALL malicious IPs
   useEffect(() => {
@@ -102,16 +143,44 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
   }, [foundIPs, maliciousIPs]);
 
   function handleAlertClassify(alertId: string, classification: AlertClassification) {
-    setAlertClassifications(prev => ({ ...prev, [alertId]: classification }));
+    // Validate input
+    if (!alertId || typeof alertId !== 'string') return;
+    if (!validateAlertClassification(classification)) {
+      console.warn('[Security] Invalid alert classification');
+      return;
+    }
+    
+    // Sanitize alert ID
+    const sanitizedId = sanitizeInput(alertId);
+    if (sanitizedId !== alertId) {
+      console.warn('[Security] Alert ID contains invalid characters');
+      return;
+    }
+    
+    setAlertClassifications(prev => ({ ...prev, [sanitizedId]: classification }));
   }
 
   function handleIPMarked(ip: string) {
+    // Validate IP address
+    if (!ip || typeof ip !== 'string') return;
+    if (!validateIP(ip)) {
+      console.warn('[Security] Invalid IP address format');
+      return;
+    }
+    
+    // Sanitize IP
+    const sanitizedIP = sanitizeInput(ip);
+    if (sanitizedIP !== ip) {
+      console.warn('[Security] IP address contains invalid characters');
+      return;
+    }
+    
     setMarkedIPs(prev => {
       const next = new Set(prev);
-      if (next.has(ip)) {
-        next.delete(ip);
+      if (next.has(sanitizedIP)) {
+        next.delete(sanitizedIP);
       } else {
-        next.add(ip);
+        next.add(sanitizedIP);
       }
       return next;
     });
@@ -124,8 +193,24 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
   }
 
   function handleComplete() {
+    // Validate game state integrity before completing
+    const elapsedTime = gameStartTimeRef.current > 0 
+      ? (Date.now() - gameStartTimeRef.current) / 1000 
+      : timeLimit - timeRemaining;
+    
+    const integrityCheck = validateGameStateIntegrity(
+      { score: 0, foundIPs: Array.from(foundIPs), timeSpent: elapsedTime },
+      gameStartTimeRef.current || Date.now(),
+      timeLimit
+    );
+    
+    if (!integrityCheck.valid) {
+      console.error('[Security] Game integrity check failed:', integrityCheck.reason);
+      // Still allow completion but flag the issue
+    }
+    
     // Enhanced scoring that accounts for both methods
-    const result = gradeInvestigation(scenario, alertClassifications, {}, timeLimit - timeRemaining);
+    const result = gradeInvestigation(scenario, alertClassifications, {}, elapsedTime);
     
     // Calculate IP accuracy
     const correctIPs = foundIPs.length;
@@ -136,7 +221,18 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
     // Adjust score based on IP finding accuracy
     const ipAccuracy = totalIPs > 0 ? (correctIPs / totalIPs) * 100 : 0;
     const falsePositivePenalty = Math.max(0, 100 - (falsePositives * 10)); // -10% per false positive
-    const adjustedScore = Math.round((result.percentage * 0.7) + (ipAccuracy * 0.3) * (falsePositivePenalty / 100));
+    const adjustedScore = Math.max(0, Math.min(100, Math.round(
+      (result.percentage * 0.7) + (ipAccuracy * 0.3) * (falsePositivePenalty / 100)
+    )));
+    
+    // Validate final score
+    if (adjustedScore < 0 || adjustedScore > 100 || isNaN(adjustedScore)) {
+      console.error('[Security] Invalid score calculated');
+      return;
+    }
+    
+    // Get integrity violations if any
+    const violations = integrityMonitorRef.current?.getViolations() || [];
     
     onComplete({
       ...result,
@@ -144,13 +240,20 @@ export default function ThreatHuntGame({ scenario, events, onComplete }: Props) 
       percentage: adjustedScore,
       gameWon,
       timeRemaining,
-      foundIPs,
+      foundIPs: Array.from(foundIPs).sort(), // Sort for consistency
       totalMaliciousIPs: maliciousIPs.length,
       correctIPs,
       falsePositives: incorrectIPs.length,
       missedIPs,
       ipAccuracy: Math.round(ipAccuracy),
+      integrityViolations: violations,
+      integrityValid: integrityCheck.valid,
     });
+    
+    // Clean up
+    if (integrityMonitorRef.current) {
+      integrityMonitorRef.current.stop();
+    }
   }
 
   if (!isRunning && !gameOver) {
