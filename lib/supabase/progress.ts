@@ -1,18 +1,52 @@
-import { supabase, isSupabaseConfigured } from './client';
+import { getSupabaseClient, isSupabaseEnabled } from './client';
 import type { UserProgress } from './types';
+
+const LS_KEY = 'tr_progress_v1';
+
+/**
+ * Load local progress from localStorage
+ */
+function loadLocal(): Partial<UserProgress> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const stored = localStorage.getItem(LS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Save local progress to localStorage
+ */
+function saveLocal(progress: Partial<UserProgress>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(progress));
+  } catch (error) {
+    console.error('Error saving local progress:', error);
+  }
+}
 
 /**
  * Save user progress to Supabase
  */
 export async function saveUserProgress(userId: string, progress: Partial<UserProgress>) {
-  // Check if Supabase is configured
-  if (!isSupabaseConfigured()) {
+  // Check if Supabase is enabled
+  if (!isSupabaseEnabled) {
     console.warn('Supabase not configured. Progress will only be saved locally.');
+    saveLocal(progress);
+    return null;
+  }
+
+  const supa = getSupabaseClient();
+  if (!supa) {
+    saveLocal(progress);
     return null;
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from('user_progress')
       .upsert({
         user_id: userId,
@@ -25,10 +59,14 @@ export async function saveUserProgress(userId: string, progress: Partial<UserPro
       .single();
 
     if (error) throw error;
+    
+    // Also save locally as backup
+    saveLocal(progress);
     return data;
   } catch (error: any) {
     console.error('Error saving progress:', error);
-    // Don't throw - allow local-only mode
+    // Save locally as fallback
+    saveLocal(progress);
     return null;
   }
 }
@@ -37,13 +75,18 @@ export async function saveUserProgress(userId: string, progress: Partial<UserPro
  * Load user progress from Supabase
  */
 export async function loadUserProgress(userId: string): Promise<UserProgress | null> {
-  // Check if Supabase is configured
-  if (!isSupabaseConfigured()) {
+  // Check if Supabase is enabled
+  if (!isSupabaseEnabled) {
+    return null;
+  }
+
+  const supa = getSupabaseClient();
+  if (!supa) {
     return null;
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from('user_progress')
       .select('*')
       .eq('user_id', userId)
@@ -61,6 +104,41 @@ export async function loadUserProgress(userId: string): Promise<UserProgress | n
   } catch (error: any) {
     console.error('Error loading progress:', error);
     return null;
+  }
+}
+
+/**
+ * Sync local progress to cloud
+ */
+export async function syncToCloud(userId: string): Promise<{ ok: boolean; error?: string; merged?: any }> {
+  const supa = getSupabaseClient();
+  if (!isSupabaseEnabled || !supa) {
+    return { ok: false, error: 'supabase-disabled' };
+  }
+
+  const entries = loadLocal();
+  
+  try {
+    // Use RPC function if available, otherwise use direct upsert
+    const { data, error } = await supa.rpc('merge_progress', { 
+      p_user_id: userId,
+      p_entries: entries 
+    });
+
+    if (error) {
+      // Fallback to direct upsert
+      return await saveUserProgress(userId, entries).then(
+        (data) => ({ ok: !!data, merged: data }),
+        () => ({ ok: false, error: error.message })
+      );
+    }
+
+    if (data) {
+      saveLocal(data as any);
+    }
+    return { ok: true, merged: data as any };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'sync-failed' };
   }
 }
 
@@ -103,4 +181,3 @@ export function mergeProgress(
     leaderboard_entries: Array.from(leaderboardMap.values()),
   };
 }
-

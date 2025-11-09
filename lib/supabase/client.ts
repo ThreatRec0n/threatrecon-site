@@ -8,14 +8,16 @@ export const isSupabaseEnabled =
   process.env.NEXT_PUBLIC_SUPABASE_URL !== 'your_supabase_project_url' &&
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'your_supabase_anon_key';
 
+// Temporary backward compatibility alias:
+export const isSupabaseConfigured = isSupabaseEnabled;
+
 export function getSupabaseClient(): SupabaseClient | null {
-  if (!isSupabaseEnabled) return null;
-  if (typeof window === 'undefined') return null;
+  if (!isSupabaseEnabled || typeof window === 'undefined') return null;
   
   if (!client) {
     client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { 
         auth: { 
           persistSession: true, 
