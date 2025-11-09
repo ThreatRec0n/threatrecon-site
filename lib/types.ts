@@ -1,8 +1,29 @@
 // Core types for the threat hunting platform
 
+import type { Severity, Status } from './siem-types';
+
 export type DifficultyLevel = 'guided' | 'beginner' | 'intermediate' | 'advanced';
 
+export type ScenarioType = 
+  | 'malware-infection'
+  | 'insider-threat'
+  | 'data-exfiltration'
+  | 'lateral-movement'
+  | 'web-compromise'
+  | 'phishing'
+  | 'ransomware'
+  | 'command-control';
+
 export type AlertClassification = 'true-positive' | 'false-positive' | 'true-negative' | 'false-negative' | 'unclassified';
+
+export interface SIEMEvent {
+  id: string;
+  timestamp: string;
+  sourceIP: string;
+  destinationIP: string;
+  eventType: string;
+  message: string;
+}
 
 export interface SecurityAlert {
   id: string;
