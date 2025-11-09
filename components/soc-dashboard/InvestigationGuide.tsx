@@ -137,47 +137,73 @@ export default function InvestigationGuide({ scenarioName, attackStages }: Props
     },
   ];
 
-  if (!isOpen) {
-    return (
+  return (
+    <>
+      {/* Floating Button - Always Visible */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 px-4 py-3 bg-[#58a6ff] text-white rounded-lg shadow-lg hover:bg-[#4493f8] transition-colors z-40 flex items-center gap-2"
+        className="fixed bottom-6 right-6 px-4 py-3 bg-[#58a6ff] text-white rounded-lg shadow-lg hover:bg-[#4493f8] transition-colors z-40 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#0d1117]"
+        aria-label="Open Investigation Guide"
       >
-        📖 Investigation Guide
+        <span aria-hidden="true">📖</span>
+        <span className="hidden sm:inline">Investigation Guide</span>
       </button>
-    );
-  }
 
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-[#30363d] flex items-center justify-between sticky top-0 bg-[#161b22]">
-          <h2 className="text-2xl font-bold text-[#c9d1d9]">Investigation Guide</h2>
-          <button
+      {/* Right-Side Drawer */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-50"
             onClick={() => setIsOpen(false)}
-            className="text-[#8b949e] hover:text-[#c9d1d9] text-xl"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setIsOpen(false);
+            }}
+            aria-hidden="true"
+          />
+          
+          {/* Drawer */}
+          <div
+            className="fixed right-0 top-0 h-full w-full sm:w-[600px] lg:w-[700px] bg-[#161b22] border-l border-[#30363d] shadow-2xl z-50 flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guide-title"
           >
-            ✕
-          </button>
-        </div>
-
-        <div className="p-6">
-          {/* Tab Navigation */}
-          <div className="flex items-center gap-2 border-b border-[#30363d] mb-6">
-            {(['overview', 'methodology', 'tools', 'hints'] as const).map(tab => (
+            {/* Header */}
+            <div className="p-6 border-b border-[#30363d] flex items-center justify-between sticky top-0 bg-[#161b22] z-10">
+              <h2 id="guide-title" className="text-2xl font-bold text-[#c9d1d9]">Investigation Guide</h2>
               <button
-                key={tab}
-                onClick={() => setActiveSection(tab)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeSection === tab
-                    ? 'border-[#58a6ff] text-[#58a6ff]'
-                    : 'border-transparent text-[#8b949e] hover:text-[#c9d1d9]'
-                }`}
+                onClick={() => setIsOpen(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setIsOpen(false);
+                }}
+                className="text-[#8b949e] hover:text-[#c9d1d9] text-xl focus:outline-none focus:ring-2 focus:ring-[#58a6ff] rounded p-1"
+                aria-label="Close Investigation Guide"
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                ✕
               </button>
-            ))}
-          </div>
+            </div>
+
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Tab Navigation */}
+              <div className="flex items-center gap-2 border-b border-[#30363d] mb-6" role="tablist">
+                {(['overview', 'methodology', 'tools', 'hints'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveSection(tab)}
+                    role="tab"
+                    aria-selected={activeSection === tab}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] rounded-t ${
+                      activeSection === tab
+                        ? 'border-[#58a6ff] text-[#58a6ff]'
+                        : 'border-transparent text-[#8b949e] hover:text-[#c9d1d9]'
+                    }`}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
 
           {/* Overview Tab */}
           {activeSection === 'overview' && (
@@ -301,9 +327,11 @@ export default function InvestigationGuide({ scenarioName, attackStages }: Props
               </div>
             </div>
           )}
+          </div>
         </div>
-      </div>
-    </div>
+      </>
+    )}
+    </>
   );
 }
 

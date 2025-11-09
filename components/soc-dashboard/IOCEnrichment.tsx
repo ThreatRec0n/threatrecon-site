@@ -241,7 +241,8 @@ export default function IOCEnrichment({ ioc, type, onClose }: Props) {
                     href={`https://www.virustotal.com/gui/search/${ioc}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff]"
+                    className="text-xs text-[#58a6ff] hover:text-[#79c0ff] border border-[#30363d] px-2 py-1 rounded hover:border-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                    aria-label={`Search ${ioc} on VirusTotal (opens in new tab)`}
                   >
                     VirusTotal →
                   </a>
@@ -356,7 +357,7 @@ export default function IOCEnrichment({ ioc, type, onClose }: Props) {
                   )}
                 </div>
               </div>
-              <div className="bg-blue-900/20 border border-blue-800/40 rounded p-2 mt-2">
+              <div className="bg-blue-900/20 border border-blue-800/40 rounded p-2 mt-2" role="note" aria-label="OSINT tools information">
                 <p className="text-xs text-[#8b949e]">
                   <strong className="text-blue-400">All tools are free and require no login.</strong> These are the same
                   OSINT resources used by professional threat hunters.

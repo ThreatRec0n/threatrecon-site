@@ -290,6 +290,15 @@ export default function SimulationDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <a
+                href="/docs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                aria-label="View Lab Plan & Documentation"
+              >
+                📚 Lab Plan & Docs
+              </a>
               <button
                 onClick={() => setLearningMode(!learningMode)}
                 disabled={isLocked}
@@ -297,7 +306,8 @@ export default function SimulationDashboard() {
                   learningMode
                     ? 'bg-[#58a6ff] text-[#0d1117] border-[#58a6ff]'
                     : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
-                } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-[#58a6ff]`}
+                aria-label={`Toggle Learning Mode ${learningMode ? 'OFF' : 'ON'}`}
               >
                 📘 Learning {learningMode ? 'ON' : 'OFF'}
               </button>
