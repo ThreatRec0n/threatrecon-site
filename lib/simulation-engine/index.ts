@@ -306,7 +306,7 @@ export class SimulationEngine {
         scenario_id: currentSession?.scenario_stories[0]?.id || 'atomic-test',
         session_id: currentSession?.session_id || sessionId || 'unknown',
         technique_id: techniqueId,
-        stage: stageMap[techniqueId] || 'execution',
+        stage: (stageMap[techniqueId] as any) || 'execution',
         timestamp: new Date().toISOString(),
         details: log,
         related_event_ids: [],

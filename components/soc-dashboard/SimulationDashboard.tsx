@@ -43,16 +43,26 @@ export default function SimulationDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [isLocked, setIsLocked] = useState(false);
-  const [showMitreNavigator, setShowMitreNavigator] = useState(false);
-  const [showPurpleTeam, setShowPurpleTeam] = useState(false);
-  const [showRuleBuilder, setShowRuleBuilder] = useState(false);
+  const [activeView, setActiveView] = useState<'main' | 'mitre' | 'purple' | 'rules'>('main');
   const [detectedTechniques, setDetectedTechniques] = useState<string[]>([]);
   const [savedRules, setSavedRules] = useState<DetectionRule[]>([]);
+  const [showScenarioIntro, setShowScenarioIntro] = useState(true);
+
+  // Initialize simulation on mount
+  useEffect(() => {
+    initializeSimulation();
+  }, []);
 
   // Initialize simulation
   const initializeSimulation = async () => {
     setLoading(true);
     setError(null);
+    setIsLocked(false);
+    setIocTags({});
+    setSelectedEvent(null);
+    setSelectedStage(null);
+    setEvaluationResult(null);
+    setShowScenarioIntro(true);
 
     try {
       const response = await fetch('/api/simulation', {
@@ -98,44 +108,6 @@ export default function SimulationDashboard() {
     return session.events.filter(e => e.stage === selectedStage);
   }, [session, selectedStage]);
 
-  // Finalize investigation
-  const handleFinalizeInvestigation = async () => {
-    if (!session || isLocked) return;
-
-    setIsSubmitting(true);
-    try {
-      // Submit to backend
-      const response = await fetch('/api/simulation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'complete',
-          config: {
-            session_id: session.session_id,
-            ioc_tags: iocTags,
-          },
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to submit investigation');
-      }
-
-      // Evaluate locally
-      const { evaluateInvestigation } = await import('@/lib/evaluation-engine');
-      const result = evaluateInvestigation(iocTags, session);
-      setEvaluationResult(result);
-      setIsLocked(true);
-    } catch (err: any) {
-      console.error('Submission error:', err);
-      alert(err.message || 'Failed to submit investigation');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   // Extract IOCs from events
   const extractedIOCs = useMemo(() => {
     if (!session) return { ips: [], domains: [], hashes: [], pids: [] };
@@ -146,30 +118,35 @@ export default function SimulationDashboard() {
     const pids = new Set<string>();
 
     session.events.forEach(event => {
-      // Extract IPs
+      // Extract IPs from network context
       if (event.network_context) {
-        if (event.network_context.source_ip) ips.add(event.network_context.source_ip);
-        if (event.network_context.dest_ip) ips.add(event.network_context.dest_ip);
-      }
-      if (event.details?.DestinationIp) ips.add(event.details.DestinationIp);
-      if (event.details?.SourceIp) ips.add(event.details.SourceIp);
-      if (event.details?.id_orig_h) ips.add(event.details.id_orig_h);
-      if (event.details?.id_resp_h) ips.add(event.details.id_resp_h);
-
-      // Extract domains
-      if (event.details?.QueryName) domains.add(event.details.QueryName);
-      if (event.details?.host) domains.add(event.details.host);
-      if (event.details?.query) domains.add(event.details.query);
-
-      // Extract hashes
-      if (event.details?.Hashes) {
-        const hashMatch = event.details.Hashes.match(/SHA256=([A-Fa-f0-9]+)/);
-        if (hashMatch) hashes.add(hashMatch[1]);
+        if (event.network_context.source_ip && typeof event.network_context.source_ip === 'string' && !event.network_context.source_ip.startsWith('10.') && !event.network_context.source_ip.startsWith('192.168.')) {
+          ips.add(event.network_context.source_ip);
+        }
+        if (event.network_context.dest_ip && typeof event.network_context.dest_ip === 'string' && !event.network_context.dest_ip.startsWith('10.') && !event.network_context.dest_ip.startsWith('192.168.')) {
+          ips.add(event.network_context.dest_ip);
+        }
+        // Domains are typically in details, not network_context
       }
 
-      // Extract PIDs
-      if (event.process_tree?.process_id) pids.add(event.process_tree.process_id);
-      if (event.details?.ProcessId) pids.add(event.details.ProcessId);
+      // Extract from details
+      if (event.details) {
+        if (event.details.DestinationIp && typeof event.details.DestinationIp === 'string') {
+          const ip = event.details.DestinationIp;
+          if (!ip.startsWith('10.') && !ip.startsWith('192.168.') && !ip.startsWith('127.')) {
+            ips.add(ip);
+          }
+        }
+        if (event.details.QueryName && typeof event.details.QueryName === 'string') {
+          domains.add(event.details.QueryName);
+        }
+        if (event.details.Hash && typeof event.details.Hash === 'string') {
+          hashes.add(event.details.Hash);
+        }
+        if (event.details.ProcessId && typeof event.details.ProcessId === 'string') {
+          pids.add(event.details.ProcessId);
+        }
+      }
     });
 
     return {
@@ -180,22 +157,79 @@ export default function SimulationDashboard() {
     };
   }, [session]);
 
+  // Finalize investigation
+  const handleFinalizeInvestigation = async () => {
+    if (!session || isLocked) return;
+
+    setIsSubmitting(true);
+    try {
+      // Lock the investigation
+      setIsLocked(true);
+
+      // Import evaluation engine
+      const { evaluateInvestigation } = await import('@/lib/evaluation-engine');
+      
+      // Evaluate the investigation
+      const result = evaluateInvestigation(iocTags, {
+        events: session.events,
+        attack_chains: session.attack_chains,
+        alerts: session.alerts,
+      });
+
+      setEvaluationResult(result);
+      
+      // Update detected techniques based on evaluation
+      const detected = new Set<string>();
+      session.events.forEach(event => {
+        if (event.technique_id && result.breakdown.truePositives > 0) {
+          // If IOC from this technique was correctly tagged, mark as detected
+          const iocsFromEvent = extractedIOCs.ips.concat(extractedIOCs.domains, extractedIOCs.hashes);
+          const hasCorrectTag = iocsFromEvent.some(ioc => 
+            iocTags[ioc] === 'confirmed-threat' || iocTags[ioc] === 'suspicious'
+          );
+          if (hasCorrectTag) {
+            detected.add(event.technique_id);
+          }
+        }
+      });
+      setDetectedTechniques(Array.from(detected));
+
+      // Submit to API
+      await fetch('/api/simulation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'complete',
+          config: { ioc_tags: iocTags },
+        }),
+      });
+    } catch (err: any) {
+      console.error('Error finalizing investigation:', err);
+      alert('Error finalizing investigation: ' + err.message);
+      setIsLocked(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#58a6ff] mx-auto"></div>
-          <p className="text-[#8b949e]">Initializing SOC simulation...</p>
+          <p className="text-[#8b949e]">Initializing SOC simulation environment...</p>
         </div>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-red-400 text-xl">⚠️ Error</div>
+      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full siem-card text-center space-y-4">
+          <div className="text-red-400 text-xl">⚠️ Error Loading Simulation</div>
           <p className="text-[#8b949e]">{error}</p>
           <button onClick={initializeSimulation} className="btn-primary">
             Retry
@@ -205,14 +239,15 @@ export default function SimulationDashboard() {
     );
   }
 
+  // No session state
   if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
         <div className="text-center space-y-6 max-w-2xl">
-          <h1 className="text-3xl font-bold text-[#c9d1d9]">SOC Simulation Dashboard</h1>
-          <p className="text-[#8b949e]">
-            This is a realistic SOC training environment. You'll investigate threats by analyzing logs,
-            correlating events, and identifying malicious indicators of compromise (IOCs).
+          <h1 className="text-4xl font-bold text-[#c9d1d9]">SOC Simulation Dashboard</h1>
+          <p className="text-lg text-[#8b949e]">
+            Advanced threat hunting and investigation training environment. Analyze multi-stage attack chains,
+            correlate events across log sources, and identify malicious IOCs using professional SOC workflows.
           </p>
           <button onClick={initializeSimulation} className="btn-primary px-8 py-3 text-lg">
             Start New Investigation
@@ -225,260 +260,273 @@ export default function SimulationDashboard() {
   const currentScenario = session.scenario_stories[0];
 
   return (
-    <div className="min-h-screen bg-[#0d1117] p-4 space-y-4">
-      {/* Header */}
-      <div className="siem-card">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[#c9d1d9]">{currentScenario?.name || 'Active Investigation'}</h1>
-            <p className="text-sm text-[#8b949e] mt-1">
-              Session: {session.session_id.substring(0, 16)}... | Started: {new Date(session.start_time).toLocaleString()}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right px-3 py-2 rounded border border-[#30363d] bg-[#0d1117]">
-              <div className="text-xs text-[#8b949e]">Events</div>
-              <div className="text-xl font-bold text-[#c9d1d9]">{session.events.length}</div>
-            </div>
-            <div className="text-right px-3 py-2 rounded border border-[#30363d] bg-[#0d1117]">
-              <div className="text-xs text-[#8b949e]">Alerts</div>
-              <div className="text-xl font-bold text-[#c9d1d9]">{session.alerts.length}</div>
-            </div>
-            <div className="text-right px-3 py-2 rounded border border-[#30363d] bg-[#0d1117]">
-              <div className="text-xs text-[#8b949e]">IOCs Tagged</div>
-              <div className="text-xl font-bold text-[#c9d1d9]">
-                {Object.keys(iocTags).filter(k => iocTags[k] === 'confirmed-threat' || iocTags[k] === 'suspicious').length}
+    <div className="min-h-screen bg-[#0d1117]">
+      {/* Top Navigation Bar */}
+      <div className="bg-[#161b22] border-b border-[#30363d] sticky top-0 z-50 shadow-lg">
+        <div className="px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <h1 className="text-xl font-bold text-[#c9d1d9]">ThreatRecon SOC Platform</h1>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="px-3 py-1.5 rounded border border-[#30363d] bg-[#0d1117]">
+                  <span className="text-[#8b949e]">Session: </span>
+                  <span className="text-[#c9d1d9] font-mono">{session.session_id.substring(0, 12)}...</span>
+                </div>
+                <div className="px-3 py-1.5 rounded border border-[#30363d] bg-[#0d1117]">
+                  <span className="text-[#8b949e]">Events: </span>
+                  <span className="text-[#c9d1d9] font-bold">{session.events.length}</span>
+                </div>
+                <div className="px-3 py-1.5 rounded border border-[#30363d] bg-[#0d1117]">
+                  <span className="text-[#8b949e]">Alerts: </span>
+                  <span className="text-[#c9d1d9] font-bold">{session.alerts.length}</span>
+                </div>
+                <div className="px-3 py-1.5 rounded border border-[#30363d] bg-[#0d1117]">
+                  <span className="text-[#8b949e]">IOCs: </span>
+                  <span className="text-[#c9d1d9] font-bold">
+                    {Object.keys(iocTags).filter(k => iocTags[k] === 'confirmed-threat' || iocTags[k] === 'suspicious').length}
+                  </span>
+                </div>
               </div>
             </div>
-            <button
-              onClick={() => setLearningMode(!learningMode)}
-              disabled={isLocked}
-              className={`px-4 py-2 rounded border transition-colors ${
-                learningMode
-                  ? 'bg-[#58a6ff] text-[#0d1117] border-[#58a6ff]'
-                  : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
-              } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              📘 Learning Mode {learningMode ? 'ON' : 'OFF'}
-            </button>
-            <button
-              onClick={() => setShowMitreNavigator(!showMitreNavigator)}
-              className={`px-4 py-2 rounded border transition-colors ${
-                showMitreNavigator
-                  ? 'bg-purple-900/40 text-purple-400 border-purple-800/60'
-                  : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-purple-800/60'
-              }`}
-            >
-              🎯 ATT&CK Navigator
-            </button>
-            <button
-              onClick={() => setShowPurpleTeam(!showPurpleTeam)}
-              className={`px-4 py-2 rounded border transition-colors ${
-                showPurpleTeam
-                  ? 'bg-orange-900/40 text-orange-400 border-orange-800/60'
-                  : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-orange-800/60'
-              }`}
-            >
-              🟣 Purple Team
-            </button>
-            <button
-              onClick={() => setShowRuleBuilder(!showRuleBuilder)}
-              className={`px-4 py-2 rounded border transition-colors ${
-                showRuleBuilder
-                  ? 'bg-green-900/40 text-green-400 border-green-800/60'
-                  : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-green-800/60'
-              }`}
-            >
-              📝 Detection Rules
-            </button>
-            <button
-              onClick={handleFinalizeInvestigation}
-              disabled={isLocked || isSubmitting}
-              className={`px-6 py-2 rounded border font-semibold transition-colors ${
-                isLocked
-                  ? 'bg-gray-700 text-gray-400 border-gray-600 cursor-not-allowed'
-                  : 'bg-green-600 text-white border-green-700 hover:bg-green-700'
-              }`}
-            >
-              {isSubmitting ? 'Submitting...' : isLocked ? 'Investigation Locked' : 'Finalize Investigation'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setLearningMode(!learningMode)}
+                disabled={isLocked}
+                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
+                  learningMode
+                    ? 'bg-[#58a6ff] text-[#0d1117] border-[#58a6ff]'
+                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
+                } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                📘 Learning {learningMode ? 'ON' : 'OFF'}
+              </button>
+              <button
+                onClick={() => setActiveView(activeView === 'mitre' ? 'main' : 'mitre')}
+                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
+                  activeView === 'mitre'
+                    ? 'bg-purple-900/40 text-purple-400 border-purple-800/60'
+                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-purple-800/60'
+                }`}
+              >
+                🎯 ATT&CK Navigator
+              </button>
+              <button
+                onClick={() => setActiveView(activeView === 'purple' ? 'main' : 'purple')}
+                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
+                  activeView === 'purple'
+                    ? 'bg-orange-900/40 text-orange-400 border-orange-800/60'
+                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-orange-800/60'
+                }`}
+              >
+                🟣 Purple Team
+              </button>
+              <button
+                onClick={() => setActiveView(activeView === 'rules' ? 'main' : 'rules')}
+                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
+                  activeView === 'rules'
+                    ? 'bg-green-900/40 text-green-400 border-green-800/60'
+                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-green-800/60'
+                }`}
+              >
+                📝 Detection Rules
+              </button>
+              <button
+                onClick={handleFinalizeInvestigation}
+                disabled={isLocked || isSubmitting}
+                className={`px-4 py-1.5 rounded border text-sm font-semibold transition-colors ${
+                  isLocked
+                    ? 'bg-gray-700 text-gray-400 border-gray-600 cursor-not-allowed'
+                    : 'bg-green-600 text-white border-green-700 hover:bg-green-700'
+                }`}
+              >
+                {isSubmitting ? 'Submitting...' : isLocked ? 'Locked' : '✅ Finalize Investigation'}
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Scenario Intro */}
-        {currentScenario?.narrative && (
-          <div className="mt-4 pt-4 border-t border-[#30363d]">
-            <h2 className="text-lg font-semibold text-[#c9d1d9] mb-2">Scenario Background</h2>
-            <p className="text-sm text-[#8b949e] mb-2">{currentScenario.narrative.background}</p>
-            <p className="text-sm text-[#8b949e] mb-2">{currentScenario.narrative.incident}</p>
-            <p className="text-sm text-[#c9d1d9] font-medium">{currentScenario.narrative.yourRole}</p>
-          </div>
-        )}
       </div>
 
-      {/* MITRE Navigator Modal */}
-      {showMitreNavigator && (
-        <div className="siem-card mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-[#c9d1d9]">MITRE ATT&CK Navigator</h2>
-            <button
-              onClick={() => setShowMitreNavigator(false)}
-              className="text-[#8b949e] hover:text-[#c9d1d9]"
-            >
-              ✕
-            </button>
+      {/* Main Content Area */}
+      <div className="p-4">
+        {/* Scenario Introduction Banner */}
+        {showScenarioIntro && currentScenario?.narrative && (
+          <div className="mb-4 siem-card border-l-4 border-[#58a6ff]">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <h2 className="text-xl font-bold text-[#c9d1d9]">{currentScenario.name}</h2>
+                  <button
+                    onClick={() => setShowScenarioIntro(false)}
+                    className="text-[#8b949e] hover:text-[#c9d1d9] text-sm"
+                  >
+                    ✕ Dismiss
+                  </button>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-[#8b949e] font-semibold">Background: </span>
+                    <span className="text-[#c9d1d9]">{currentScenario.narrative.background}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#8b949e] font-semibold">Incident: </span>
+                    <span className="text-[#c9d1d9]">{currentScenario.narrative.incident}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#8b949e] font-semibold">Your Role: </span>
+                    <span className="text-[#c9d1d9]">{currentScenario.narrative.yourRole}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <MitreNavigator
-            events={session.events}
-            attackChains={session.attack_chains}
-            detectedTechniques={detectedTechniques}
-          />
-        </div>
-      )}
+        )}
 
-      {/* Purple Team Mode */}
-      {showPurpleTeam && (
-        <div className="siem-card mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-[#c9d1d9]">Purple Team Mode</h2>
-            <button
-              onClick={() => setShowPurpleTeam(false)}
-              className="text-[#8b949e] hover:text-[#c9d1d9]"
-            >
-              ✕
-            </button>
+        {/* View Switcher */}
+        {activeView === 'mitre' && (
+          <div className="mb-4">
+            <MitreNavigator
+              events={session.events}
+              attackChains={session.attack_chains}
+              detectedTechniques={detectedTechniques}
+            />
           </div>
-          <PurpleTeamMode
-            events={session.events}
-            onExecuteAttack={async (techniqueId) => {
-              // Execute attack and refresh session
-              try {
-                const response = await fetch('/api/simulation', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    action: 'execute_attack',
-                    config: {
-                      technique_id: techniqueId,
-                      session_id: session.session_id,
-                    },
-                  }),
-                });
-                const data = await response.json();
-                if (data.success && data.events) {
-                  // Reload session to get updated events
-                  const sessionResponse = await fetch('/api/simulation', {
+        )}
+
+        {activeView === 'purple' && (
+          <div className="mb-4">
+            <PurpleTeamMode
+              events={session.events}
+              onExecuteAttack={async (techniqueId) => {
+                try {
+                  const response = await fetch('/api/simulation', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'get_session' }),
+                    body: JSON.stringify({
+                      action: 'execute_attack',
+                      config: {
+                        technique_id: techniqueId,
+                        session_id: session.session_id,
+                      },
+                    }),
                   });
-                  const sessionData = await sessionResponse.json();
-                  if (sessionData.success) {
-                    setSession(sessionData.session);
+                  const data = await response.json();
+                  if (data.success && data.events) {
+                    const sessionResponse = await fetch('/api/simulation', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'get_session' }),
+                    });
+                    const sessionData = await sessionResponse.json();
+                    if (sessionData.success) {
+                      setSession(sessionData.session);
+                    }
                   }
+                } catch (err) {
+                  console.error('Error executing attack:', err);
                 }
-              } catch (err) {
-                console.error('Error executing attack:', err);
-              }
-            }}
-            onTestDetection={(rule) => {
-              // Test detection rule against events
-              console.log('Testing detection rule:', rule);
-              // In a real implementation, this would test the rule against the event stream
-              // For now, we'll mark techniques as detected if rule matches
-              rule.mitreTechniques.forEach(tech => {
-                if (!detectedTechniques.includes(tech)) {
-                  setDetectedTechniques(prev => [...prev, tech]);
-                }
-              });
-            }}
-          />
-        </div>
-      )}
-
-      {/* Detection Rule Builder */}
-      {showRuleBuilder && (
-        <div className="siem-card mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-[#c9d1d9]">Detection Rule Builder</h2>
-            <button
-              onClick={() => setShowRuleBuilder(false)}
-              className="text-[#8b949e] hover:text-[#c9d1d9]"
-            >
-              ✕
-            </button>
-          </div>
-          <DetectionRuleBuilder
-            onSave={(rule) => {
-              setSavedRules(prev => [...prev, rule]);
-              // Mark techniques as detected if rule matches
-              rule.mitreTechniques.forEach(tech => {
-                if (!detectedTechniques.includes(tech)) {
-                  setDetectedTechniques(prev => [...prev, tech]);
-                }
-              });
-            }}
-            onTest={(rule) => {
-              // Test rule against current events
-              console.log('Testing rule:', rule);
-            }}
-          />
-        </div>
-      )}
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left Column: Timeline */}
-        <div className="lg:col-span-1">
-          <TimelinePanel
-            stages={stages}
-            events={session.events}
-            selectedStage={selectedStage}
-            onStageSelect={setSelectedStage}
-          />
-        </div>
-
-        {/* Middle Column: Log Explorer */}
-        <div className="lg:col-span-1 space-y-4">
-          <LogExplorer
-            events={filteredEvents}
-            selectedStage={selectedStage}
-            onEventSelect={(event) => {
-              setSelectedEvent(event);
-            }}
-          />
-          
-          {/* Learning Mode Panel */}
-          {learningMode && selectedEvent && (
-            <LearningMode event={selectedEvent} enabled={learningMode} />
-          )}
-        </div>
-
-        {/* Right Column: IOC Tagging */}
-        <div className="lg:col-span-1 space-y-4">
-          <IOCTaggingPanel
-            iocs={extractedIOCs}
-            tags={iocTags}
-            isLocked={isLocked}
-            onTagChange={(ioc, tag) => {
-              if (!isLocked) {
-                setIocTags(prev => ({ ...prev, [ioc]: tag }));
-              }
-            }}
-            onEnrich={(ioc, type) => {
-              setEnrichingIOC({ value: ioc, type });
-            }}
-          />
-          
-          {/* IOC Enrichment Panel */}
-          {enrichingIOC && (
-            <IOCEnrichment
-              ioc={enrichingIOC.value}
-              type={enrichingIOC.type}
-              onClose={() => setEnrichingIOC(null)}
+              }}
+              onTestDetection={(rule) => {
+                rule.mitreTechniques.forEach(tech => {
+                  if (!detectedTechniques.includes(tech)) {
+                    setDetectedTechniques(prev => [...prev, tech]);
+                  }
+                });
+              }}
             />
-          )}
-        </div>
+          </div>
+        )}
+
+        {activeView === 'rules' && (
+          <div className="mb-4">
+            <DetectionRuleBuilder
+              onSave={(rule) => {
+                setSavedRules(prev => [...prev, rule]);
+                rule.mitreTechniques.forEach(tech => {
+                  if (!detectedTechniques.includes(tech)) {
+                    setDetectedTechniques(prev => [...prev, tech]);
+                  }
+                });
+              }}
+              onTest={(rule) => {
+                console.log('Testing rule:', rule);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Main 3-Column Layout */}
+        {activeView === 'main' && (
+          <div className="grid grid-cols-12 gap-4">
+            {/* Left Column: Timeline & Navigator */}
+            <div className="col-span-12 lg:col-span-3 space-y-4">
+              <TimelinePanel
+                stages={stages}
+                events={session.events}
+                selectedStage={selectedStage}
+                onStageSelect={setSelectedStage}
+              />
+              <div className="siem-card p-4">
+                <h3 className="text-sm font-semibold text-[#c9d1d9] mb-2">Quick Stats</h3>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-[#8b949e]">High Threat Events:</span>
+                    <span className="text-red-400 font-semibold">
+                      {session.events.filter(e => (e.threat_score || 0) >= 70).length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#8b949e]">Attack Stages:</span>
+                    <span className="text-[#c9d1d9] font-semibold">{stages.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#8b949e]">Techniques Observed:</span>
+                    <span className="text-[#c9d1d9] font-semibold">
+                      {new Set(session.events.map(e => e.technique_id).filter(Boolean)).size}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Middle Column: Log Explorer & Learning Mode */}
+            <div className="col-span-12 lg:col-span-6 space-y-4">
+              <LogExplorer
+                events={filteredEvents}
+                selectedStage={selectedStage}
+                onEventSelect={(event) => {
+                  setSelectedEvent(event);
+                }}
+              />
+              {learningMode && selectedEvent && (
+                <LearningMode event={selectedEvent} enabled={learningMode} />
+              )}
+            </div>
+
+            {/* Right Column: IOC Tagging & Enrichment */}
+            <div className="col-span-12 lg:col-span-3 space-y-4">
+              <IOCTaggingPanel
+                iocs={extractedIOCs}
+                tags={iocTags}
+                isLocked={isLocked}
+                onTagChange={(ioc, tag) => {
+                  if (!isLocked) {
+                    setIocTags(prev => ({ ...prev, [ioc]: tag }));
+                  }
+                }}
+                onEnrich={(ioc, type) => {
+                  setEnrichingIOC({ value: ioc, type });
+                }}
+              />
+              {enrichingIOC && (
+                <IOCEnrichment
+                  ioc={enrichingIOC.value}
+                  type={enrichingIOC.type}
+                  onClose={() => setEnrichingIOC(null)}
+                />
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Evaluation Report Modal */}
@@ -492,6 +540,7 @@ export default function SimulationDashboard() {
             setIocTags({});
             setSelectedEvent(null);
             setSelectedStage(null);
+            setDetectedTechniques([]);
             initializeSimulation();
           }}
         />
@@ -499,4 +548,3 @@ export default function SimulationDashboard() {
     </div>
   );
 }
-
