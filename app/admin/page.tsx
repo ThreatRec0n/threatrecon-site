@@ -143,7 +143,17 @@ export default function AdminLoginPage() {
 
           {/* Compromised Modal */}
           {isCompromised && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div 
+              className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="compromised-title"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  router.push('/simulation');
+                }
+              }}
+            >
               <div className="bg-red-900/20 border-2 border-red-500 rounded-lg max-w-md w-full p-6 shadow-2xl">
                 <div className="text-center">
                   <div className="text-5xl mb-4">🚨</div>
@@ -198,9 +208,6 @@ export default function AdminLoginPage() {
               <input
                 id="username"
                 type="text"
-                autoComplete="username"
-                maxLength={100}
-                type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={isLocked || isCompromised || isLoading}
@@ -208,6 +215,8 @@ export default function AdminLoginPage() {
                 placeholder="Enter your username"
                 required
                 autoComplete="username"
+                maxLength={100}
+                aria-required="true"
               />
             </div>
 
@@ -265,7 +274,8 @@ export default function AdminLoginPage() {
               type="button"
               onClick={handleForgotPassword}
               disabled={isLocked || isCompromised}
-              className="w-full text-sm text-[#58a6ff] hover:text-[#79c0ff] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full text-sm text-[#58a6ff] hover:text-[#79c0ff] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#58a6ff] rounded"
+              aria-label="Request password reset"
             >
               Forgot Password?
             </button>
