@@ -248,6 +248,86 @@ export class SimulationEngine {
   }
 
   /**
+   * Execute an Atomic Red Team technique and generate events
+   */
+  executeAtomicTechnique(techniqueId: string, sessionId?: string): SimulatedEvent[] {
+    if (!this.session && !sessionId) {
+      throw new Error('No active session');
+    }
+
+    const currentSession = this.session || null;
+    if (!currentSession && sessionId) {
+      // In a real implementation, we'd load the session
+      throw new Error('Session not found');
+    }
+
+    // Import Atomic Red Team executor
+    const { executeAtomicTest } = require('../attack-simulators/atomic-red-team');
+    
+    // Execute the atomic test
+    const execution = executeAtomicTest(techniqueId, {
+      hostname: 'WIN-TEST',
+      username: 'DOMAIN\\user',
+      sourceIP: '10.0.1.100',
+    });
+
+    // Convert SIEMEvent[] to SimulatedEvent[]
+    // The logs from executeAtomicTest are SIEMEvent objects, we need to convert them
+    const simulatedEvents: SimulatedEvent[] = execution.logs.map((log: any, index: number) => {
+      // Determine source from log structure
+      let source: 'sysmon' | 'zeek' | 'suricata' | 'edr' | 'cloudtrail' | 'windows-event' = 'sysmon';
+      if ((log.sourceIP || log.id_orig_h) && (log.destinationIP || log.id_resp_h) && !log.EventData && !log.EventID) {
+        source = 'zeek';
+      } else if (log.EventData || log.EventID || log.System) {
+        source = 'sysmon';
+      } else if (log.eventType && log.message) {
+        // Generic SIEM event
+        source = log.source || 'sysmon';
+      }
+
+      // Determine stage from technique
+      const stageMap: Record<string, string> = {
+        'T1059.001': 'execution',
+        'T1071.001': 'command-and-control',
+        'T1003': 'credential-access',
+        'T1021.002': 'lateral-movement',
+        'T1048': 'exfiltration',
+        'T1566.001': 'initial-access',
+        'T1053.005': 'persistence',
+        'T1083': 'discovery',
+        'T1018': 'discovery',
+        'T1547.001': 'persistence',
+        'T1486': 'impact',
+      };
+
+      return {
+        id: `atomic-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+        source,
+        scenario_id: currentSession?.scenario_stories[0]?.id || 'atomic-test',
+        session_id: currentSession?.session_id || sessionId || 'unknown',
+        technique_id: techniqueId,
+        stage: stageMap[techniqueId] || 'execution',
+        timestamp: new Date().toISOString(),
+        details: log,
+        related_event_ids: [],
+        threat_score: 70, // Atomic tests are malicious by nature
+        is_malicious: true,
+        message: `Atomic Red Team test executed: ${techniqueId}`,
+      };
+    });
+
+    // Add events to session
+    if (currentSession) {
+      currentSession.events.push(...simulatedEvents);
+      currentSession.events.sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+    }
+
+    return simulatedEvents;
+  }
+
+  /**
    * Complete the simulation
    */
   completeSession(): void {

@@ -7,6 +7,9 @@ import TimelinePanel from './TimelinePanel';
 import LearningMode from './LearningMode';
 import IOCEnrichment from './IOCEnrichment';
 import EvaluationReport from './EvaluationReport';
+import MitreNavigator from './MitreNavigator';
+import PurpleTeamMode from './PurpleTeamMode';
+import DetectionRuleBuilder, { type DetectionRule } from '@/components/DetectionRuleBuilder';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -40,6 +43,11 @@ export default function SimulationDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [isLocked, setIsLocked] = useState(false);
+  const [showMitreNavigator, setShowMitreNavigator] = useState(false);
+  const [showPurpleTeam, setShowPurpleTeam] = useState(false);
+  const [showRuleBuilder, setShowRuleBuilder] = useState(false);
+  const [detectedTechniques, setDetectedTechniques] = useState<string[]>([]);
+  const [savedRules, setSavedRules] = useState<DetectionRule[]>([]);
 
   // Initialize simulation
   const initializeSimulation = async () => {
@@ -254,6 +262,36 @@ export default function SimulationDashboard() {
               📘 Learning Mode {learningMode ? 'ON' : 'OFF'}
             </button>
             <button
+              onClick={() => setShowMitreNavigator(!showMitreNavigator)}
+              className={`px-4 py-2 rounded border transition-colors ${
+                showMitreNavigator
+                  ? 'bg-purple-900/40 text-purple-400 border-purple-800/60'
+                  : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-purple-800/60'
+              }`}
+            >
+              🎯 ATT&CK Navigator
+            </button>
+            <button
+              onClick={() => setShowPurpleTeam(!showPurpleTeam)}
+              className={`px-4 py-2 rounded border transition-colors ${
+                showPurpleTeam
+                  ? 'bg-orange-900/40 text-orange-400 border-orange-800/60'
+                  : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-orange-800/60'
+              }`}
+            >
+              🟣 Purple Team
+            </button>
+            <button
+              onClick={() => setShowRuleBuilder(!showRuleBuilder)}
+              className={`px-4 py-2 rounded border transition-colors ${
+                showRuleBuilder
+                  ? 'bg-green-900/40 text-green-400 border-green-800/60'
+                  : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-green-800/60'
+              }`}
+            >
+              📝 Detection Rules
+            </button>
+            <button
               onClick={handleFinalizeInvestigation}
               disabled={isLocked || isSubmitting}
               className={`px-6 py-2 rounded border font-semibold transition-colors ${
@@ -277,6 +315,116 @@ export default function SimulationDashboard() {
           </div>
         )}
       </div>
+
+      {/* MITRE Navigator Modal */}
+      {showMitreNavigator && (
+        <div className="siem-card mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-[#c9d1d9]">MITRE ATT&CK Navigator</h2>
+            <button
+              onClick={() => setShowMitreNavigator(false)}
+              className="text-[#8b949e] hover:text-[#c9d1d9]"
+            >
+              ✕
+            </button>
+          </div>
+          <MitreNavigator
+            events={session.events}
+            attackChains={session.attack_chains}
+            detectedTechniques={detectedTechniques}
+          />
+        </div>
+      )}
+
+      {/* Purple Team Mode */}
+      {showPurpleTeam && (
+        <div className="siem-card mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-[#c9d1d9]">Purple Team Mode</h2>
+            <button
+              onClick={() => setShowPurpleTeam(false)}
+              className="text-[#8b949e] hover:text-[#c9d1d9]"
+            >
+              ✕
+            </button>
+          </div>
+          <PurpleTeamMode
+            events={session.events}
+            onExecuteAttack={async (techniqueId) => {
+              // Execute attack and refresh session
+              try {
+                const response = await fetch('/api/simulation', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'execute_attack',
+                    config: {
+                      technique_id: techniqueId,
+                      session_id: session.session_id,
+                    },
+                  }),
+                });
+                const data = await response.json();
+                if (data.success && data.events) {
+                  // Reload session to get updated events
+                  const sessionResponse = await fetch('/api/simulation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_session' }),
+                  });
+                  const sessionData = await sessionResponse.json();
+                  if (sessionData.success) {
+                    setSession(sessionData.session);
+                  }
+                }
+              } catch (err) {
+                console.error('Error executing attack:', err);
+              }
+            }}
+            onTestDetection={(rule) => {
+              // Test detection rule against events
+              console.log('Testing detection rule:', rule);
+              // In a real implementation, this would test the rule against the event stream
+              // For now, we'll mark techniques as detected if rule matches
+              rule.mitreTechniques.forEach(tech => {
+                if (!detectedTechniques.includes(tech)) {
+                  setDetectedTechniques(prev => [...prev, tech]);
+                }
+              });
+            }}
+          />
+        </div>
+      )}
+
+      {/* Detection Rule Builder */}
+      {showRuleBuilder && (
+        <div className="siem-card mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-[#c9d1d9]">Detection Rule Builder</h2>
+            <button
+              onClick={() => setShowRuleBuilder(false)}
+              className="text-[#8b949e] hover:text-[#c9d1d9]"
+            >
+              ✕
+            </button>
+          </div>
+          <DetectionRuleBuilder
+            onSave={(rule) => {
+              setSavedRules(prev => [...prev, rule]);
+              // Mark techniques as detected if rule matches
+              rule.mitreTechniques.forEach(tech => {
+                if (!detectedTechniques.includes(tech)) {
+                  setDetectedTechniques(prev => [...prev, tech]);
+                }
+              });
+            }}
+            onTest={(rule) => {
+              // Test rule against current events
+              console.log('Testing rule:', rule);
+            }}
+          />
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

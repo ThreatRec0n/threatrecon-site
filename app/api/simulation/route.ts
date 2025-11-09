@@ -59,6 +59,23 @@ export async function POST(request: NextRequest) {
           session: completedSession,
         });
 
+      case 'execute_attack':
+        // Execute an Atomic Red Team technique
+        const techniqueId = config?.technique_id;
+        if (!techniqueId) {
+          return NextResponse.json(
+            { success: false, error: 'technique_id required' },
+            { status: 400 }
+          );
+        }
+        // In a real implementation, this would execute the technique and generate events
+        // For now, we'll simulate it by adding events to the session
+        const attackEvents = engine.executeAtomicTechnique(techniqueId, config?.session_id);
+        return NextResponse.json({
+          success: true,
+          events: attackEvents,
+        });
+
       default:
         return NextResponse.json(
           { success: false, error: 'Unknown action' },
