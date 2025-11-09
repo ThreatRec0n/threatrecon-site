@@ -1,16 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialMode?: 'login' | 'signup';
 }
 
-export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }: Props) {
+  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
+  
+  // Update mode when initialMode changes
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+    }
+  }, [initialMode, isOpen]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

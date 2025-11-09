@@ -13,6 +13,7 @@ export default function ProfileDropdown({ onProgressSync }: Props) {
   const [user, setUser] = useState<User | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -171,34 +172,52 @@ export default function ProfileDropdown({ onProgressSync }: Props) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
     process.env.NEXT_PUBLIC_SUPABASE_URL !== 'your_supabase_project_url';
 
-  // Always show auth button, but hide dropdown if not configured
+  // Show separate Sign In and Sign Up buttons when not logged in, or Account dropdown when logged in
   return (
     <>
-      <div className="relative">
-        <button
-          onClick={() => {
-            if (!isConfigured) {
-              setShowAuthModal(true);
-            } else {
-              setIsOpen(!isOpen);
-            }
-          }}
-          className="flex items-center gap-2 px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-          aria-label={user ? "User Profile" : "Sign In"}
-          aria-expanded={isOpen}
-        >
-          {user ? (
-            <>
+      <div className="relative flex items-center gap-2">
+        {user ? (
+          // Logged in: Show Account dropdown
+          <>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+              aria-label="User Account"
+              aria-expanded={isOpen}
+            >
               <span className="text-lg">🔒</span>
               <span className="hidden sm:inline">Account</span>
-            </>
-          ) : (
-            <>
+            </button>
+          </>
+        ) : (
+          // Not logged in: Show separate Sign In and Sign Up buttons
+          <>
+            <button
+              onClick={() => {
+                setShowAuthModal(true);
+                setAuthMode('login');
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+              aria-label="Sign In to your account"
+              title="Sign in to sync your progress across devices"
+            >
               <span className="text-lg">🔓</span>
               <span className="hidden sm:inline">Sign In</span>
-            </>
-          )}
-        </button>
+            </button>
+            <button
+              onClick={() => {
+                setShowAuthModal(true);
+                setAuthMode('signup');
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded border text-sm transition-colors bg-[#58a6ff] text-white border-[#58a6ff] hover:bg-[#4493f8] hover:border-[#4493f8] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+              aria-label="Sign Up for a new account"
+              title="Create an account to sync your progress across devices"
+            >
+              <span className="text-lg">✨</span>
+              <span className="hidden sm:inline">Sign Up</span>
+            </button>
+          </>
+        )}
 
         {isOpen && isConfigured && (
           <>
@@ -270,18 +289,17 @@ export default function ProfileDropdown({ onProgressSync }: Props) {
         )}
       </div>
 
-      {isConfigured && (
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          onSuccess={() => {
-            setShowAuthModal(false);
-            if (onProgressSync) {
-              setTimeout(() => handleSync(), 1000);
-            }
-          }}
-        />
-      )}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => {
+          setShowAuthModal(false);
+          if (onProgressSync) {
+            setTimeout(() => handleSync(), 1000);
+          }
+        }}
+        initialMode={authMode}
+      />
     </>
   );
 }
