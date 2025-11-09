@@ -4,8 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
 const menuItems = [
-  { href: '/', label: 'Log Analysis', icon: '📊' },
-  { href: '/scenarios', label: 'Scenarios', icon: '🎯' },
+  { href: '/', label: 'Threat Hunt', icon: '🎯' },
 ];
 
 export default function Sidebar() {

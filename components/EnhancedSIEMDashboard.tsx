@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { SIEMEvent, SecurityAlert, IncidentCase, DetectionRule } from '@/lib/types';
+import type { SIEMEvent, SecurityAlert, IncidentCase, DetectionRule, AlertClassification } from '@/lib/types';
 import { lookupThreatIntel } from '@/lib/threat-intel';
 import ThreatIntelPanel from './ThreatIntelPanel';
 import CaseManagement from './CaseManagement';
@@ -13,7 +13,7 @@ interface Props {
   scenarioId?: string;
   alerts?: SecurityAlert[];
   events?: SIEMEvent[];
-  onAlertClassify?: (alertId: string, classification: string) => void;
+  onAlertClassify?: (alertId: string, classification: AlertClassification) => void;
 }
 
 export default function EnhancedSIEMDashboard({ scenarioId, alerts = [], events = [], onAlertClassify }: Props) {
