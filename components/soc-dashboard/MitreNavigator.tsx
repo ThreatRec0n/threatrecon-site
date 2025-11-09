@@ -27,6 +27,7 @@ const TACTICS = [
 ];
 
 export default function MitreNavigator({ events, attackChains, detectedTechniques = [] }: Props) {
+  // Tool indicator: This view uses MITRE ATT&CK Navigator concepts
   // Extract all techniques from events and attack chains
   const techniqueMap = useMemo(() => {
     const map = new Map<string, {
@@ -130,7 +131,12 @@ export default function MitreNavigator({ events, attackChains, detectedTechnique
   return (
     <div className="siem-card space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-[#c9d1d9]">MITRE ATT&CK Navigator</h2>
+        <div>
+          <h2 className="text-xl font-bold text-[#c9d1d9]">MITRE ATT&CK Navigator</h2>
+          <p className="text-xs text-[#8b949e] mt-0.5">
+            Based on MITRE ATT&CK Navigator • Visualizes attack techniques and tactics
+          </p>
+        </div>
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-green-600 border border-green-500 rounded"></div>

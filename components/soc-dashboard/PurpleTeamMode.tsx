@@ -69,7 +69,12 @@ export default function PurpleTeamMode({ events, onExecuteAttack, onTestDetectio
   return (
     <div className="siem-card space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-[#c9d1d9]">Purple Team Mode</h2>
+        <div>
+          <h2 className="text-xl font-bold text-[#c9d1d9]">Purple Team Mode</h2>
+          <p className="text-xs text-[#8b949e] mt-0.5">
+            Execute Atomic Red Team techniques • Test detection rules in real-time
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setMode('attack')}

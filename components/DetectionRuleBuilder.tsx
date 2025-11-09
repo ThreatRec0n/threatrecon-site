@@ -114,7 +114,12 @@ level: ${rule.severity}`;
   return (
     <div className="space-y-4">
       <div className="siem-card">
-        <h3 className="text-lg font-semibold text-[#c9d1d9] mb-4">Detection Rule Builder</h3>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-[#c9d1d9]">Detection Rule Builder</h3>
+          <p className="text-xs text-[#8b949e] mt-0.5">
+            Create Sigma, YARA, KQL, and Splunk rules • Test against simulated events
+          </p>
+        </div>
 
         {/* Rule Metadata */}
         <div className="space-y-4 mb-6">

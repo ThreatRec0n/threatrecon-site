@@ -105,10 +105,16 @@ export default function IOCEnrichment({ ioc, type, onClose }: Props) {
   return (
     <div className="siem-card space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-[#c9d1d9]">IOC Enrichment</h3>
+        <div>
+          <h3 className="text-lg font-bold text-[#c9d1d9]">IOC Enrichment</h3>
+          <p className="text-xs text-[#8b949e] mt-0.5">
+            Powered by: VirusTotal, AbuseIPDB, ThreatMiner, Automater, OTX
+          </p>
+        </div>
         <button
           onClick={onClose}
-          className="text-[#8b949e] hover:text-[#c9d1d9]"
+          className="text-[#8b949e] hover:text-[#c9d1d9] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] rounded p-1"
+          aria-label="Close IOC Enrichment"
         >
           ✕
         </button>

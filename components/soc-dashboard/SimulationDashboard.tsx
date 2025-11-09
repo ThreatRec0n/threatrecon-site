@@ -290,15 +290,46 @@ export default function SimulationDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <a
-                href="/docs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-                aria-label="View Lab Plan & Documentation"
-              >
-                📚 Lab Plan & Docs
-              </a>
+              <div className="relative group">
+                <button
+                  className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                  aria-label="Documentation Menu"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      const menu = document.getElementById('docs-menu');
+                      if (menu) {
+                        menu.classList.toggle('opacity-0');
+                        menu.classList.toggle('invisible');
+                      }
+                    }
+                  }}
+                >
+                  📚 Docs
+                </button>
+                <div
+                  id="docs-menu"
+                  className="absolute top-full left-0 mt-1 w-48 bg-[#161b22] border border-[#30363d] rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50"
+                  role="menu"
+                >
+                  <a
+                    href="/docs"
+                    role="menuitem"
+                    className="block px-4 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] hover:text-[#58a6ff] border-b border-[#30363d] first:rounded-t last:rounded-b last:border-b-0 focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                  >
+                    📘 Lab Plan & Docs
+                  </a>
+                  <a
+                    href="/phoenix"
+                    role="menuitem"
+                    className="block px-4 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] hover:text-[#58a6ff] last:rounded-b focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                  >
+                    🔥 Phoenix Blueprint
+                  </a>
+                </div>
+              </div>
               <button
                 onClick={() => setLearningMode(!learningMode)}
                 disabled={isLocked}

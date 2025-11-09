@@ -97,7 +97,12 @@ export default function LogExplorer({ events, selectedStage, onEventSelect }: Pr
   return (
     <div className="siem-card space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-[#c9d1d9]">Log Explorer</h2>
+        <div>
+          <h2 className="text-xl font-bold text-[#c9d1d9]">Log Explorer</h2>
+          <p className="text-xs text-[#8b949e] mt-0.5">
+            SIEM-style interface (ELK/Kibana concepts) • Log sources: Sysmon, Zeek, Suricata, Windows Events
+          </p>
+        </div>
         <div className="text-sm text-[#8b949e]">
           {filteredAndSortedEvents.length} / {events.length} events
         </div>

@@ -10,6 +10,8 @@ interface Props {
 export default function InvestigationGuide({ scenarioName, attackStages }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<'overview' | 'methodology' | 'tools' | 'hints'>('overview');
+  const [expandedToolCategory, setExpandedToolCategory] = useState<string | null>(null);
+  const [toolSearchQuery, setToolSearchQuery] = useState('');
 
   const investigationSteps = [
     {
@@ -67,6 +69,15 @@ export default function InvestigationGuide({ scenarioName, attackStages }: Props
       tools: ['Finalize Investigation button', 'Evaluation Report'],
     },
   ];
+
+  // Organize tools by category
+  const toolCategories = {
+    'Network Analysis': ['Wireshark', 'Zeek', 'Network Miner', 'Security Onion'],
+    'Log Analysis': ['Sysmon', 'SIEM (Splunk/ELK)', 'Windows Event Log Viewer', 'Sysinternals Suite'],
+    'Threat Intelligence': ['VirusTotal', 'AbuseIPDB', 'ThreatMiner', 'Automater'],
+    'Advanced Tools': ['APT-Hunter', 'Volatility', 'CyberChef'],
+    'Frameworks': ['MITRE ATT&CK'],
+  };
 
   const toolGuide = {
     'Wireshark': {
@@ -325,23 +336,94 @@ export default function InvestigationGuide({ scenarioName, attackStages }: Props
           {/* Tools Tab */}
           {activeSection === 'tools' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-[#c9d1d9] mb-4">Free Tools for Threat Hunting</h3>
-              <div className="space-y-3">
-                {Object.entries(toolGuide).map(([tool, info]) => (
-                  <div key={tool} className="border border-[#30363d] rounded p-4 bg-[#0d1117]">
-                    <h4 className="text-md font-semibold text-[#c9d1d9] mb-2">{tool}</h4>
-                    <p className="text-sm text-[#8b949e] mb-2">{info.description}</p>
-                    <div className="mb-2">
-                      <span className="text-xs font-semibold text-[#8b949e]">Use Case: </span>
-                      <span className="text-sm text-[#c9d1d9]">{info.useCase}</span>
-                    </div>
-                    <div className="bg-[#161b22] p-2 rounded border border-[#30363d]">
-                      <span className="text-xs font-semibold text-[#58a6ff]">💡 Tip: </span>
-                      <span className="text-xs text-[#8b949e]">{info.tip}</span>
-                    </div>
-                  </div>
-                ))}
+              <h3 className="text-lg font-semibold text-[#c9d1d9] mb-4">Investigation Tools</h3>
+              
+              {/* Search Bar */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Search tools..."
+                  value={toolSearchQuery}
+                  onChange={(e) => setToolSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded text-[#c9d1d9] placeholder-[#8b949e] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                  aria-label="Search investigation tools"
+                />
               </div>
+
+              {/* Tool Categories */}
+              <div className="space-y-3">
+                {Object.entries(toolCategories).map(([category, tools]) => {
+                  // Filter tools by search query
+                  const filteredTools = tools.filter(tool => {
+                    if (!toolSearchQuery) return true;
+                    const searchLower = toolSearchQuery.toLowerCase();
+                    const toolInfo = toolGuide[tool as keyof typeof toolGuide];
+                    return (
+                      tool.toLowerCase().includes(searchLower) ||
+                      toolInfo?.description.toLowerCase().includes(searchLower) ||
+                      toolInfo?.useCase.toLowerCase().includes(searchLower)
+                    );
+                  });
+
+                  if (filteredTools.length === 0) return null;
+
+                  const isExpanded = expandedToolCategory === category;
+
+                  return (
+                    <div key={category} className="border border-[#30363d] rounded bg-[#0d1117]">
+                      <button
+                        onClick={() => setExpandedToolCategory(isExpanded ? null : category)}
+                        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[#161b22] transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] rounded-t"
+                        aria-expanded={isExpanded}
+                        aria-controls={`tool-category-${category}`}
+                      >
+                        <h4 className="text-md font-semibold text-[#c9d1d9]">{category}</h4>
+                        <span className="text-[#8b949e]">
+                          {isExpanded ? '▼' : '▶'} {filteredTools.length} tool{filteredTools.length !== 1 ? 's' : ''}
+                        </span>
+                      </button>
+                      
+                      {isExpanded && (
+                        <div id={`tool-category-${category}`} className="p-4 space-y-3 border-t border-[#30363d]">
+                          {filteredTools.map((tool) => {
+                            const info = toolGuide[tool as keyof typeof toolGuide];
+                            if (!info) return null;
+                            
+                            return (
+                              <div key={tool} className="border border-[#30363d] rounded p-4 bg-[#161b22]">
+                                <h5 className="text-sm font-semibold text-[#58a6ff] mb-2">{tool}</h5>
+                                <p className="text-sm text-[#8b949e] mb-2">{info.description}</p>
+                                <div className="mb-2">
+                                  <span className="text-xs font-semibold text-[#8b949e]">Use Case: </span>
+                                  <span className="text-sm text-[#c9d1d9]">{info.useCase}</span>
+                                </div>
+                                <div className="bg-[#0d1117] p-2 rounded border border-[#30363d]">
+                                  <span className="text-xs font-semibold text-[#58a6ff]">💡 Tip: </span>
+                                  <span className="text-xs text-[#8b949e]">{info.tip}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {toolSearchQuery && Object.values(toolCategories).flat().filter(tool => {
+                const searchLower = toolSearchQuery.toLowerCase();
+                const toolInfo = toolGuide[tool as keyof typeof toolGuide];
+                return (
+                  tool.toLowerCase().includes(searchLower) ||
+                  toolInfo?.description.toLowerCase().includes(searchLower) ||
+                  toolInfo?.useCase.toLowerCase().includes(searchLower)
+                );
+              }).length === 0 && (
+                <div className="text-center py-8 text-[#8b949e]">
+                  No tools found matching "{toolSearchQuery}"
+                </div>
+              )}
             </div>
           )}
 
