@@ -322,6 +322,31 @@ export default function SimulationDashboard() {
         }),
       });
 
+      // Submit results to feedback API
+      const currentScenario = session.scenario_stories[0];
+      const submitResponse = await fetch('/api/simulation/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evaluationResult: result,
+          scenarioType: currentScenarioType,
+          scenarioName: currentScenario?.name || 'Unknown Scenario',
+          iocTags: iocTags,
+          completionTime: timedMode && startTime ? elapsedTime : undefined,
+          timedMode: timedMode,
+          userAnswers: result.allClassifications,
+        }),
+      });
+
+      if (submitResponse.ok) {
+        const submitData = await submitResponse.json();
+        if (submitData.success && submitData.result?.id) {
+          // Redirect to feedback page
+          window.location.href = `/simulation/feedback/${submitData.result.id}`;
+          return; // Exit early to prevent showing modal
+        }
+      }
+
       // Check and unlock achievements
       try {
         const achievementResponse = await fetch('/api/achievements/unlock', {
@@ -936,6 +961,12 @@ export default function SimulationDashboard() {
           localStorage.setItem('walkthrough_seen_v1', 'true');
         }}
         currentPage="simulation"
+      />
+
+      {/* Help Sidebar */}
+      <HelpSidebar
+        isOpen={helpSidebarOpen}
+        onClose={() => setHelpSidebarOpen(false)}
       />
 
       {/* Achievement Unlock Toasts */}
