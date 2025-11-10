@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Tooltip, InfoIcon } from '@/components/ui/ContextualHelp';
 
 type IOCTag = 'confirmed-threat' | 'suspicious' | 'benign';
 

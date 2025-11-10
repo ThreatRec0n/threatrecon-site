@@ -19,6 +19,7 @@ import EvidenceBinder, { type EvidenceItem } from './EvidenceBinder';
 import ReportExport from './ReportExport';
 import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
+import { HelpSidebar } from '@/components/ui/ContextualHelp';
 import { extractIOCsFromEvents } from '@/lib/ioc-extractor';
 import { SkeletonCard, SkeletonIOCPanel, SkeletonTable } from '@/components/ui/SkeletonLoader';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
@@ -634,6 +635,15 @@ export default function SimulationDashboard() {
         {/* View Switcher */}
         {activeView === 'mitre' && (
           <div className="mb-4" data-tutorial="mitre-navigator">
+            {/* MITRE Navigator will be rendered here */}
+          </div>
+          
+          {/* Case Notes Section - for tutorial */}
+          {activeView === 'case' && (
+            <div data-tutorial="case-notes" className="mb-4">
+              {/* Case Notes component renders here */}
+            </div>
+          )}
             <MitreNavigator
               events={session.events}
               attackChains={session.attack_chains}
