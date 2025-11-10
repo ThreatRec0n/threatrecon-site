@@ -69,6 +69,16 @@ export default function SimulationDashboard() {
   useEffect(() => {
     initializeSimulation();
     
+    // Check if tutorial should be shown from URL param
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tutorial') === 'true') {
+        setShowTutorial(true);
+        // Clean up URL
+        window.history.replaceState({}, '', '/simulation');
+      }
+    }
+    
     // Track simulation visit
     fetch('/api/analytics', {
       method: 'POST',
