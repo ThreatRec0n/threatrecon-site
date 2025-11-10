@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { ACHIEVEMENT_DEFINITIONS } from '@/lib/achievements/definitions';
 import { getUserAchievements } from '@/lib/achievements/storage';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/server';
+import { memoryCache } from '@/lib/cache/memory-cache';
 
 export async function GET(request: Request) {
   try {
@@ -16,6 +17,20 @@ export async function GET(request: Request) {
         const { data: { session } } = await supabase.auth.getSession();
         userId = session?.user?.id || null;
       }
+    }
+
+    // Cache key based on user ID (or 'anonymous' if no user)
+    const cacheKey = `achievements:${userId || 'anonymous'}`;
+
+    // Check cache (2 minute TTL)
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: {
+          'X-Cache': 'HIT',
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=240'
+        }
+      });
     }
 
     // Get user's unlocked achievements
@@ -37,7 +52,7 @@ export async function GET(request: Request) {
     const unlockedAchievements = achievementsWithStatus.filter(a => a.unlocked);
     const totalPoints = unlockedAchievements.reduce((sum, a) => sum + a.points, 0);
 
-    return NextResponse.json({
+    const response = {
       achievements: achievementsWithStatus,
       stats: {
         total: ACHIEVEMENT_DEFINITIONS.length,
@@ -45,6 +60,16 @@ export async function GET(request: Request) {
         totalPoints,
         progress: Math.round((unlockedAchievements.length / ACHIEVEMENT_DEFINITIONS.length) * 100),
       },
+    };
+
+    // Cache for 2 minutes
+    memoryCache.set(cacheKey, response, 2 * 60 * 1000);
+
+    return NextResponse.json(response, {
+      headers: {
+        'X-Cache': 'MISS',
+        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=240'
+      }
     });
   } catch (error) {
     console.error('Error fetching achievements:', error);

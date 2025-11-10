@@ -1,10 +1,20 @@
 import './styles/globals.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Inter } from 'next/font/google';
 import AppHeader from '@/components/layout/AppHeader';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AlphaBanner } from '@/components/AlphaBanner';
 import { Toaster } from 'sonner';
+
+// Optimize font loading
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+  preload: true,
+  fallback: ['system-ui', 'arial'],
+});
 
 export const metadata: Metadata = {
   title: {
@@ -67,8 +77,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={`dark ${inter.variable}`}>
       <head>
+        {/* PWA Manifest */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#58a6ff" />
+        {/* Preconnect to external domains */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* HTML Comment for View Source */}
         <script
           type="text/html"
@@ -90,7 +106,7 @@ But I see you too 👀
           }}
         />
       </head>
-      <body className="min-h-screen bg-[#0d1117] text-[#c9d1d9] antialiased pt-14">
+      <body className={`min-h-screen bg-[#0d1117] text-[#c9d1d9] antialiased pt-14 ${inter.className}`}>
         {/* HTML Comment visible in source */}
         <div
           style={{ display: 'none' }}

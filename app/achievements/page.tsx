@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import AchievementCard from '@/components/achievements/AchievementCard';
 import type { AchievementDefinition } from '@/lib/achievements/definitions';
 import { getAchievementsByCategory } from '@/lib/achievements/definitions';
+
+// Dynamically import heavy components
+const AchievementCard = dynamic(() => import('@/components/achievements/AchievementCard'), {
+  loading: () => (
+    <div className="h-48 bg-[#161b22] border border-[#30363d] rounded animate-pulse" />
+  ),
+  ssr: true
+});
 
 interface AchievementWithStatus extends AchievementDefinition {
   unlocked: boolean;
