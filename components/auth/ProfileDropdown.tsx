@@ -188,25 +188,26 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
                 Load Progress from Cloud
               </button>
 
-                     <div className="border-t border-[#30363d] pt-1 mt-1">
-                       <button
-                         onClick={() => {
-                           setIsOpen(false);
-                           if (typeof window !== 'undefined') {
-                             window.location.href = '/simulation';
-                           }
-                         }}
-                         className="w-full text-left px-3 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] rounded transition-colors"
-                       >
-                         🎓 Replay Tutorial
-                       </button>
-                       <button
-                         onClick={handleLogout}
-                         className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 rounded transition-colors"
-                       >
-                         Sign Out
-                       </button>
-                     </div>
+              <div className="border-t border-[#30363d] pt-1 mt-1">
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    if (typeof window !== 'undefined') {
+                      // Navigate to simulation and trigger tutorial
+                      window.location.href = '/simulation?tutorial=true';
+                    }
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] rounded transition-colors"
+                >
+                  🎓 Replay Tutorial
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 rounded transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </>
