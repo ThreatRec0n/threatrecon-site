@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 
@@ -189,6 +190,13 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
               </button>
 
               <div className="border-t border-[#30363d] pt-1 mt-1">
+                <Link
+                  href="/settings/security"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-3 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] rounded transition-colors"
+                >
+                  🔐 Security Settings
+                </Link>
                 <button
                   onClick={() => {
                     setIsOpen(false);
