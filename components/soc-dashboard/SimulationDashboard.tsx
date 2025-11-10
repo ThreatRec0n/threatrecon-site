@@ -518,6 +518,14 @@ export default function SimulationDashboard() {
                 🎓 Replay Tutorial
               </button>
               <button
+                onClick={() => setHelpSidebarOpen(true)}
+                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                aria-label="Open Help & Documentation"
+                title="View help documentation and glossary"
+              >
+                ❓ Help
+              </button>
+              <button
                 onClick={() => setLearningMode(!learningMode)}
                 disabled={isLocked}
                 className={`px-3 py-1.5 rounded border text-sm transition-colors ${
