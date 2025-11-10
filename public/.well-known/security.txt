@@ -1,0 +1,31 @@
+Contact: security@threatrecon.io
+Expires: 2026-12-31T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://threatrecon.io/.well-known/security.txt
+
+Policy: https://threatrecon.io/security-policy
+Acknowledgments: https://threatrecon.io/security-policy#acknowledgments
+
+# Security Policy
+We take security seriously. If you discover a security vulnerability, please follow our responsible disclosure process:
+
+1. Email security@threatrecon.io with details
+2. Do not publicly disclose until we've had time to address it
+3. Provide detailed steps to reproduce
+4. Allow reasonable time for fixes before disclosure
+
+# Scope
+- threatrecon.io domain and subdomains
+- API endpoints
+- Authentication systems
+- User data handling
+
+# Out of Scope
+- Social engineering attacks
+- Physical security
+- Denial of Service (DoS) attacks
+- Spam or phishing reports (use abuse@threatrecon.io)
+
+# Rewards
+We appreciate security researchers who help keep our platform safe. While we don't currently operate a formal bug bounty program, we acknowledge responsible disclosures and may offer recognition or rewards on a case-by-case basis.
+

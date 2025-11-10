@@ -34,16 +34,62 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [passwordStrength, setPasswordStrength] = useState<{ level: 'weak' | 'medium' | 'strong' | 'excellent'; score: number; crackTime: string } | null>(null);
+  const [hibpCheckEnabled, setHibpCheckEnabled] = useState(true);
+  const [hibpBreachInfo, setHibpBreachInfo] = useState<{ breached: boolean; count: number; message: string } | null>(null);
+  const [checkingHibp, setCheckingHibp] = useState(false);
 
-  // Password validation
+  // Password validation (enhanced to 12 characters minimum)
   const validatePassword = (pwd: string): string[] => {
     const errors: string[] = [];
-    if (pwd.length < 8) errors.push('Password must be at least 8 characters');
+    if (pwd.length < 12) errors.push('Password must be at least 12 characters');
     if (!/[A-Z]/.test(pwd)) errors.push('Password must contain at least one uppercase letter');
     if (!/[a-z]/.test(pwd)) errors.push('Password must contain at least one lowercase letter');
     if (!/[0-9]/.test(pwd)) errors.push('Password must contain at least one number');
     if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) errors.push('Password must contain at least one symbol');
     return errors;
+  };
+
+  // Calculate password strength
+  const calculatePasswordStrength = (pwd: string): { level: 'weak' | 'medium' | 'strong' | 'excellent'; score: number; crackTime: string } => {
+    let score = 0;
+    
+    // Length scoring
+    if (pwd.length >= 12) score += 2;
+    else if (pwd.length >= 8) score += 1;
+    if (pwd.length >= 16) score += 1;
+    if (pwd.length >= 20) score += 1;
+    
+    // Character variety
+    if (/[a-z]/.test(pwd)) score += 1;
+    if (/[A-Z]/.test(pwd)) score += 1;
+    if (/[0-9]/.test(pwd)) score += 1;
+    if (/[^a-zA-Z0-9]/.test(pwd)) score += 1;
+    
+    // Patterns
+    if (!/(.)\1{2,}/.test(pwd)) score += 1; // No repeated characters
+    if (!/(012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)/i.test(pwd)) {
+      score += 1; // No sequential patterns
+    }
+    
+    let level: 'weak' | 'medium' | 'strong' | 'excellent';
+    let crackTime: string;
+    
+    if (score <= 3) {
+      level = 'weak';
+      crackTime = 'Instantly';
+    } else if (score <= 5) {
+      level = 'medium';
+      crackTime = 'Minutes to hours';
+    } else if (score <= 7) {
+      level = 'strong';
+      crackTime = 'Days to weeks';
+    } else {
+      level = 'excellent';
+      crackTime = 'Years to decades';
+    }
+    
+    return { level, score, crackTime };
   };
   
   // Guard: never open if Supabase is not enabled or not mounted
@@ -113,6 +159,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
           return;
         }
         setPasswordErrors([]);
+
+        // Check HIBP if enabled
+        if (hibpCheckEnabled && hibpBreachInfo?.breached && hibpBreachInfo.count > 100) {
+          setError('This password has been compromised in data breaches. Please choose a different password.');
+          setLoading(false);
+          return;
+        }
 
         const supa = getSupabaseClient();
         if (!supa) {
