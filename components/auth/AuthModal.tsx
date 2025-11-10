@@ -289,21 +289,120 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
               id="password"
               type="password"
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
+              onChange={async (e) => {
+                const newPassword = e.target.value;
+                setPassword(newPassword);
                 if (mode === 'signup') {
-                  setPasswordErrors(validatePassword(e.target.value));
+                  setPasswordErrors(validatePassword(newPassword));
+                  setPasswordStrength(calculatePasswordStrength(newPassword));
+                  
+                  // Check HIBP if enabled and password is long enough
+                  if (hibpCheckEnabled && newPassword.length >= 8) {
+                    setCheckingHibp(true);
+                    try {
+                      const breachResult = await checkPasswordBreach(newPassword);
+                      setHibpBreachInfo({
+                        ...breachResult,
+                        message: getBreachMessage(breachResult.count),
+                      });
+                    } catch (err) {
+                      console.error('HIBP check failed:', err);
+                    } finally {
+                      setCheckingHibp(false);
+                    }
+                  } else {
+                    setHibpBreachInfo(null);
+                  }
                 }
               }}
               disabled={loading}
               className="w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded text-[#c9d1d9] placeholder-[#8b949e] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:border-transparent disabled:opacity-50"
-              placeholder={mode === 'signup' ? 'Password (min 8 chars, 1 uppercase, 1 number, 1 symbol)' : '••••••••'}
+              placeholder={mode === 'signup' ? 'Password (min 12 chars, 1 uppercase, 1 number, 1 symbol)' : '••••••••'}
               required
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              minLength={mode === 'signup' ? 8 : 6}
-              aria-label={mode === 'signup' ? 'Password (minimum 8 characters, must include uppercase, number, and symbol)' : 'Password'}
-              aria-describedby={mode === 'signup' && passwordErrors.length > 0 ? 'password-errors' : undefined}
+              minLength={mode === 'signup' ? 12 : 6}
+              aria-label={mode === 'signup' ? 'Password (minimum 12 characters, must include uppercase, number, and symbol)' : 'Password'}
+              aria-describedby={mode === 'signup' ? 'password-strength password-errors hibp-info' : undefined}
             />
+            
+            {/* Password Strength Meter */}
+            {mode === 'signup' && password && (
+              <div id="password-strength" className="mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-[#30363d] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        passwordStrength?.level === 'weak' ? 'bg-red-500 w-1/4' :
+                        passwordStrength?.level === 'medium' ? 'bg-orange-500 w-1/2' :
+                        passwordStrength?.level === 'strong' ? 'bg-yellow-500 w-3/4' :
+                        passwordStrength?.level === 'excellent' ? 'bg-green-500 w-full' :
+                        'bg-gray-500 w-0'
+                      }`}
+                    />
+                  </div>
+                  <span className={`text-xs font-medium ${
+                    passwordStrength?.level === 'weak' ? 'text-red-400' :
+                    passwordStrength?.level === 'medium' ? 'text-orange-400' :
+                    passwordStrength?.level === 'strong' ? 'text-yellow-400' :
+                    passwordStrength?.level === 'excellent' ? 'text-green-400' :
+                    'text-gray-400'
+                  }`}>
+                    {passwordStrength?.level ? passwordStrength.level.toUpperCase() : ''}
+                  </span>
+                </div>
+                {passwordStrength && (
+                  <p className="text-xs text-[#8b949e]">
+                    Estimated crack time: {passwordStrength.crackTime}
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {/* HIBP Breach Warning */}
+            {mode === 'signup' && hibpBreachInfo && hibpBreachInfo.breached && (
+              <div id="hibp-info" className={`mt-2 p-2 rounded text-xs ${
+                hibpBreachInfo.count > 1000 ? 'bg-red-900/20 border border-red-800/40 text-red-400' :
+                hibpBreachInfo.count > 100 ? 'bg-orange-900/20 border border-orange-800/40 text-orange-400' :
+                'bg-yellow-900/20 border border-yellow-800/40 text-yellow-400'
+              }`} role="alert" aria-live="polite">
+                {hibpBreachInfo.message}
+                {hibpCheckEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setHibpCheckEnabled(false)}
+                    className="ml-2 underline hover:no-underline"
+                    aria-label="Disable password breach checking"
+                  >
+                    (Disable check)
+                  </button>
+                )}
+              </div>
+            )}
+            
+            {/* HIBP Check Toggle */}
+            {mode === 'signup' && (
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="hibp-toggle"
+                  checked={hibpCheckEnabled}
+                  onChange={(e) => {
+                    setHibpCheckEnabled(e.target.checked);
+                    if (!e.target.checked) {
+                      setHibpBreachInfo(null);
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-[#30363d] bg-[#0d1117] text-[#58a6ff] focus:ring-2 focus:ring-[#58a6ff]"
+                />
+                <label htmlFor="hibp-toggle" className="text-xs text-[#8b949e] cursor-pointer">
+                  Check password against breach database (Have I Been Pwned)
+                </label>
+                {checkingHibp && (
+                  <span className="text-xs text-[#8b949e]">Checking...</span>
+                )}
+              </div>
+            )}
+            
             {mode === 'signup' && passwordErrors.length > 0 && (
               <div id="password-errors" className="text-xs text-red-400 space-y-1 mt-1" role="alert" aria-live="polite">
                 {passwordErrors.map((err, i) => (
