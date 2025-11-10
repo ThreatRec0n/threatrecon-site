@@ -232,11 +232,27 @@ export function generateScenarioStory(
     });
   });
 
-  // Determine difficulty based on story complexity
+  // Explicit difficulty mapping for each scenario type
+  const difficultyMap: Record<string, ScenarioStory['difficulty']> = {
+    'insider-threat': 'beginner',
+    'credential-harvesting': 'beginner',
+    'phishing-malware-dropper': 'beginner',
+    'ransomware-deployment': 'intermediate',
+    'apt-persistence': 'intermediate',
+    'bec-compromise': 'intermediate',
+    'cloud-misconfiguration': 'intermediate',
+    'insider-sabotage': 'intermediate',
+    'ransomware-lockbit': 'advanced',
+    'apt29-cozy-bear': 'advanced',
+    'supply-chain-compromise': 'advanced',
+  };
+
+  // Determine difficulty - use explicit mapping if available, otherwise calculate
   const difficulty: ScenarioStory['difficulty'] = 
-    template.stages.length <= 3 ? 'beginner' :
-    template.stages.length <= 5 ? 'intermediate' :
-    'advanced';
+    difficultyMap[storyType] ||
+    (template.stages.length <= 3 ? 'beginner' :
+     template.stages.length <= 5 ? 'intermediate' :
+     'advanced');
 
   // Enhanced narratives based on scenario type
   const narratives: Record<string, {

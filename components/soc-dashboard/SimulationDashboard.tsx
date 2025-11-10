@@ -612,8 +612,21 @@ export default function SimulationDashboard() {
           <div className="mb-4 siem-card border-l-4 border-[#58a6ff]" data-tutorial="scenario-intro">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3 mb-3 flex-wrap">
                   <h2 className="text-xl font-bold text-[#c9d1d9]">{currentScenario.name}</h2>
+                  {currentScenario.difficulty && (
+                    <span className={`text-xs px-2 py-1 rounded border ${
+                      currentScenario.difficulty === 'beginner' ? 'bg-green-900/40 text-green-400 border-green-800/60' :
+                      currentScenario.difficulty === 'intermediate' ? 'bg-yellow-900/40 text-yellow-400 border-yellow-800/60' :
+                      currentScenario.difficulty === 'advanced' ? 'bg-orange-900/40 text-orange-400 border-orange-800/60' :
+                      'bg-red-900/40 text-red-400 border-red-800/60'
+                    }`}>
+                      {currentScenario.difficulty === 'beginner' ? '🟢 Beginner' :
+                       currentScenario.difficulty === 'intermediate' ? '🟡 Intermediate' :
+                       currentScenario.difficulty === 'advanced' ? '🟠 Advanced' :
+                       '🔴 Expert'}
+                    </span>
+                  )}
                   <button
                     onClick={() => setShowScenarioIntro(false)}
                     className="text-[#8b949e] hover:text-[#c9d1d9] text-sm"
