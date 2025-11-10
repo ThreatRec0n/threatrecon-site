@@ -4,8 +4,62 @@ import type { ReactNode } from 'react';
 import AppHeader from '@/components/layout/AppHeader';
 
 export const metadata: Metadata = {
-  title: 'Threat Hunt Lab | Professional SIEM Training Platform',
-  description: 'Hands-on threat hunting scenarios with realistic log analysis. Train on professional SIEM interfaces.',
+  title: {
+    default: 'Threat Hunt Lab | Professional SIEM Training Platform',
+    template: '%s | Threat Hunt Lab',
+  },
+  description: 'Hands-on threat hunting scenarios with realistic log analysis. Train on professional SIEM interfaces. Free, no login required. Practice threat hunting with MITRE ATT&CK techniques.',
+  keywords: ['threat hunting', 'SIEM', 'SOC training', 'cybersecurity', 'MITRE ATT&CK', 'log analysis', 'security operations', 'blue team'],
+  authors: [{ name: 'ThreatRecon' }],
+  creator: 'ThreatRecon',
+  publisher: 'ThreatRecon',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://threatrecon.io'),
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://threatrecon.io',
+    title: 'Threat Hunt Lab | Professional SIEM Training Platform',
+    description: 'Hands-on threat hunting scenarios with realistic log analysis. Train on professional SIEM interfaces. Free, no login required.',
+    siteName: 'Threat Hunt Lab',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Threat Hunt Lab - SOC Training Platform',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Threat Hunt Lab | Professional SIEM Training Platform',
+    description: 'Hands-on threat hunting scenarios with realistic log analysis. Train on professional SIEM interfaces.',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  verification: {
+    // Add your verification codes here when available
+    // google: 'your-google-verification-code',
+    // yandex: 'your-yandex-verification-code',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

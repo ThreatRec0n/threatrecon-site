@@ -20,6 +20,7 @@ import ReportExport from './ReportExport';
 import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
 import { extractIOCsFromEvents } from '@/lib/ioc-extractor';
+import { SkeletonCard, SkeletonIOCPanel, SkeletonTable } from '@/components/ui/SkeletonLoader';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -324,13 +325,17 @@ export default function SimulationDashboard() {
     }
   };
 
-  // Loading state
+  // Loading state with skeleton
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#58a6ff] mx-auto"></div>
-          <p className="text-[#8b949e]">Initializing SOC simulation environment...</p>
+      <div className="min-h-screen bg-[#0d1117] p-4">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <SkeletonCard />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <SkeletonTable />
+            <SkeletonTable />
+            <SkeletonIOCPanel />
+          </div>
         </div>
       </div>
     );

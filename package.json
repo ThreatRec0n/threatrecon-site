@@ -6,12 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "security-check": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0",
     "dayjs": "^1.11.10",
-    "next": "14.2.15",
+    "next": "^14.2.33",
     "papaparse": "^5.4.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",

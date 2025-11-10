@@ -33,6 +33,18 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+
+  // Password validation
+  const validatePassword = (pwd: string): string[] => {
+    const errors: string[] = [];
+    if (pwd.length < 8) errors.push('Password must be at least 8 characters');
+    if (!/[A-Z]/.test(pwd)) errors.push('Password must contain at least one uppercase letter');
+    if (!/[a-z]/.test(pwd)) errors.push('Password must contain at least one lowercase letter');
+    if (!/[0-9]/.test(pwd)) errors.push('Password must contain at least one number');
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) errors.push('Password must contain at least one symbol');
+    return errors;
+  };
   
   // Guard: never open if Supabase is not enabled or not mounted
   if (!isSupabaseEnabled || !isOpen || !mounted) return null;
@@ -92,6 +104,16 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
           }, 1000);
         }
       } else {
+        // Validate password for signup
+        const pwdErrors = validatePassword(password);
+        if (pwdErrors.length > 0) {
+          setPasswordErrors(pwdErrors);
+          setError('Password does not meet requirements');
+          setLoading(false);
+          return;
+        }
+        setPasswordErrors([]);
+
         const supa = getSupabaseClient();
         if (!supa) {
           setError('Authentication is not available');
@@ -214,14 +236,28 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (mode === 'signup') {
+                  setPasswordErrors(validatePassword(e.target.value));
+                }
+              }}
               disabled={loading}
               className="w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded text-[#c9d1d9] placeholder-[#8b949e] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:border-transparent disabled:opacity-50"
-              placeholder="••••••••"
+              placeholder={mode === 'signup' ? 'Password (min 8 chars, 1 uppercase, 1 number, 1 symbol)' : '••••••••'}
               required
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              minLength={6}
+              minLength={mode === 'signup' ? 8 : 6}
+              aria-label={mode === 'signup' ? 'Password (minimum 8 characters, must include uppercase, number, and symbol)' : 'Password'}
+              aria-describedby={mode === 'signup' && passwordErrors.length > 0 ? 'password-errors' : undefined}
             />
+            {mode === 'signup' && passwordErrors.length > 0 && (
+              <div id="password-errors" className="text-xs text-red-400 space-y-1 mt-1" role="alert" aria-live="polite">
+                {passwordErrors.map((err, i) => (
+                  <div key={i}>• {err}</div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Submit Button */}

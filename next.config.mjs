@@ -18,7 +18,7 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
+            value: 'DENY'
           },
           {
             key: 'X-Content-Type-Options',
@@ -40,12 +40,12 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Needed for Next.js
+              "script-src 'self' 'unsafe-inline'", // 'unsafe-eval' removed for better security
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self'",
-              "frame-ancestors 'self'",
+              "connect-src 'self' https:",
+              "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
             ].join('; ')
