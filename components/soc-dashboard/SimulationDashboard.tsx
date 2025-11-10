@@ -541,7 +541,10 @@ export default function SimulationDashboard() {
                 </div>
               </div>
               <button
-                onClick={() => setShowTutorial(true)}
+                onClick={() => {
+                  localStorage.removeItem('walkthrough_seen_v1');
+                  setShowWelcomeModal(true);
+                }}
                 className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
                 aria-label="Replay Tutorial Walkthrough"
                 title="Replay the interactive tutorial walkthrough"
