@@ -72,16 +72,6 @@ export default function SimulationDashboard() {
   useEffect(() => {
     initializeSimulation();
     
-    // Check if tutorial should be shown from URL param
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('tutorial') === 'true') {
-        setShowTutorial(true);
-        // Clean up URL
-        window.history.replaceState({}, '', '/simulation');
-      }
-    }
-    
     // Track simulation visit
     fetch('/api/analytics', {
       method: 'POST',
@@ -92,6 +82,30 @@ export default function SimulationDashboard() {
       }),
     }).catch(() => {});
   }, []);
+
+  // Check if tutorial should be shown after simulation loads
+  useEffect(() => {
+    if (!session || !simulationLoaded) return;
+
+    // Check URL param for forced tutorial
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tutorial') === 'true') {
+        setShowWelcomeModal(true);
+        window.history.replaceState({}, '', '/simulation');
+        return;
+      }
+    }
+
+    // Check if user has seen tutorial before
+    const hasSeenTutorial = localStorage.getItem('walkthrough_seen_v1') === 'true';
+    if (!hasSeenTutorial) {
+      // Small delay to ensure UI is fully rendered
+      setTimeout(() => {
+        setShowWelcomeModal(true);
+      }, 500);
+    }
+  }, [session, simulationLoaded]);
 
   // Timer effect
   useEffect(() => {
@@ -872,12 +886,28 @@ export default function SimulationDashboard() {
         onRegenerate={handleRegenerateScenario}
       />
 
+      {/* Welcome Modal */}
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onStartTutorial={() => {
+          setShowWelcomeModal(false);
+          // Small delay to ensure modal closes before tutorial opens
+          setTimeout(() => {
+            setShowTutorial(true);
+          }, 200);
+        }}
+        onSkip={() => {
+          setShowWelcomeModal(false);
+          localStorage.setItem('walkthrough_seen_v1', 'true');
+        }}
+      />
+
       {/* Tutorial Walkthrough */}
       <TutorialWalkthrough
         isOpen={showTutorial}
         onClose={() => setShowTutorial(false)}
         onComplete={() => {
-          localStorage.setItem('walkthrough_seen', 'true');
+          localStorage.setItem('walkthrough_seen_v1', 'true');
         }}
         currentPage="simulation"
       />
