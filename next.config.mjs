@@ -1,7 +1,7 @@
 ﻿/** @type {import('next').NextConfig} */
 
 // Bundle analyzer (optional) - only load when ANALYZE=true
-let withBundleAnalyzer = (config: any) => config;
+let withBundleAnalyzer = (config) => config;
 if (process.env.ANALYZE === 'true') {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -87,7 +87,7 @@ const nextConfig = {
   
   // Experimental features for better performance
   experimental: {
-    optimizeCss: true,
+    // optimizeCss: true, // Disabled - requires 'critters' package
     optimizePackageImports: ['lucide-react', 'date-fns'],
   },
   
