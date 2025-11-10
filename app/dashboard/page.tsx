@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
 interface SimulationResult {
@@ -163,8 +164,14 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#0d1117] p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header with Back Button */}
         <div className="mb-8">
+          <Link 
+            href="/simulation" 
+            className="inline-flex items-center gap-2 text-sm text-[#58a6ff] hover:text-[#79c0ff] transition-colors mb-4"
+          >
+            ← Back to Simulation
+          </Link>
           <h1 className="text-3xl font-bold text-[#c9d1d9] mb-2">📊 Progress Dashboard</h1>
           <p className="text-[#8b949e]">Track your learning journey and performance metrics</p>
         </div>

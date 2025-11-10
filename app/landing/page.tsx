@@ -41,6 +41,78 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* New Features Section */}
+      <section className="max-w-7xl mx-auto px-6 py-16 bg-white">
+        <h3 className="text-3xl font-bold text-gray-900 text-center mb-4">
+          🎉 New Features
+        </h3>
+        <p className="text-center text-gray-600 mb-12">
+          Explore our latest learning enhancements
+        </p>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+          <Link
+            href="/learn"
+            className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl shadow-lg border-2 border-blue-200 hover:border-blue-400 transition-all hover:shadow-xl"
+          >
+            <div className="text-4xl mb-4">📚</div>
+            <h4 className="text-xl font-bold text-gray-900 mb-2">OWASP Top 10 Lessons</h4>
+            <p className="text-gray-600 mb-3">
+              Interactive lessons on the most critical web security risks with quizzes and MITRE ATT&CK references
+            </p>
+            <span className="text-blue-600 font-semibold text-sm">Explore Lessons →</span>
+          </Link>
+          <Link
+            href="/achievements"
+            className="bg-gradient-to-br from-yellow-50 to-orange-50 p-6 rounded-xl shadow-lg border-2 border-yellow-200 hover:border-yellow-400 transition-all hover:shadow-xl"
+          >
+            <div className="text-4xl mb-4">🏆</div>
+            <h4 className="text-xl font-bold text-gray-900 mb-2">Achievement System</h4>
+            <p className="text-gray-600 mb-3">
+              Earn badges and track your progress across 20+ achievements. Unlock milestones as you master threat hunting
+            </p>
+            <span className="text-yellow-600 font-semibold text-sm">View Achievements →</span>
+          </Link>
+          <Link
+            href="/dashboard"
+            className="bg-gradient-to-br from-green-50 to-teal-50 p-6 rounded-xl shadow-lg border-2 border-green-200 hover:border-green-400 transition-all hover:shadow-xl"
+          >
+            <div className="text-4xl mb-4">📊</div>
+            <h4 className="text-xl font-bold text-gray-900 mb-2">Progress Dashboard</h4>
+            <p className="text-gray-600 mb-3">
+              Visualize your learning journey with detailed analytics, strengths/weaknesses analysis, and skill tracking
+            </p>
+            <span className="text-green-600 font-semibold text-sm">View Dashboard →</span>
+          </Link>
+          <Link
+            href="/simulation?tutorial=true"
+            className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-xl shadow-lg border-2 border-purple-200 hover:border-purple-400 transition-all hover:shadow-xl"
+          >
+            <div className="text-4xl mb-4">🎓</div>
+            <h4 className="text-xl font-bold text-gray-900 mb-2">Interactive Tutorial</h4>
+            <p className="text-gray-600 mb-3">
+              6-step guided walkthrough that teaches you how to investigate threats like a real SOC analyst
+            </p>
+            <span className="text-purple-600 font-semibold text-sm">Start Tutorial →</span>
+          </Link>
+          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-xl shadow-lg border-2 border-indigo-200">
+            <div className="text-4xl mb-4">🎯</div>
+            <h4 className="text-xl font-bold text-gray-900 mb-2">Detailed Feedback</h4>
+            <p className="text-gray-600 mb-3">
+              Get comprehensive feedback after each simulation with MITRE ATT&CK technique references, OWASP Top 10 links, and learning resources
+            </p>
+            <span className="text-indigo-600 font-semibold text-sm">Try a Simulation →</span>
+          </div>
+          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-6 rounded-xl shadow-lg border-2 border-cyan-200">
+            <div className="text-4xl mb-4">🔰</div>
+            <h4 className="text-xl font-bold text-gray-900 mb-2">Progressive Difficulty</h4>
+            <p className="text-gray-600 mb-3">
+              Start with beginner scenarios and progress to expert-level APT campaigns. Filter by difficulty and track your skill growth
+            </p>
+            <span className="text-cyan-600 font-semibold text-sm">Choose Difficulty →</span>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="max-w-7xl mx-auto px-6 py-16">
         <h3 className="text-3xl font-bold text-gray-900 text-center mb-12">
@@ -154,15 +226,18 @@ export default function LandingPage() {
                 <li><Link href="/docs" className="hover:text-white transition-colors">Documentation</Link></li>
                 <li><Link href="/phoenix" className="hover:text-white transition-colors">Operation Phoenix</Link></li>
                 <li><Link href="/leaderboard" className="hover:text-white transition-colors">Leaderboard</Link></li>
+                <li><Link href="/learn" className="hover:text-white transition-colors">OWASP Top 10 Lessons</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="text-white font-bold mb-4">Features</h4>
               <ul className="space-y-2 text-sm">
-                <li>MITRE ATT&CK Scenarios</li>
-                <li>Realistic Log Analysis</li>
-                <li>OSINT Integration</li>
-                <li>Progress Tracking</li>
+                <li><Link href="/simulation" className="hover:text-white transition-colors">MITRE ATT&CK Scenarios</Link></li>
+                <li><Link href="/simulation" className="hover:text-white transition-colors">Realistic Log Analysis</Link></li>
+                <li><Link href="/simulation" className="hover:text-white transition-colors">OSINT Integration</Link></li>
+                <li><Link href="/dashboard" className="hover:text-white transition-colors">Progress Tracking</Link></li>
+                <li><Link href="/achievements" className="hover:text-white transition-colors">Achievement System</Link></li>
+                <li><Link href="/learn" className="hover:text-white transition-colors">OWASP Top 10 Lessons</Link></li>
               </ul>
             </div>
             <div>

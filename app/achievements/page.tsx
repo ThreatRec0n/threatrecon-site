@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import AchievementCard from '@/components/achievements/AchievementCard';
 import type { AchievementDefinition } from '@/lib/achievements/definitions';
 import { getAchievementsByCategory } from '@/lib/achievements/definitions';
@@ -46,10 +47,22 @@ export default function AchievementsPage() {
     { id: 'special', name: 'Special', icon: '🎁' },
   ];
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d1117] p-4">
-        <div className="max-w-7xl mx-auto">
+  return (
+    <div className="min-h-screen bg-[#0d1117] p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header with Back Button */}
+        <div className="mb-8">
+          <Link 
+            href="/simulation" 
+            className="inline-flex items-center gap-2 text-sm text-[#58a6ff] hover:text-[#79c0ff] transition-colors mb-4"
+          >
+            ← Back to Dashboard
+          </Link>
+          <h1 className="text-3xl font-bold text-[#c9d1d9] mb-2">🏆 Achievements</h1>
+          <p className="text-[#8b949e]">Track your progress and unlock badges as you master threat hunting</p>
+        </div>
+
+        {loading ? (
           <div className="animate-pulse space-y-4">
             <div className="h-12 bg-[#161b22] rounded w-1/3"></div>
             <div className="h-24 bg-[#161b22] rounded"></div>
@@ -59,69 +72,59 @@ export default function AchievementsPage() {
               ))}
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#0d1117] p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#c9d1d9] mb-4">🏆 Achievements</h1>
-          
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
-              <div className="text-2xl font-bold text-[#58a6ff]">{stats.unlocked}</div>
-              <div className="text-sm text-[#8b949e]">Unlocked</div>
-            </div>
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
-              <div className="text-2xl font-bold text-[#58a6ff]">{stats.total}</div>
-              <div className="text-sm text-[#8b949e]">Total</div>
-            </div>
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
-              <div className="text-2xl font-bold text-[#58a6ff]">{stats.totalPoints}</div>
-              <div className="text-sm text-[#8b949e]">Points</div>
-            </div>
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
-              <div className="text-2xl font-bold text-[#58a6ff]">{stats.progress}%</div>
-              <div className="text-sm text-[#8b949e]">Complete</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Categories */}
-        {categories.map(category => {
-          const categoryAchievements = achievements.filter(
-            a => a.category === category.id
-          );
-          
-          if (categoryAchievements.length === 0) return null;
-
-          return (
-            <div key={category.id} className="mb-8">
-              <h2 className="text-xl font-semibold text-[#c9d1d9] mb-4 flex items-center gap-2">
-                <span>{category.icon}</span>
-                <span>{category.name}</span>
-                <span className="text-sm text-[#8b949e] font-normal">
-                  ({categoryAchievements.filter(a => a.unlocked).length}/{categoryAchievements.length})
-                </span>
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {categoryAchievements.map(achievement => (
-                  <AchievementCard
-                    key={achievement.slug}
-                    achievement={achievement}
-                  />
-                ))}
+        ) : (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+                <div className="text-2xl font-bold text-[#58a6ff]">{stats.unlocked}</div>
+                <div className="text-sm text-[#8b949e]">Unlocked</div>
+              </div>
+              <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+                <div className="text-2xl font-bold text-[#58a6ff]">{stats.total}</div>
+                <div className="text-sm text-[#8b949e]">Total</div>
+              </div>
+              <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+                <div className="text-2xl font-bold text-[#58a6ff]">{stats.totalPoints}</div>
+                <div className="text-sm text-[#8b949e]">Points</div>
+              </div>
+              <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+                <div className="text-2xl font-bold text-[#58a6ff]">{stats.progress}%</div>
+                <div className="text-sm text-[#8b949e]">Complete</div>
               </div>
             </div>
-          );
-        })}
+
+            {/* Categories */}
+            {categories.map(category => {
+              const categoryAchievements = achievements.filter(
+                a => a.category === category.id
+              );
+              
+              if (categoryAchievements.length === 0) return null;
+
+              return (
+                <div key={category.id} className="mb-8">
+                  <h2 className="text-xl font-semibold text-[#c9d1d9] mb-4 flex items-center gap-2">
+                    <span>{category.icon}</span>
+                    <span>{category.name}</span>
+                    <span className="text-sm text-[#8b949e] font-normal">
+                      ({categoryAchievements.filter(a => a.unlocked).length}/{categoryAchievements.length})
+                    </span>
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {categoryAchievements.map(achievement => (
+                      <AchievementCard
+                        key={achievement.slug}
+                        achievement={achievement}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
     </div>
   );
 }
-

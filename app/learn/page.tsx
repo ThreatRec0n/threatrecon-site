@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { getOwaspCategory } from '@/lib/feedback/owasp-top10';
 import type { OwaspCategory } from '@/lib/feedback/owasp-top10';
 
@@ -25,8 +26,14 @@ export default function LearnPage() {
   return (
     <div className="min-h-screen bg-[#0d1117] p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header with Back Button */}
         <div className="mb-8">
+          <Link 
+            href="/simulation" 
+            className="inline-flex items-center gap-2 text-sm text-[#58a6ff] hover:text-[#79c0ff] transition-colors mb-4"
+          >
+            ← Back to Dashboard
+          </Link>
           <h1 className="text-3xl font-bold text-[#c9d1d9] mb-2">📚 OWASP Top 10 Mini-Lessons</h1>
           <p className="text-[#8b949e]">
             Learn about the most critical web application security risks and how to detect them
