@@ -19,6 +19,7 @@ import EvidenceBinder, { type EvidenceItem } from './EvidenceBinder';
 import ReportExport from './ReportExport';
 import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
+import { extractIOCsFromEvents } from '@/lib/ioc-extractor';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -211,53 +212,12 @@ export default function SimulationDashboard() {
     return session.events.filter(e => e.stage === selectedStage);
   }, [session, selectedStage]);
 
-  // Extract IOCs from events
+  // Extract IOCs from events using comprehensive extractor
   const extractedIOCs = useMemo(() => {
     if (!session) return { ips: [], domains: [], hashes: [], pids: [] };
 
-    const ips = new Set<string>();
-    const domains = new Set<string>();
-    const hashes = new Set<string>();
-    const pids = new Set<string>();
-
-    session.events.forEach(event => {
-      // Extract IPs from network context
-      if (event.network_context) {
-        if (event.network_context.source_ip && typeof event.network_context.source_ip === 'string' && !event.network_context.source_ip.startsWith('10.') && !event.network_context.source_ip.startsWith('192.168.')) {
-          ips.add(event.network_context.source_ip);
-        }
-        if (event.network_context.dest_ip && typeof event.network_context.dest_ip === 'string' && !event.network_context.dest_ip.startsWith('10.') && !event.network_context.dest_ip.startsWith('192.168.')) {
-          ips.add(event.network_context.dest_ip);
-        }
-        // Domains are typically in details, not network_context
-      }
-
-      // Extract from details
-      if (event.details) {
-        if (event.details.DestinationIp && typeof event.details.DestinationIp === 'string') {
-          const ip = event.details.DestinationIp;
-          if (!ip.startsWith('10.') && !ip.startsWith('192.168.') && !ip.startsWith('127.')) {
-            ips.add(ip);
-          }
-        }
-        if (event.details.QueryName && typeof event.details.QueryName === 'string') {
-          domains.add(event.details.QueryName);
-        }
-        if (event.details.Hash && typeof event.details.Hash === 'string') {
-          hashes.add(event.details.Hash);
-        }
-        if (event.details.ProcessId && typeof event.details.ProcessId === 'string') {
-          pids.add(event.details.ProcessId);
-        }
-      }
-    });
-
-    return {
-      ips: Array.from(ips).sort(),
-      domains: Array.from(domains).sort(),
-      hashes: Array.from(hashes).sort(),
-      pids: Array.from(pids).sort(),
-    };
+    // Use the comprehensive IOC extractor
+    return extractIOCsFromEvents(session.events);
   }, [session]);
 
   // Finalize investigation
@@ -336,7 +296,7 @@ export default function SimulationDashboard() {
         if (event.technique_id && result.breakdown.truePositives > 0) {
           // If IOC from this technique was correctly tagged, mark as detected
           const iocsFromEvent = extractedIOCs.ips.concat(extractedIOCs.domains, extractedIOCs.hashes);
-          const hasCorrectTag = iocsFromEvent.some(ioc => 
+          const hasCorrectTag = iocsFromEvent.some((ioc: string) =>
             iocTags[ioc] === 'confirmed-threat' || iocTags[ioc] === 'suspicious'
           );
           if (hasCorrectTag) {
