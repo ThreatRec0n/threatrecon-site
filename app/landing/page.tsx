@@ -1,10 +1,19 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 
 export default function LandingPage() {
   const router = useRouter();
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [walkthroughSeen, setWalkthroughSeen] = useState(false);
+
+  useEffect(() => {
+    const seen = localStorage.getItem('walkthrough_seen') === 'true';
+    setWalkthroughSeen(seen);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-14">
@@ -29,6 +38,13 @@ export default function LandingPage() {
               aria-label="Launch Threat Hunting Simulation"
             >
               🚀 Launch Simulation
+            </button>
+            <button
+              onClick={() => setShowTutorial(true)}
+              className="px-8 py-4 bg-white text-gray-700 text-lg font-semibold rounded-lg border-2 border-gray-300 hover:border-blue-600 hover:text-blue-600 transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Start Interactive Tutorial"
+            >
+              🎓 Start Tutorial
             </button>
             <Link
               href="/docs"
@@ -178,6 +194,16 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Tutorial Walkthrough */}
+      <TutorialWalkthrough
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+        onComplete={() => {
+          setWalkthroughSeen(true);
+        }}
+        currentPage="landing"
+      />
     </div>
   );
 }

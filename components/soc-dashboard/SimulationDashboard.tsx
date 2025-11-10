@@ -17,6 +17,7 @@ import ProgressTracker, { markScenarioCompleted } from './ProgressTracker';
 import CaseNotes, { type CaseNote } from './CaseNotes';
 import EvidenceBinder, { type EvidenceItem } from './EvidenceBinder';
 import ReportExport from './ReportExport';
+import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -62,6 +63,7 @@ export default function SimulationDashboard() {
   const [timedMode, setTimedMode] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Initialize simulation on mount
   useEffect(() => {
@@ -573,6 +575,7 @@ export default function SimulationDashboard() {
               <button
                 onClick={handleFinalizeInvestigation}
                 disabled={isLocked || isSubmitting}
+                data-tutorial="finalize-button"
                 className={`px-4 py-1.5 rounded border text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 ${
                   isLocked
                     ? 'bg-gray-700 text-gray-400 border-gray-600 cursor-not-allowed'
@@ -592,7 +595,7 @@ export default function SimulationDashboard() {
       <div className="p-4">
         {/* Scenario Introduction Banner */}
         {showScenarioIntro && currentScenario?.narrative && (
-          <div className="mb-4 siem-card border-l-4 border-[#58a6ff]">
+          <div className="mb-4 siem-card border-l-4 border-[#58a6ff]" data-tutorial="scenario-intro">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
@@ -625,7 +628,7 @@ export default function SimulationDashboard() {
 
         {/* View Switcher */}
         {activeView === 'mitre' && (
-          <div className="mb-4">
+          <div className="mb-4" data-tutorial="mitre-navigator">
             <MitreNavigator
               events={session.events}
               attackChains={session.attack_chains}
@@ -763,20 +766,22 @@ export default function SimulationDashboard() {
 
             {/* Middle Column: Log Explorer & Learning Mode */}
             <div className="col-span-12 lg:col-span-6 space-y-4">
-              <LogExplorer
-                events={filteredEvents}
-                selectedStage={selectedStage}
-                onEventSelect={(event) => {
-                  setSelectedEvent(event);
-                }}
-              />
+              <div data-tutorial="log-explorer">
+                <LogExplorer
+                  events={filteredEvents}
+                  selectedStage={selectedStage}
+                  onEventSelect={(event) => {
+                    setSelectedEvent(event);
+                  }}
+                />
+              </div>
               {learningMode && selectedEvent && (
                 <LearningMode event={selectedEvent} enabled={learningMode} />
               )}
             </div>
 
             {/* Right Column: IOC Tagging & Enrichment */}
-            <div className="col-span-12 lg:col-span-3 space-y-4">
+            <div className="col-span-12 lg:col-span-3 space-y-4" data-tutorial="ioc-panel">
               <IOCTaggingPanel
                 iocs={extractedIOCs}
                 tags={iocTags}
@@ -842,6 +847,16 @@ export default function SimulationDashboard() {
         isOpen={showScenarioSelector}
         onClose={() => setShowScenarioSelector(false)}
         onRegenerate={handleRegenerateScenario}
+      />
+
+      {/* Tutorial Walkthrough */}
+      <TutorialWalkthrough
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+        onComplete={() => {
+          localStorage.setItem('walkthrough_seen', 'true');
+        }}
+        currentPage="simulation"
       />
     </div>
   );
