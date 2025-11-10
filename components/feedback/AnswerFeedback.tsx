@@ -13,7 +13,7 @@ interface UserAnswer {
   explanation?: string | FeedbackExplanation;
   mitreAttackId?: string;
   owaspCategory?: string;
-  resources?: string[];
+  resources?: Array<string | { title: string; url: string }>;
   stage?: string;
   technique_id?: string;
 }

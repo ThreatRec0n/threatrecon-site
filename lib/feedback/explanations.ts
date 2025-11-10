@@ -131,3 +131,45 @@ export function getFeedbackExplanation(feedbackKey: string): FeedbackExplanation
   return FEEDBACK_EXPLANATIONS[feedbackKey] || FEEDBACK_EXPLANATIONS.generic;
 }
 
+/**
+ * Generate feedback key from IOC details
+ */
+export function generateFeedbackKey(
+  ioc: string,
+  type: string,
+  isCorrect: boolean,
+  actualClassification: 'malicious' | 'benign',
+  scenarioType?: string
+): string {
+  // Try scenario-specific keys first
+  if (scenarioType) {
+    const scenarioKey = `${scenarioType}_${type}_${actualClassification}`;
+    if (FEEDBACK_EXPLANATIONS[scenarioKey]) {
+      return scenarioKey;
+    }
+  }
+
+  // Generate type-based key
+  const baseKey = `ioc_${actualClassification}_${type}`;
+  if (FEEDBACK_EXPLANATIONS[baseKey]) {
+    return baseKey;
+  }
+
+  // Fallback to generic type-based keys
+  if (type === 'ip' && actualClassification === 'malicious') {
+    return 'ioc_malicious_ip';
+  }
+  if (type === 'domain' && actualClassification === 'benign') {
+    return 'ioc_benign_domain';
+  }
+  if (type === 'hash' && actualClassification === 'malicious') {
+    return 'ioc_malicious_hash';
+  }
+  if (type === 'pid' && actualClassification === 'malicious') {
+    return 'ioc_suspicious_process';
+  }
+
+  // Default to generic
+  return 'generic';
+}
+

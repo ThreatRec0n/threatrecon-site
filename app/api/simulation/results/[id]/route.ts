@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/server';
-import { getFeedbackExplanation } from '@/lib/feedback/explanations';
+import { getFeedbackExplanation, generateFeedbackKey } from '@/lib/feedback/explanations';
 
 export async function GET(
   request: NextRequest,
@@ -23,17 +23,18 @@ export async function GET(
         if (result) {
           // Enrich with full MITRE/OWASP details
           const enrichedAnswers = (result.user_answers || []).map((answer: any) => {
-            const explanation = getFeedbackExplanation(
+            const feedbackKey = generateFeedbackKey(
               answer.ioc,
               answer.type,
               answer.isCorrect,
               answer.actualClassification,
               result.scenario_type
             );
+            const explanation = getFeedbackExplanation(feedbackKey);
 
             return {
               ...answer,
-              explanation: explanation.correct || explanation.incorrect,
+              explanation: answer.isCorrect ? explanation.correct : explanation.incorrect,
               mitreAttackId: answer.technique_id || explanation.mitreAttackId,
               owaspCategory: explanation.owaspCategory,
               resources: explanation.resources,
@@ -74,17 +75,18 @@ export async function GET(
         if (data) {
           // Enrich user answers with full MITRE/OWASP details
           const enrichedAnswers = (data.user_answers || []).map((answer: any) => {
-            const explanation = getFeedbackExplanation(
+            const feedbackKey = generateFeedbackKey(
               answer.ioc,
               answer.type,
               answer.isCorrect,
               answer.actualClassification,
               data.scenario_type
             );
+            const explanation = getFeedbackExplanation(feedbackKey);
 
             return {
               ...answer,
-              explanation: explanation.correct || explanation.incorrect,
+              explanation: answer.isCorrect ? explanation.correct : explanation.incorrect,
               mitreAttackId: answer.technique_id || explanation.mitreAttackId,
               owaspCategory: explanation.owaspCategory,
               resources: explanation.resources,

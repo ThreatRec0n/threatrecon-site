@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
-import { getFeedbackExplanation } from '@/lib/feedback/explanations';
+import { getFeedbackExplanation, generateFeedbackKey } from '@/lib/feedback/explanations';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/server';
 
 interface SubmitRequest {
@@ -40,17 +40,18 @@ export async function POST(request: NextRequest) {
 
     // Enrich user answers with detailed feedback
     const enrichedAnswers = (userAnswers || evaluationResult.allClassifications || []).map(answer => {
-      const explanation = getFeedbackExplanation(
+      const feedbackKey = generateFeedbackKey(
         answer.ioc,
         answer.type,
         answer.isCorrect,
         answer.actualClassification,
         scenarioType
       );
+      const explanation = getFeedbackExplanation(feedbackKey);
 
       return {
         ...answer,
-        explanation: explanation.correct || explanation.incorrect,
+        explanation: answer.isCorrect ? explanation.correct : explanation.incorrect,
         mitreAttackId: answer.technique_id || explanation.mitreAttackId,
         owaspCategory: explanation.owaspCategory,
         resources: explanation.resources,
