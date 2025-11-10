@@ -38,6 +38,15 @@ export interface EvaluationResult {
     userTag: string;
     reason: string;
   }>;
+  allClassifications: Array<{
+    ioc: string;
+    type: 'ip' | 'domain' | 'hash' | 'pid';
+    userTag: 'confirmed-threat' | 'suspicious' | 'benign' | null;
+    actualClassification: 'malicious' | 'benign';
+    isCorrect: boolean;
+    stage?: string;
+    technique_id?: string;
+  }>;
   redTeamReplay: Array<{
     timestamp: string;
     stage: string;
@@ -248,6 +257,19 @@ export function evaluateInvestigation(
         userTag: c.userTag || 'unknown',
         reason: `This ${c.type} was flagged as ${c.userTag} but is actually benign.`,
       })),
+    allClassifications: classifications.map(c => ({
+      ioc: c.ioc,
+      type: c.type,
+      userTag: c.userTag,
+      actualClassification: c.actualClassification,
+      isCorrect: (c.userTag === 'confirmed-threat' || c.userTag === 'suspicious') 
+        ? c.actualClassification === 'malicious'
+        : c.userTag === 'benign' 
+          ? c.actualClassification === 'benign'
+          : false,
+      stage: c.stage,
+      technique_id: c.technique_id,
+    })),
     redTeamReplay,
     recommendations,
   };

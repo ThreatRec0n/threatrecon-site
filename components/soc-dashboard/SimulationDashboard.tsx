@@ -20,6 +20,7 @@ import ReportExport from './ReportExport';
 import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
 import { HelpSidebar } from '@/components/ui/ContextualHelp';
+import AchievementUnlockToast from '@/components/achievements/AchievementUnlockToast';
 import { extractIOCsFromEvents } from '@/lib/ioc-extractor';
 import { SkeletonCard, SkeletonIOCPanel, SkeletonTable } from '@/components/ui/SkeletonLoader';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
@@ -31,6 +32,7 @@ interface SimulationSession {
     id: string;
     name: string;
     description: string;
+    difficulty?: 'beginner' | 'intermediate' | 'advanced';
     narrative?: {
       background: string;
       incident: string;
@@ -70,6 +72,8 @@ export default function SimulationDashboard() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [simulationLoaded, setSimulationLoaded] = useState(false);
+  const [helpSidebarOpen, setHelpSidebarOpen] = useState(false);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
   // Initialize simulation on mount
   useEffect(() => {
@@ -317,6 +321,30 @@ export default function SimulationDashboard() {
           config: { ioc_tags: iocTags },
         }),
       });
+
+      // Check and unlock achievements
+      try {
+        const achievementResponse = await fetch('/api/achievements/unlock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventType: 'simulation_complete',
+            eventData: {
+              score: result.score,
+              time: timedMode && startTime ? elapsedTime : undefined,
+              difficulty: currentScenario?.difficulty || 'intermediate',
+              scenario: currentScenarioType,
+            },
+          }),
+        });
+        const achievementData = await achievementResponse.json();
+        if (achievementData.unlocked && achievementData.unlocked.length > 0) {
+          setUnlockedAchievements(achievementData.unlocked);
+        }
+      } catch (achievementErr) {
+        console.error('Error checking achievements:', achievementErr);
+        // Don't fail the investigation if achievement check fails
+      }
     } catch (err: any) {
       console.error('Error finalizing investigation:', err);
       alert('Error finalizing investigation: ' + err.message);
@@ -456,6 +484,14 @@ export default function SimulationDashboard() {
                 title="View leaderboard with top scores and timed challenge results"
               >
                 🏆 Leaderboard
+              </a>
+              <a
+                href="/achievements"
+                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                aria-label="View Achievements - See unlocked badges and progress"
+                title="View your achievements, badges, and progress"
+              >
+                🏅 Achievements
               </a>
               
               <div className="relative group">
@@ -656,15 +692,6 @@ export default function SimulationDashboard() {
         {/* View Switcher */}
         {activeView === 'mitre' && (
           <div className="mb-4" data-tutorial="mitre-navigator">
-            {/* MITRE Navigator will be rendered here */}
-          </div>
-          
-          {/* Case Notes Section - for tutorial */}
-          {activeView === 'case' && (
-            <div data-tutorial="case-notes" className="mb-4">
-              {/* Case Notes component renders here */}
-            </div>
-          )}
             <MitreNavigator
               events={session.events}
               attackChains={session.attack_chains}
@@ -910,6 +937,18 @@ export default function SimulationDashboard() {
         }}
         currentPage="simulation"
       />
+
+      {/* Achievement Unlock Toasts */}
+      {unlockedAchievements.map((achievement, index) => (
+        <div key={achievement.slug} style={{ top: `${80 + index * 120}px` }} className="fixed right-4 z-[10001]">
+          <AchievementUnlockToast
+            achievement={achievement}
+            onClose={() => {
+              setUnlockedAchievements(prev => prev.filter(a => a.slug !== achievement.slug));
+            }}
+          />
+        </div>
+      ))}
     </div>
   );
 }

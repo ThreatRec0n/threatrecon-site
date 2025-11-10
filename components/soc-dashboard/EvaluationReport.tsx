@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
+import AnswerFeedback from '@/components/feedback/AnswerFeedback';
+import StrengthsWeaknesses from '@/components/feedback/StrengthsWeaknesses';
+import ActionTimeline from '@/components/feedback/ActionTimeline';
+import { getFeedbackExplanation } from '@/lib/feedback/explanations';
 
 interface Props {
   result: EvaluationResult;
@@ -10,7 +14,100 @@ interface Props {
 }
 
 export default function EvaluationReport({ result, onClose, onNewInvestigation }: Props) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'missed' | 'replay' | 'recommendations'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'missed' | 'replay' | 'recommendations' | 'feedback'>('overview');
+  
+  // Build detailed answer feedback from evaluation result
+  const buildAnswerFeedback = () => {
+    const answers: Array<{
+      ioc: string;
+      type: string;
+      userTag: 'confirmed-threat' | 'suspicious' | 'benign' | null;
+      actualClassification: 'malicious' | 'benign';
+      isCorrect: boolean;
+      explanation?: ReturnType<typeof getFeedbackExplanation>;
+      mitreAttackId?: string;
+      owaspCategory?: string;
+      stage?: string;
+      technique_id?: string;
+      timestamp?: number;
+    }> = [];
+
+    // Use allClassifications if available, otherwise fall back to missed/over-flagged
+    const classifications = result.allClassifications || [];
+    
+    if (classifications.length > 0) {
+      // Process all classifications
+      classifications.forEach((classification, idx) => {
+        // Determine feedback key based on IOC type and classification
+        let feedbackKey = 'generic';
+        if (classification.actualClassification === 'malicious') {
+          if (classification.type === 'ip') feedbackKey = 'ioc_malicious_ip';
+          else if (classification.type === 'hash') feedbackKey = 'ioc_malicious_hash';
+          else if (classification.type === 'pid') feedbackKey = 'ioc_suspicious_process';
+        } else {
+          if (classification.type === 'domain') feedbackKey = 'ioc_benign_domain';
+        }
+        
+        const explanation = getFeedbackExplanation(feedbackKey);
+        
+        answers.push({
+          ioc: classification.ioc,
+          type: classification.type,
+          userTag: classification.userTag,
+          actualClassification: classification.actualClassification,
+          isCorrect: classification.isCorrect,
+          explanation,
+          mitreAttackId: explanation.mitreAttackId,
+          owaspCategory: explanation.owaspCategory,
+          stage: classification.stage,
+          technique_id: classification.technique_id,
+          timestamp: Date.now() - (classifications.length - idx) * 10000, // Approximate timestamps
+        });
+      });
+    } else {
+      // Fallback: process missed and over-flagged IOCs
+      result.missedIOCs.forEach((ioc, idx) => {
+        const feedbackKey = ioc.type === 'ip' ? 'ioc_malicious_ip' :
+                           ioc.type === 'hash' ? 'ioc_malicious_hash' : 'generic';
+        const explanation = getFeedbackExplanation(feedbackKey);
+        
+        answers.push({
+          ioc: ioc.ioc,
+          type: ioc.type,
+          userTag: null,
+          actualClassification: 'malicious',
+          isCorrect: false,
+          explanation,
+          mitreAttackId: explanation.mitreAttackId,
+          owaspCategory: explanation.owaspCategory,
+          stage: ioc.stage,
+          technique_id: ioc.technique_id,
+          timestamp: Date.now() - (result.missedIOCs.length - idx) * 10000,
+        });
+      });
+
+      result.overFlaggedIOCs.forEach((ioc, idx) => {
+        const feedbackKey = 'ioc_benign_domain';
+        const explanation = getFeedbackExplanation(feedbackKey);
+        
+        answers.push({
+          ioc: ioc.ioc,
+          type: ioc.type,
+          userTag: ioc.userTag as 'confirmed-threat' | 'suspicious',
+          actualClassification: 'benign',
+          isCorrect: false,
+          explanation,
+          mitreAttackId: explanation.mitreAttackId,
+          owaspCategory: explanation.owaspCategory,
+          timestamp: Date.now() - (result.overFlaggedIOCs.length - idx) * 10000,
+        });
+      });
+    }
+
+    return answers;
+  };
+
+  const answerFeedback = buildAnswerFeedback();
 
   // Handle Escape key to close modal
   useEffect(() => {
@@ -128,7 +225,7 @@ export default function EvaluationReport({ result, onClose, onNewInvestigation }
 
         {/* Tabs */}
         <div className="flex items-center gap-2 border-b border-[#30363d] px-6">
-          {(['overview', 'missed', 'replay', 'recommendations'] as const).map(tab => (
+          {(['overview', 'feedback', 'missed', 'replay', 'recommendations'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -147,6 +244,11 @@ export default function EvaluationReport({ result, onClose, onNewInvestigation }
         <div className="p-6">
           {activeTab === 'overview' && (
             <div className="space-y-6">
+              {/* Strengths & Weaknesses */}
+              {answerFeedback.length > 0 && (
+                <StrengthsWeaknesses answers={answerFeedback} />
+              )}
+
               {/* Breakdown by Stage */}
               <div>
                 <h3 className="text-lg font-semibold text-[#c9d1d9] mb-4">Performance by Attack Stage</h3>
@@ -189,6 +291,42 @@ export default function EvaluationReport({ result, onClose, onNewInvestigation }
                   })}
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'feedback' && (
+            <div className="space-y-6">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-[#c9d1d9] mb-2">Detailed Feedback</h3>
+                <p className="text-sm text-[#8b949e]">
+                  Review detailed explanations for each IOC classification decision, including MITRE ATT&CK references and learning resources.
+                </p>
+              </div>
+
+              {answerFeedback.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-[#8b949e] mb-4">No detailed feedback available for this investigation.</p>
+                  <p className="text-sm text-[#6e7681]">
+                    Complete an investigation with IOC tagging to see detailed feedback.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {answerFeedback.map((answer, index) => (
+                    <AnswerFeedback key={`${answer.ioc}-${index}`} answer={answer} index={index} />
+                  ))}
+                  
+                  {/* Action Timeline */}
+                  {answerFeedback.length > 0 && (
+                    <div className="mt-8">
+                      <ActionTimeline 
+                        answers={answerFeedback}
+                        startTime={answerFeedback[0]?.timestamp || Date.now() - 60000}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 

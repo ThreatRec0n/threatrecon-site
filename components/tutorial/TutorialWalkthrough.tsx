@@ -131,8 +131,22 @@ export default function TutorialWalkthrough({ isOpen, onClose, onComplete, curre
     onClose();
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     localStorage.setItem('walkthrough_seen_v1', 'true');
+    
+    // Check for tutorial completion achievement
+    try {
+      await fetch('/api/achievements/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'tutorial_complete',
+        }),
+      });
+    } catch (err) {
+      console.error('Error checking tutorial achievement:', err);
+    }
+    
     onComplete();
     onClose();
   };
