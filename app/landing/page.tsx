@@ -241,11 +241,13 @@ export default function LandingPage() {
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-bold mb-4">About</h4>
-              <p className="text-sm">
-                100% free, open-source inspired threat hunting training platform. 
-                No login required to start learning.
-              </p>
+              <h4 className="text-white font-bold mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
+                <li><Link href="/security" className="hover:text-white transition-colors">Security Policy</Link></li>
+                <li><Link href="/.well-known/security.txt" className="hover:text-white transition-colors">Security.txt</Link></li>
+              </ul>
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 text-center text-sm">

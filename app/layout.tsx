@@ -2,6 +2,9 @@ import './styles/globals.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import AppHeader from '@/components/layout/AppHeader';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { AlphaBanner } from '@/components/AlphaBanner';
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: {
@@ -108,12 +111,16 @@ But I see you too 👀
 -->`,
           }}
         />
-        <div className="flex flex-col min-h-screen">
-          <AppHeader />
-          <main className="flex-1">
-            {children}
-          </main>
-        </div>
+        <ErrorBoundary>
+          <div className="flex flex-col min-h-screen">
+            <AppHeader />
+            <AlphaBanner />
+            <main className="flex-1">
+              {children}
+            </main>
+          </div>
+          <Toaster position="top-right" richColors />
+        </ErrorBoundary>
       </body>
     </html>
   );
