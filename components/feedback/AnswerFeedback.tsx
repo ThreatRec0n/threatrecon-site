@@ -10,9 +10,10 @@ interface UserAnswer {
   userTag: 'confirmed-threat' | 'suspicious' | 'benign' | null;
   actualClassification: 'malicious' | 'benign';
   isCorrect: boolean;
-  explanation?: FeedbackExplanation;
+  explanation?: string | FeedbackExplanation;
   mitreAttackId?: string;
   owaspCategory?: string;
+  resources?: string[];
   stage?: string;
   technique_id?: string;
 }
@@ -29,6 +30,7 @@ export default function AnswerFeedback({ answer, index }: Props) {
 
   const getFeedbackText = () => {
     if (!explanation) return '';
+    if (typeof explanation === 'string') return explanation;
     return answer.isCorrect ? explanation.correct : explanation.incorrect;
   };
 
@@ -176,7 +178,28 @@ export default function AnswerFeedback({ answer, index }: Props) {
       )}
 
       {/* Learning Resources */}
-      {explanation && explanation.resources.length > 0 && (
+      {answer.resources && answer.resources.length > 0 && (
+        <div className="mt-4 p-4 bg-[#161b22] rounded-lg border border-[#30363d]">
+          <h4 className="text-sm font-semibold text-[#c9d1d9] mb-3 flex items-center gap-2">
+            📚 Learning Resources
+          </h4>
+          <ul className="space-y-2">
+            {answer.resources.map((resource, i) => (
+              <li key={i}>
+                <a
+                  href={typeof resource === 'string' ? resource : resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#58a6ff] hover:text-[#79c0ff] transition-colors"
+                >
+                  → {typeof resource === 'string' ? resource : resource.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {explanation && typeof explanation !== 'string' && explanation.resources && explanation.resources.length > 0 && (
         <div className="mt-4 p-4 bg-[#161b22] rounded-lg border border-[#30363d]">
           <h4 className="text-sm font-semibold text-[#c9d1d9] mb-3 flex items-center gap-2">
             📚 Learning Resources
@@ -186,6 +209,8 @@ export default function AnswerFeedback({ answer, index }: Props) {
               <li key={i}>
                 <a
                   href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-sm text-[#58a6ff] hover:text-[#79c0ff] transition-colors"
                 >
                   → {resource.title}
