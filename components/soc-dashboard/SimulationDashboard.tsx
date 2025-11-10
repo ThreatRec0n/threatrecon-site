@@ -18,6 +18,7 @@ import CaseNotes, { type CaseNote } from './CaseNotes';
 import EvidenceBinder, { type EvidenceItem } from './EvidenceBinder';
 import ReportExport from './ReportExport';
 import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
+import WelcomeModal from '@/components/tutorial/WelcomeModal';
 import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 
@@ -64,6 +65,8 @@ export default function SimulationDashboard() {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [simulationLoaded, setSimulationLoaded] = useState(false);
 
   // Initialize simulation on mount
   useEffect(() => {
@@ -155,6 +158,7 @@ export default function SimulationDashboard() {
       }
 
       setSession(data.session);
+      setSimulationLoaded(true);
       
       // Start timer if timed mode is enabled
       if (timedMode) {
@@ -164,6 +168,7 @@ export default function SimulationDashboard() {
     } catch (err: any) {
       setError(err.message || 'Failed to load simulation');
       console.error('Simulation initialization error:', err);
+      setSimulationLoaded(false);
     } finally {
       setLoading(false);
     }

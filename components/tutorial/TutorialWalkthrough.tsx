@@ -119,12 +119,12 @@ export default function TutorialWalkthrough({ isOpen, onClose, onComplete, curre
   };
 
   const handleSkip = () => {
-    localStorage.setItem('walkthrough_seen', 'true');
+    localStorage.setItem('walkthrough_seen_v1', 'true');
     onClose();
   };
 
   const handleComplete = () => {
-    localStorage.setItem('walkthrough_seen', 'true');
+    localStorage.setItem('walkthrough_seen_v1', 'true');
     onComplete();
     onClose();
   };

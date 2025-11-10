@@ -193,7 +193,8 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
                   onClick={() => {
                     setIsOpen(false);
                     if (typeof window !== 'undefined') {
-                      // Navigate to simulation and trigger tutorial
+                      // Reset tutorial flag and navigate to simulation
+                      localStorage.removeItem('walkthrough_seen_v1');
                       window.location.href = '/simulation?tutorial=true';
                     }
                   }}
