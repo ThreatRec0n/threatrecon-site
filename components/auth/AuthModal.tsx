@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
+import { checkPasswordBreach, getBreachMessage } from '@/lib/security/hibp-checker';
 
 interface Props {
   isOpen: boolean;

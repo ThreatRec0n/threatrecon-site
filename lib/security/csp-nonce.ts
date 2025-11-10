@@ -17,8 +17,10 @@ export function generateNonce(): string {
     // Client-side: nonce should come from server
     return '';
   }
-  // Server-side: generate random nonce
-  return Buffer.from(crypto.randomBytes(16)).toString('base64');
+  // Server-side: use Node.js crypto module
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const nodeCrypto = require('crypto');
+  return nodeCrypto.randomBytes(16).toString('base64');
 }
 
 /**
