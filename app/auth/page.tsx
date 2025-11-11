@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';

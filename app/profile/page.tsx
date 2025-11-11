@@ -29,8 +29,9 @@ interface Achievement {
   tier: string;
   points: number;
   unlocked: boolean;
-  unlocked_at?: string;
+  unlockedAt?: string | null;
   progress?: number;
+  [key: string]: any; // Allow additional properties from API
 }
 
 export default function ProfilePage() {
@@ -349,7 +350,10 @@ export default function ProfilePage() {
               {unlockedAchievements.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {unlockedAchievements.map((achievement) => (
-                    <AchievementCard key={achievement.slug} achievement={achievement} />
+                    <AchievementCard 
+                      key={achievement.slug} 
+                      achievement={achievement as any} 
+                    />
                   ))}
                 </div>
               ) : (
