@@ -17,9 +17,26 @@ function AuthPageContent() {
   const [authOpen, setAuthOpen] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [nextPath, setNextPath] = useState<string>('/simulation');
+
+  // Extract search params once and store in state to avoid hook dependency issues
+  useEffect(() => {
+    try {
+      const next = searchParams?.get('next') || '/simulation';
+      const tab = searchParams?.get('tab');
+      setNextPath(next);
+      if (tab === 'signup') {
+        setMode('signup');
+      }
+    } catch (err) {
+      // Ignore errors reading search params
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let mounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
+    
     setIsLoading(true);
     
     // Wrap everything in try-catch to prevent errors from bubbling up
@@ -67,13 +84,7 @@ function AuthPageContent() {
           if (mounted && data?.user) {
             setUser(data.user);
             // Redirect if already logged in
-            try {
-              const next = searchParams?.get('next') || '/simulation';
-              router.push(next);
-            } catch (err) {
-              console.error('Error getting next param:', err);
-              router.push('/simulation');
-            }
+            router.push(nextPath);
             return;
           }
         } catch (err: any) {
@@ -84,30 +95,20 @@ function AuthPageContent() {
           }
         }
         
-        const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
+        const { data: { subscription: authSubscription } } = supa.auth.onAuthStateChange((_e, session) => {
           if (!mounted) return;
           if (session?.user) {
             setUser(session.user);
-            try {
-              const next = searchParams?.get('next') || '/simulation';
-              router.push(next);
-            } catch (err) {
-              console.error('Error getting next param:', err);
-              router.push('/simulation');
-            }
+            router.push(nextPath);
           } else {
             setUser(null);
           }
         });
+        subscription = authSubscription;
 
         if (mounted) {
           setIsLoading(false);
         }
-
-        return () => {
-          mounted = false;
-          subscription?.unsubscribe();
-        };
       } catch (err: any) {
         console.error('Error initializing auth:', err);
         if (mounted) {
@@ -121,20 +122,9 @@ function AuthPageContent() {
 
     return () => {
       mounted = false;
+      subscription?.unsubscribe();
     };
-  }, [router, searchParams]);
-
-  // Set initial mode from URL or default to login
-  useEffect(() => {
-    try {
-      const tab = searchParams?.get('tab');
-      if (tab === 'signup') {
-        setMode('signup');
-      }
-    } catch (err) {
-      console.error('Error reading search params:', err);
-    }
-  }, [searchParams]);
+  }, [router, nextPath]);
 
   const handleSuccess = () => {
     // Check if user needs username onboarding
@@ -169,13 +159,7 @@ function AuthPageContent() {
           router.push('/onboarding/username');
         } else {
           // Redirect to intended destination or default
-          try {
-            const next = searchParams?.get('next') || '/simulation';
-            router.push(next);
-          } catch (err) {
-            console.error('Error getting next param:', err);
-            router.push('/simulation');
-          }
+          router.push(nextPath);
         }
       } catch (err) {
         console.error('Error checking profile:', err);
