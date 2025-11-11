@@ -11,20 +11,39 @@ import AuthModal from '@/components/auth/AuthModal';
 export default function AppHeader() {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseEnabled) return;
+    if (!isSupabaseEnabled) {
+      // If Supabase is not enabled, ensure user is null and auth is checked so buttons show
+      setUser(null);
+      setAuthChecked(true);
+      return;
+    }
     
     const supa = getSupabaseClient();
-    if (!supa) return;
+    if (!supa) {
+      setUser(null);
+      setAuthChecked(true);
+      return;
+    }
 
-    supa.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
+    // Check initial auth state
+    supa.auth.getUser().then(({ data }) => {
+      setUser(data?.user ?? null);
+      setAuthChecked(true);
+    }).catch(() => {
+      setUser(null);
+      setAuthChecked(true);
+    });
     
+    // Listen for auth state changes
     const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
+      setAuthChecked(true);
     });
 
     return () => subscription?.unsubscribe();
@@ -119,7 +138,7 @@ export default function AppHeader() {
           {/* Auth Buttons - Separate and Prominent */}
           <div className="flex items-center gap-3 ml-4">
             {isSupabaseEnabled ? (
-              user ? (
+              authChecked && user ? (
                 <ProfileDropdown user={user} />
               ) : (
                 <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
