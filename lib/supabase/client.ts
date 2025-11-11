@@ -28,34 +28,52 @@ export function getSupabaseClient(): SupabaseClient | null {
   
   // Check if enabled first
   if (!isSupabaseEnabled()) {
+    console.warn('⚠️ Supabase is not enabled - check environment variables');
     return null;
   }
   
-  // Double-check env vars at runtime
+  // Double-check env vars at runtime with better validation
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   
-  if (!url || !key) {
-    console.warn('Supabase environment variables not found:', {
-      hasUrl: !!url,
-      hasKey: !!key,
-      urlLength: url?.length || 0,
-      keyLength: key?.length || 0,
-    });
+  // Better validation - check for undefined string and empty values
+  if (!url || url === 'undefined' || url === '') {
+    console.error('❌ NEXT_PUBLIC_SUPABASE_URL is not set or invalid');
+    console.error('Current value:', url);
+    console.error('All NEXT_PUBLIC_ vars:', Object.keys(process.env).filter(k => k.startsWith('NEXT_PUBLIC_')));
+    return null;
+  }
+  
+  if (!key || key === 'undefined' || key === '') {
+    console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY is not set or invalid');
+    console.error('Key length:', key?.length || 0);
+    return null;
+  }
+  
+  // Validate URL format
+  try {
+    new URL(url);
+  } catch {
+    console.error('❌ NEXT_PUBLIC_SUPABASE_URL is not a valid URL:', url);
     return null;
   }
   
   if (!client) {
     try {
+      console.log('✅ Creating Supabase client with URL:', url.substring(0, 30) + '...');
       client = createClient(url, key, {
         auth: {
           persistSession: true,
+          storageKey: 'threatrecon-auth',
           autoRefreshToken: true,
           detectSessionInUrl: true,
+          flowType: 'pkce',
         },
       });
-    } catch (error) {
-      console.error('Failed to create Supabase client:', error);
+      console.log('✅ Supabase client created successfully');
+    } catch (error: any) {
+      console.error('❌ Failed to create Supabase client:', error);
+      console.error('Error details:', error.message, error.stack);
       return null;
     }
   }

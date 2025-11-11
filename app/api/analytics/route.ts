@@ -45,58 +45,73 @@ function getClientIP(request: NextRequest): string {
 
 export async function POST(request: NextRequest) {
   try {
-    await ensureAnalyticsFile();
-    
+    // For Vercel/serverless, file system might not be available
+    // Use in-memory storage or just log for now
     const body = await request.json();
     const ip = getClientIP(request);
     const timestamp = body.timestamp || new Date().toISOString();
     
-    // Read existing analytics
-    const fileContent = await readFile(ANALYTICS_FILE, 'utf-8');
-    const analytics = JSON.parse(fileContent);
-    
-    // Initialize sets and objects if they don't exist
-    if (!analytics.unique_ips) analytics.unique_ips = [];
-    if (!analytics.ip_attempts) analytics.ip_attempts = {};
-    
-    // Convert unique_ips array to Set for processing, then back to array
-    const uniqueIPsSet = new Set(analytics.unique_ips);
-    uniqueIPsSet.add(ip);
-    analytics.unique_ips = Array.from(uniqueIPsSet);
-    
-    // Track event
-    const event = {
-      ...body,
+    // Log analytics event (can integrate with external service later)
+    console.log('Analytics event:', {
+      event: body.event,
       ip,
       timestamp,
-    };
+      ...body,
+    });
     
-    analytics.events.push(event);
-    
-    // Update counters
-    if (body.event === 'admin_page_visit') {
-      analytics.admin_visits = (analytics.admin_visits || 0) + 1;
-    } else if (body.event === 'admin_failed_attempt') {
-      analytics.admin_attempts = (analytics.admin_attempts || 0) + 1;
-      analytics.ip_attempts[ip] = (analytics.ip_attempts[ip] || 0) + 1;
-    } else if (body.event === 'admin_compromise') {
-      analytics.admin_successes = (analytics.admin_successes || 0) + 1;
-      analytics.ip_attempts[ip] = (analytics.ip_attempts[ip] || 0) + 1;
-    } else if (body.event === 'simulation_visit') {
-      analytics.simulation_visits = (analytics.simulation_visits || 0) + 1;
+    // Try to write to file if possible, but don't fail if it doesn't work
+    try {
+      await ensureAnalyticsFile();
+      const fileContent = await readFile(ANALYTICS_FILE, 'utf-8');
+      const analytics = JSON.parse(fileContent);
+      
+      // Initialize sets and objects if they don't exist
+      if (!analytics.unique_ips) analytics.unique_ips = [];
+      if (!analytics.ip_attempts) analytics.ip_attempts = {};
+      
+      // Convert unique_ips array to Set for processing, then back to array
+      const uniqueIPsSet = new Set(analytics.unique_ips);
+      uniqueIPsSet.add(ip);
+      analytics.unique_ips = Array.from(uniqueIPsSet);
+      
+      // Track event
+      const event = {
+        ...body,
+        ip,
+        timestamp,
+      };
+      
+      analytics.events.push(event);
+      
+      // Update counters
+      if (body.event === 'admin_page_visit') {
+        analytics.admin_visits = (analytics.admin_visits || 0) + 1;
+      } else if (body.event === 'admin_failed_attempt') {
+        analytics.admin_attempts = (analytics.admin_attempts || 0) + 1;
+        analytics.ip_attempts[ip] = (analytics.ip_attempts[ip] || 0) + 1;
+      } else if (body.event === 'admin_compromise') {
+        analytics.admin_successes = (analytics.admin_successes || 0) + 1;
+        analytics.ip_attempts[ip] = (analytics.ip_attempts[ip] || 0) + 1;
+      } else if (body.event === 'simulation_visit') {
+        analytics.simulation_visits = (analytics.simulation_visits || 0) + 1;
+      }
+      
+      // Keep only last 1000 events to prevent file from growing too large
+      if (analytics.events.length > 1000) {
+        analytics.events = analytics.events.slice(-1000);
+      }
+      
+      // Write back to file
+      await writeFile(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
+    } catch (fileError: any) {
+      // File system not available (e.g., Vercel serverless) - that's okay
+      console.warn('Could not write analytics to file (serverless environment):', fileError.message);
     }
-    
-    // Keep only last 1000 events to prevent file from growing too large
-    if (analytics.events.length > 1000) {
-      analytics.events = analytics.events.slice(-1000);
-    }
-    
-    // Write back to file
-    await writeFile(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
     
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Analytics error:', error);
+    // Don't fail the request if analytics fails
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
