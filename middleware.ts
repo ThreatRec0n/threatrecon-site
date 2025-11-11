@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 // Rate limiting storage (in-memory, for production use Redis or similar)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -38,7 +39,45 @@ setInterval(() => {
   }
 }, 60000); // Clean up every minute
 
-export function middleware(request: NextRequest) {
+// Protected routes that require authentication
+const protectedRoutes = ['/dashboard', '/profile', '/onboarding'];
+const protectedApiRoutes = ['/api/simulation/submit', '/api/achievements/unlock'];
+
+async function getSession(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+    },
+  });
+
+  // Get session from cookies
+  const accessToken = request.cookies.get('sb-access-token')?.value;
+  const refreshToken = request.cookies.get('sb-refresh-token')?.value;
+
+  if (!accessToken) {
+    return null;
+  }
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+    if (error || !user) {
+      return null;
+    }
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
   const response = NextResponse.next();
 
   // Security headers (additional to next.config.mjs)
@@ -48,10 +87,65 @@ export function middleware(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   // Rate limiting for API routes
-  if (request.nextUrl.pathname.startsWith('/api/')) {
+  if (pathname.startsWith('/api/')) {
     const key = getRateLimitKey(request);
     if (!checkRateLimit(key, 60, 60000)) { // 60 requests per minute
       return new NextResponse('Too Many Requests', { status: 429 });
+    }
+  }
+
+  // Check if route is protected
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  const isProtectedApiRoute = protectedApiRoutes.some(route => pathname.startsWith(route));
+
+  if (isProtectedRoute || isProtectedApiRoute) {
+    const user = await getSession(request);
+    
+    if (!user) {
+      // Redirect to auth page with return URL
+      const redirectUrl = new URL('/auth', request.url);
+      redirectUrl.searchParams.set('next', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // For onboarding, check if username is set
+    if (pathname.startsWith('/onboarding/username')) {
+      // Allow access to onboarding
+      return response;
+    }
+
+    // For other protected routes, verify profile exists
+    if (pathname !== '/onboarding/username') {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseAnonKey) {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: false,
+          },
+        });
+
+        const accessToken = request.cookies.get('sb-access-token')?.value;
+        if (accessToken) {
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('username')
+              .eq('id', user.id)
+              .single();
+
+            // If no profile or username starts with 'user_', redirect to onboarding
+            if (!profile || !profile.username || profile.username.startsWith('user_')) {
+              if (pathname !== '/onboarding/username') {
+                return NextResponse.redirect(new URL('/onboarding/username', request.url));
+              }
+            }
+          } catch {
+            // If profile check fails, allow through (will be handled by page)
+          }
+        }
+      }
     }
   }
 

@@ -28,14 +28,28 @@ export async function POST(request: NextRequest) {
     const body: SubmitRequest = await request.json();
     const { evaluationResult, scenarioType, scenarioName, iocTags, completionTime, timedMode, userAnswers } = body;
 
-    // Get user ID if authenticated
+    // Require authentication for saving results
     let userId: string | null = null;
     if (isSupabaseEnabled()) {
       const supabase = await getSupabaseClient();
       if (supabase) {
-        const { data: { session } } = await supabase.auth.getSession();
-        userId = session?.user?.id || null;
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        if (authError || !session?.user) {
+          return NextResponse.json(
+            { success: false, error: 'Authentication required. Please sign in to save your progress.' },
+            { status: 401 }
+          );
+        }
+        userId = session.user.id;
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Authentication not available' },
+          { status: 503 }
+        );
       }
+    } else {
+      // If Supabase is not enabled, allow local-only saves
+      // But warn that progress won't persist
     }
 
     // Enrich user answers with detailed feedback

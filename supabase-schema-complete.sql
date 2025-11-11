@@ -364,6 +364,156 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_user_action ON audit_logs(user_id, act
 -- SELECT COUNT(*) FROM user_achievements;
 
 -- ============================================================================
+-- 10. PROFILES TABLE (user profile information)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username TEXT UNIQUE NOT NULL,
+  display_name TEXT,
+  avatar_url TEXT,
+  bio TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT username_length CHECK (char_length(username) >= 3 AND char_length(username) <= 20),
+  CONSTRAINT username_format CHECK (username ~ '^[a-zA-Z0-9_]+$')
+);
+
+-- Index for fast username lookups
+CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
+CREATE INDEX IF NOT EXISTS idx_profiles_username_lower ON profiles(LOWER(username));
+
+-- ============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- ============================================================================
+
+-- Enable RLS on all tables
+ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE simulation_results ENABLE ROW LEVEL SECURITY;
+ALTER TABLE simulation_completions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE achievements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_achievements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_2fa ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trusted_devices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Profiles policies
+-- Users can read their own profile
+CREATE POLICY "Users can view own profile"
+  ON profiles FOR SELECT
+  USING (auth.uid() = id);
+
+-- Users can update their own profile
+CREATE POLICY "Users can update own profile"
+  ON profiles FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+-- Users can insert their own profile
+CREATE POLICY "Users can insert own profile"
+  ON profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+-- Public can check username availability (read-only for username field)
+CREATE POLICY "Public can check username availability"
+  ON profiles FOR SELECT
+  USING (true);
+
+-- User progress policies (already exist, but ensure they're correct)
+DROP POLICY IF EXISTS "Users can view own progress" ON user_progress;
+CREATE POLICY "Users can view own progress"
+  ON user_progress FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own progress" ON user_progress;
+CREATE POLICY "Users can update own progress"
+  ON user_progress FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Simulation results policies
+DROP POLICY IF EXISTS "Users can view own results" ON simulation_results;
+CREATE POLICY "Users can view own results"
+  ON simulation_results FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own results" ON simulation_results;
+CREATE POLICY "Users can insert own results"
+  ON simulation_results FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Simulation completions policies
+DROP POLICY IF EXISTS "Users can view own completions" ON simulation_completions;
+CREATE POLICY "Users can view own completions"
+  ON simulation_completions FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own completions" ON simulation_completions;
+CREATE POLICY "Users can insert own completions"
+  ON simulation_completions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Achievements policies (read-only for all authenticated users)
+DROP POLICY IF EXISTS "Anyone can view achievements" ON achievements;
+CREATE POLICY "Anyone can view achievements"
+  ON achievements FOR SELECT
+  USING (true);
+
+-- User achievements policies
+DROP POLICY IF EXISTS "Users can view own achievements" ON user_achievements;
+CREATE POLICY "Users can view own achievements"
+  ON user_achievements FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own achievements" ON user_achievements;
+CREATE POLICY "Users can insert own achievements"
+  ON user_achievements FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Audit logs policies (users can only view their own)
+DROP POLICY IF EXISTS "Users can view own audit logs" ON audit_logs;
+CREATE POLICY "Users can view own audit logs"
+  ON audit_logs FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- ============================================================================
+-- FUNCTIONS AND TRIGGERS
+-- ============================================================================
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to auto-update updated_at on profiles
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to create profile on user signup
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, username)
+  VALUES (NEW.id, 'user_' || substr(NEW.id::text, 1, 8));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to create profile when user signs up
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_user();
+
+-- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================
 

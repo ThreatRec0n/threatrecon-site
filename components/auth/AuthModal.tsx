@@ -43,11 +43,54 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
   // Password validation (enhanced to 12 characters minimum)
   const validatePassword = (pwd: string): string[] => {
     const errors: string[] = [];
-    if (pwd.length < 12) errors.push('Password must be at least 12 characters');
+    
+    // Length requirement
+    if (pwd.length < 12) {
+      errors.push('Password must be at least 12 characters');
+      return errors; // Early return for length
+    }
+    
+    // Character requirements
     if (!/[A-Z]/.test(pwd)) errors.push('Password must contain at least one uppercase letter');
     if (!/[a-z]/.test(pwd)) errors.push('Password must contain at least one lowercase letter');
     if (!/[0-9]/.test(pwd)) errors.push('Password must contain at least one number');
     if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) errors.push('Password must contain at least one symbol');
+    
+    // Reject common weak passwords
+    const commonPasswords = [
+      'password', 'password123', 'Password123', 'Password123!',
+      '12345678', '123456789', '1234567890', 'qwerty123',
+      'admin123', 'welcome123', 'letmein123', 'monkey123',
+      'dragon123', 'master123', 'sunshine123', 'princess123'
+    ];
+    
+    const pwdLower = pwd.toLowerCase();
+    if (commonPasswords.some(weak => pwdLower.includes(weak))) {
+      errors.push('Password is too common. Please choose a more unique password.');
+    }
+    
+    // Reject passwords with repeated characters (e.g., "aaaaaa123!")
+    if (/(.)\1{4,}/.test(pwd)) {
+      errors.push('Password contains too many repeated characters');
+    }
+    
+    // Reject sequential patterns (e.g., "123456", "abcdef")
+    if (/12345|23456|34567|45678|56789|67890|abcdef|bcdefg|cdefgh|defghi|efghij|fghijk|ghijkl|hijklm|ijklmn|jklmno|klmnop|lmnopq|mnopqr|nopqrs|opqrst|pqrstu|qrstuv|rstuvw|stuvwx|tuvwxy|uvwxyz/.test(pwdLower)) {
+      errors.push('Password contains sequential patterns which are easy to guess');
+    }
+    
+    // Require at least 3 different character types
+    const types = [
+      /[A-Z]/.test(pwd) ? 1 : 0,
+      /[a-z]/.test(pwd) ? 1 : 0,
+      /[0-9]/.test(pwd) ? 1 : 0,
+      /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd) ? 1 : 0
+    ].reduce((a, b) => a + b, 0);
+    
+    if (types < 3) {
+      errors.push('Password must use at least 3 different character types (uppercase, lowercase, numbers, symbols)');
+    }
+    
     return errors;
   };
 

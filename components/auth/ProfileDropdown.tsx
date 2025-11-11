@@ -10,6 +10,11 @@ interface Props {
   onProgressSync?: () => void;
 }
 
+interface Profile {
+  username: string;
+  display_name: string | null;
+}
+
 export default function ProfileDropdown({ user, onProgressSync }: Props) {
   // Guard: never render if Supabase is not enabled
   if (!isSupabaseEnabled) return null;
@@ -18,6 +23,27 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  // Load profile on mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      const supa = getSupabaseClient();
+      if (!supa || !user) return;
+
+      const { data } = await supa
+        .from('profiles')
+        .select('username, display_name')
+        .eq('id', user.id)
+        .single();
+
+      if (data) {
+        setProfile(data);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
 
   const handleSync = async () => {
     if (!user) return;
@@ -160,7 +186,12 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
           <div className="absolute right-0 top-full mt-1 w-64 bg-[#161b22] border border-[#30363d] rounded shadow-lg z-50">
             <div className="p-2 space-y-1">
               <div className="px-3 py-2 border-b border-[#30363d]">
-                <div className="text-sm font-semibold text-[#c9d1d9]">{user.email}</div>
+                <div className="text-sm font-semibold text-[#c9d1d9]">
+                  {profile?.display_name || profile?.username || user.email}
+                </div>
+                {profile?.username && (
+                  <div className="text-xs text-[#8b949e]">@{profile.username}</div>
+                )}
                 <div className="text-xs text-[#8b949e] mt-1">Signed in</div>
               </div>
 
@@ -190,6 +221,13 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
               </button>
 
               <div className="border-t border-[#30363d] pt-1 mt-1">
+                <Link
+                  href="/profile"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-3 py-2 text-sm text-[#c9d1d9] hover:bg-[#0d1117] rounded transition-colors"
+                >
+                  👤 Profile
+                </Link>
                 <Link
                   href="/settings/security"
                   onClick={() => setIsOpen(false)}

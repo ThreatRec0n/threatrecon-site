@@ -123,28 +123,20 @@ export default function AppHeader() {
                 <ProfileDropdown user={user} />
               ) : (
                 <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
-                  <button
+                  <Link
+                    href="/auth"
                     className="rounded-md px-4 py-2 text-sm font-medium text-[#c9d1d9] hover:bg-[#21262d] transition-colors border border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
-                    onClick={() => {
-                      if (!isSupabaseEnabled) return;
-                      setMode('login');
-                      setAuthOpen(true);
-                    }}
                     aria-label="Sign In to your account"
                   >
                     Sign In
-                  </button>
-                  <button
+                  </Link>
+                  <Link
+                    href="/auth?tab=signup"
                     className="rounded-md bg-[#58a6ff] px-4 py-2 text-sm font-medium text-white hover:bg-[#4493f8] transition-colors shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
-                    onClick={() => {
-                      if (!isSupabaseEnabled) return;
-                      setMode('signup');
-                      setAuthOpen(true);
-                    }}
                     aria-label="Sign Up for a new account"
                   >
                     Sign Up
-                  </button>
+                  </Link>
                 </div>
               )
             ) : null}
@@ -196,22 +188,27 @@ export default function AppHeader() {
             >
               Docs
             </Link>
+            {!user && isSupabaseEnabled && (
+              <>
+                <Link 
+                  href="/auth" 
+                  onClick={() => setNavOpen(false)}
+                  className="block px-3 py-2 text-sm text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] rounded border-t border-[#30363d] mt-2 pt-2"
+                >
+                  Sign In
+                </Link>
+                <Link 
+                  href="/auth?tab=signup" 
+                  onClick={() => setNavOpen(false)}
+                  className="block px-3 py-2 text-sm bg-[#58a6ff] text-white rounded hover:bg-[#4493f8]"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </nav>
         )}
       </header>
-
-      {isSupabaseEnabled && (
-        <AuthModal 
-          isOpen={authOpen} 
-          mode={mode === 'login' ? 'login' : 'signup'}
-          onClose={() => setAuthOpen(false)} 
-          onSuccess={() => {
-            setAuthOpen(false);
-            // Redirect handled in AuthModal
-          }}
-          initialMode={mode}
-        />
-      )}
     </>
   );
 }
