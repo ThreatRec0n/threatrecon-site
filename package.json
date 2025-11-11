@@ -25,10 +25,11 @@
     "sonner": "^2.0.7",
     "speakeasy": "^2.0.0",
     "ua-parser-js": "^2.0.6",
-    "zod": "^3.22.4",
-    "use-debounce": "^10.0.0"
+    "use-debounce": "^10.0.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^14.2.33",
     "@types/node": "20.11.30",
     "@types/papaparse": "^5.3.14",
     "@types/qrcode": "^1.5.6",
@@ -37,9 +38,9 @@
     "@types/speakeasy": "^2.0.10",
     "@types/ua-parser-js": "^0.7.39",
     "autoprefixer": "^10.4.19",
+    "dotenv": "^17.2.3",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.10",
-    "typescript": "5.6.3",
-    "@next/bundle-analyzer": "^14.2.33"
+    "typescript": "5.6.3"
   }
 }
