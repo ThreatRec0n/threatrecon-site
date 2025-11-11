@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
@@ -11,38 +10,44 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 function AuthPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [authOpen, setAuthOpen] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [nextPath, setNextPath] = useState<string>('/simulation');
+  const [paramsReady, setParamsReady] = useState(false);
 
-  // Extract search params once and store in state to avoid hook dependency issues
+  // Read URL params on client side only - avoids useSearchParams hook ordering issues
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     try {
-      const next = searchParams?.get('next') || '/simulation';
-      const tab = searchParams?.get('tab');
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get('next') || '/simulation';
+      const tab = params.get('tab');
+      
       setNextPath(next);
       if (tab === 'signup') {
         setMode('signup');
       }
+      setParamsReady(true);
     } catch (err) {
-      // Ignore errors reading search params
+      // If URL parsing fails, use defaults
+      setParamsReady(true);
     }
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
+    if (!paramsReady) return;
+    
     let mounted = true;
     let subscription: { unsubscribe: () => void } | null = null;
     
     setIsLoading(true);
     
-    // Wrap everything in try-catch to prevent errors from bubbling up
     const initAuth = async () => {
       try {
-        // Check if Supabase is enabled
         let enabled = false;
         try {
           enabled = isSupabaseEnabled();
@@ -75,21 +80,16 @@ function AuthPageContent() {
         try {
           const { data, error } = await supa.auth.getUser();
           if (error) {
-            // AuthSessionMissingError is expected when user is not logged in
-            // Only log if it's a different error
             if (error.message && !error.message.includes('session') && !error.message.includes('JWT')) {
               console.warn('Auth check warning:', error.message);
             }
           }
           if (mounted && data?.user) {
             setUser(data.user);
-            // Redirect if already logged in
             router.push(nextPath);
             return;
           }
         } catch (err: any) {
-          // Silently handle auth errors - user is just not logged in
-          // Don't log AuthSessionMissingError as it's expected
           if (err?.message && !err.message.includes('session') && !err.message.includes('JWT')) {
             console.warn('Auth check warning:', err.message);
           }
@@ -124,10 +124,9 @@ function AuthPageContent() {
       mounted = false;
       subscription?.unsubscribe();
     };
-  }, [router, nextPath]);
+  }, [router, nextPath, paramsReady]);
 
   const handleSuccess = () => {
-    // Check if user needs username onboarding
     const checkProfile = async () => {
       if (!isSupabaseEnabled()) {
         router.push('/simulation');
@@ -147,7 +146,6 @@ function AuthPageContent() {
           return;
         }
 
-        // Check if profile exists and has username
         const { data: profile } = await supa
           .from('profiles')
           .select('username')
@@ -155,15 +153,12 @@ function AuthPageContent() {
           .single();
 
         if (!profile || !profile.username || profile.username.startsWith('user_')) {
-          // Redirect to username onboarding
           router.push('/onboarding/username');
         } else {
-          // Redirect to intended destination or default
           router.push(nextPath);
         }
       } catch (err) {
         console.error('Error checking profile:', err);
-        // On error, just redirect to simulation
         router.push('/simulation');
       }
     };
@@ -171,6 +166,8 @@ function AuthPageContent() {
     checkProfile();
   };
 
+  // All hooks must be called before any conditional returns
+  // Early returns are fine as long as all hooks are called first
   if (user) {
     return (
       <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
@@ -184,8 +181,7 @@ function AuthPageContent() {
     );
   }
 
-  // Show loading state
-  if (isLoading) {
+  if (isLoading || !paramsReady) {
     return (
       <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
         <div className="text-center">
@@ -196,7 +192,6 @@ function AuthPageContent() {
     );
   }
 
-  // Show message if Supabase is not enabled or there's an init error
   let supabaseEnabled = false;
   try {
     supabaseEnabled = isSupabaseEnabled();
@@ -241,47 +236,46 @@ function AuthPageContent() {
 
   return (
     <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></div>
-            <span className="text-lg font-semibold text-[#c9d1d9]">Threat Hunt Lab</span>
-          </Link>
-          <h1 className="text-2xl font-bold text-[#c9d1d9] mb-2">
-            {mode === 'login' ? 'Sign In' : 'Create Account'}
-          </h1>
-          <p className="text-[#8b949e]">
-            {mode === 'login' 
-              ? 'Sign in to save your progress and unlock achievements'
-              : 'Create an account to start your threat hunting journey'
-            }
-          </p>
-        </div>
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <Link href="/" className="inline-flex items-center gap-2 mb-4">
+              <div className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></div>
+              <span className="text-lg font-semibold text-[#c9d1d9]">Threat Hunt Lab</span>
+            </Link>
+            <h1 className="text-2xl font-bold text-[#c9d1d9] mb-2">
+              {mode === 'login' ? 'Sign In' : 'Create Account'}
+            </h1>
+            <p className="text-[#8b949e]">
+              {mode === 'login' 
+                ? 'Sign in to save your progress and unlock achievements'
+                : 'Create an account to start your threat hunting journey'
+              }
+            </p>
+          </div>
 
-        <AuthModal
-          isOpen={authOpen}
-          onClose={() => {
-            // Don't allow closing - redirect to home instead
-            router.push('/');
-          }}
-          onSuccess={handleSuccess}
-          initialMode={mode}
-          mode={mode}
-        />
+          <AuthModal
+            isOpen={authOpen}
+            onClose={() => {
+              router.push('/');
+            }}
+            onSuccess={handleSuccess}
+            initialMode={mode}
+            mode={mode}
+          />
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-            className="text-[#58a6ff] hover:text-[#4493f8] text-sm"
-          >
-            {mode === 'login' 
-              ? "Don't have an account? Sign up"
-              : 'Already have an account? Sign in'
-            }
-          </button>
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+              className="text-[#58a6ff] hover:text-[#4493f8] text-sm"
+            >
+              {mode === 'login' 
+                ? "Don't have an account? Sign up"
+                : 'Already have an account? Sign in'
+              }
+            </button>
+          </div>
         </div>
       </div>
-    </div>
   );
 }
 
