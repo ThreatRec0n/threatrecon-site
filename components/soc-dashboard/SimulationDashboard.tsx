@@ -20,7 +20,11 @@ import ReportExport from './ReportExport';
 import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
 import { HelpSidebar } from '@/components/ui/ContextualHelp';
-import Achievemen.  valuation-engine';
+import { SkeletonCard, SkeletonTable, SkeletonIOCPanel } from '@/components/ui/SkeletonLoader';
+import AchievementUnlockToast from '@/components/achievements/AchievementUnlockToast';
+import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
+import type { EvaluationResult } from '@/lib/evaluation-engine';
+import { extractIOCsFromEvents } from '@/lib/ioc-extractor';
 
 interface SimulationSession {
   session_id: string;
