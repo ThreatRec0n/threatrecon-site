@@ -12,6 +12,7 @@ function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [supabaseReady, setSupabaseReady] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   // Read URL params on mount - avoid useSearchParams hook issues
   useEffect(() => {
@@ -35,6 +36,7 @@ function AuthForm() {
     e.preventDefault();
     setLoading(true);
     setMessage('');
+    setDebugInfo(null);
 
     if (!supabaseReady) {
       setMessage('Authentication is not available. Please configure Supabase environment variables.');
@@ -43,20 +45,51 @@ function AuthForm() {
     }
 
     try {
+      // Debug: Log Supabase config
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const hasAnonKey = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      console.log('🔍 Auth Debug:', {
+        urlSet: !!supabaseUrl,
+        urlPreview: supabaseUrl?.substring(0, 30) + '...',
+        hasAnonKey,
+        mode
+      });
+
       const supabase = getSupabaseClient();
       
       if (!supabase) {
-        throw new Error('Failed to initialize Supabase client');
+        const error = new Error('Failed to initialize Supabase client. Check environment variables.');
+        setDebugInfo({
+          type: 'ClientInitError',
+          message: 'Supabase client is null',
+          envCheck: {
+            urlSet: !!supabaseUrl,
+            hasAnonKey
+          }
+        });
+        throw error;
       }
 
       if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log('🔐 Attempting sign in...');
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Sign in error:', error);
+          setDebugInfo({
+            type: error.name || 'AuthError',
+            message: error.message,
+            status: error.status,
+            code: (error as any).code
+          });
+          throw error;
+        }
 
+        console.log('✅ Sign in success:', data);
         setMessage('Success! Redirecting...');
         setTimeout(() => {
           if (typeof window !== 'undefined') {
@@ -64,7 +97,8 @@ function AuthForm() {
           }
         }, 1000);
       } else {
-        const { error } = await supabase.auth.signUp({
+        console.log('📝 Attempting sign up...');
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -72,12 +106,44 @@ function AuthForm() {
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Sign up error:', error);
+          setDebugInfo({
+            type: error.name || 'AuthError',
+            message: error.message,
+            status: error.status,
+            code: (error as any).code
+          });
+          throw error;
+        }
 
+        console.log('✅ Sign up success:', data);
         setMessage('Check your email to confirm your account!');
       }
     } catch (error: any) {
-      setMessage(error.message || 'An error occurred');
+      console.error('💥 Auth error:', error);
+      
+      // More detailed error message
+      let errorMessage = 'An error occurred';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.error_description) {
+        errorMessage = error.error_description;
+      } else if (error.toString().includes('fetch') || error.toString().includes('Failed to fetch')) {
+        errorMessage = 'Network error - Cannot connect to authentication server. This could be:\n\n• CORS issue (check Supabase project settings)\n• Network/firewall blocking\n• Supabase project paused\n• Incorrect Supabase URL';
+      }
+      
+      setMessage(errorMessage);
+      
+      if (!debugInfo) {
+        setDebugInfo({
+          type: error.name || 'UnknownError',
+          message: error.message || error.toString(),
+          stack: error.stack?.split('\n')[0],
+          isNetworkError: error.toString().includes('fetch')
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -261,21 +327,79 @@ function AuthForm() {
           <div style={{
             marginTop: '16px',
             padding: '12px',
-            background: message.includes('error') || message.includes('Error') || message.includes('Failed') 
+            background: message.includes('error') || message.includes('Error') || message.includes('Failed') || message.includes('Network')
               ? 'rgba(248, 81, 73, 0.1)' 
               : 'rgba(56, 139, 253, 0.1)',
-            border: `1px solid ${message.includes('error') || message.includes('Error') || message.includes('Failed') 
+            border: `1px solid ${message.includes('error') || message.includes('Error') || message.includes('Failed') || message.includes('Network')
               ? 'rgba(248, 81, 73, 0.3)' 
               : 'rgba(56, 139, 253, 0.3)'}`,
             borderRadius: '6px',
             fontSize: '14px',
-            color: message.includes('error') || message.includes('Error') || message.includes('Failed')
+            color: message.includes('error') || message.includes('Error') || message.includes('Failed') || message.includes('Network')
               ? '#f85149'
-              : '#58a6ff'
+              : '#58a6ff',
+            whiteSpace: 'pre-line'
           }}>
             {message}
           </div>
         )}
+
+        {debugInfo && (
+          <details style={{
+            marginTop: '12px',
+            padding: '12px',
+            background: '#0d1117',
+            border: '1px solid #30363d',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            color: '#8b949e'
+          }}>
+            <summary style={{ 
+              cursor: 'pointer', 
+              marginBottom: '8px',
+              color: '#c9d1d9',
+              fontWeight: '600'
+            }}>
+              🔍 Debug Info (Click to expand)
+            </summary>
+            <pre style={{ 
+              whiteSpace: 'pre-wrap', 
+              wordBreak: 'break-all',
+              margin: 0,
+              fontSize: '11px'
+            }}>
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </details>
+        )}
+
+        {/* Environment Check Panel */}
+        <div style={{
+          marginTop: '16px',
+          padding: '12px',
+          background: '#0d1117',
+          border: '1px solid #30363d',
+          borderRadius: '6px',
+          fontSize: '12px',
+          color: '#8b949e'
+        }}>
+          <div style={{ marginBottom: '8px', fontWeight: '600', color: '#c9d1d9' }}>Environment Check:</div>
+          <div style={{ marginBottom: '4px' }}>
+            URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ? (
+              <span style={{ color: '#3fb950' }}>✅ Set ({process.env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 30)}...)</span>
+            ) : (
+              <span style={{ color: '#f85149' }}>❌ Missing</span>
+            )}
+          </div>
+          <div>
+            Key: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? (
+              <span style={{ color: '#3fb950' }}>✅ Set (Length: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length})</span>
+            ) : (
+              <span style={{ color: '#f85149' }}>❌ Missing</span>
+            )}
+          </div>
+        </div>
 
         <button
           onClick={() => {
