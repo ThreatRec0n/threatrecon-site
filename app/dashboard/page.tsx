@@ -11,6 +11,7 @@ interface SimulationResult {
   timestamp: string;
   skill_level: string;
   time?: number;
+  feedbackId?: string | null; // Normalized from feedback_id (snake_case) to camelCase
 }
 
 interface ProgressStats {
@@ -84,27 +85,32 @@ export default function DashboardPage() {
       });
 
       // Recent results (last 10)
-      const recentResults = allResults
+      const recentResults: SimulationResult[] = allResults
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 10)
-        .map((result: any) => ({
-          ...result,
-          // Try to find feedback ID from localStorage
-          feedbackId: (() => {
-            if (typeof window !== 'undefined') {
-              const feedbackResults = JSON.parse(
-                localStorage.getItem('threatrecon_feedback_results') || '[]'
-              );
-              // Find feedback by scenario and timestamp
-              const feedback = feedbackResults.find((f: any) => 
-                f.scenario_type === result.scenario &&
-                Math.abs(new Date(f.completed_at).getTime() - new Date(result.timestamp).getTime()) < 60000
-              );
-              return feedback?.id || null;
-            }
-            return null;
-          })(),
-        }));
+        .map((result: SimulationResult & { feedback_id?: string }) => {
+          // Normalize snake_case to camelCase if present
+          const feedbackIdFromResult = (result as any).feedback_id || (result as any).feedbackId || null;
+          
+          // Try to find feedback ID from localStorage if not already present
+          let feedbackId = feedbackIdFromResult;
+          if (!feedbackId && typeof window !== 'undefined') {
+            const feedbackResults = JSON.parse(
+              localStorage.getItem('threatrecon_feedback_results') || '[]'
+            );
+            // Find feedback by scenario and timestamp
+            const feedback = feedbackResults.find((f: any) => 
+              f.scenario_type === result.scenario &&
+              Math.abs(new Date(f.completed_at).getTime() - new Date(result.timestamp).getTime()) < 60000
+            );
+            feedbackId = feedback?.id || null;
+          }
+          
+          return {
+            ...result,
+            feedbackId: feedbackId || null, // Normalize to camelCase
+          } as SimulationResult;
+        });
 
       // Calculate strengths and weaknesses (simplified)
       const strengths: string[] = [];
