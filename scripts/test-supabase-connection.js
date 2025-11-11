@@ -7,31 +7,73 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const fs = require('fs');
 
-// Load .env.local manually if dotenv doesn't work
+// Load .env.local manually
 const envPath = path.join(process.cwd(), '.env.local');
 if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  envContent.split('\n').forEach(line => {
-    const match = line.match(/^([^=:#]+)=(.*)$/);
-    if (match) {
-      const key = match[1].trim();
-      const value = match[2].trim().replace(/^["']|["']$/g, '');
-      process.env[key] = value;
+  // Try different encodings
+  let envContent;
+  try {
+    envContent = fs.readFileSync(envPath, 'utf8');
+  } catch (e) {
+    try {
+      envContent = fs.readFileSync(envPath, 'utf16le');
+    } catch (e2) {
+      envContent = fs.readFileSync(envPath);
+      // Remove BOM if present
+      if (envContent[0] === 0xFE && envContent[1] === 0xFF) {
+        envContent = envContent.slice(2).toString('utf16be');
+      } else if (envContent[0] === 0xFF && envContent[1] === 0xFE) {
+        envContent = envContent.slice(2).toString('utf16le');
+      } else {
+        envContent = envContent.toString('utf8');
+      }
+    }
+  }
+  
+  // Remove BOM from UTF-8
+  if (envContent.charCodeAt(0) === 0xFEFF) {
+    envContent = envContent.slice(1);
+  }
+  
+  const lines = envContent.split(/\r?\n/);
+  console.log(`📁 Loaded .env.local file (${lines.length} lines)`);
+  
+  lines.forEach((line) => {
+    // Skip comments and empty lines
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    
+    // Match KEY=VALUE pattern (more flexible)
+    const equalIndex = trimmed.indexOf('=');
+    if (equalIndex > 0) {
+      const key = trimmed.substring(0, equalIndex).trim();
+      let value = trimmed.substring(equalIndex + 1).trim();
+      
+      // Remove quotes if present
+      if ((value.startsWith('"') && value.endsWith('"')) || 
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      
+      if (key && value) {
+        process.env[key] = value;
+        console.log(`  ✅ Loaded: ${key}`);
+      }
     }
   });
-}
-
-// Also try dotenv as fallback
-try {
-  require('dotenv').config({ path: '.env.local' });
-} catch (e) {
-  // dotenv not available, using manual parsing above
+} else {
+  console.log('⚠️  .env.local file not found at:', envPath);
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// Debug: Show what was loaded
 console.log('🔍 Testing Supabase Connection...\n');
+console.log('Debug - Environment variables loaded:');
+console.log('  NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✅ Found' : '❌ Missing');
+console.log('  NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✅ Found' : '❌ Missing');
+console.log('');
 
 // Check environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
