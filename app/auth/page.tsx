@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import AuthModal from '@/components/auth/AuthModal';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 function AuthPageContent() {
   const router = useRouter();
@@ -187,15 +188,40 @@ function AuthPageContent() {
 
 export default function AuthPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-[#58a6ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#c9d1d9]">Loading...</p>
+    <ErrorBoundary fallback={
+      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#161b22] border border-[#30363d] rounded-lg p-8 text-center">
+          <h2 className="text-2xl font-bold text-[#c9d1d9] mb-4">Authentication Error</h2>
+          <p className="text-[#8b949e] mb-6">
+            There was an error loading the authentication page. This might be because Supabase environment variables need to be configured in Vercel.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Link
+              href="/simulation"
+              className="px-6 py-3 bg-[#58a6ff] text-white rounded-lg hover:bg-[#4493f8] transition-colors"
+            >
+              Continue to Simulation
+            </Link>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-[#21262d] text-[#c9d1d9] rounded-lg hover:bg-[#30363d] transition-colors border border-[#30363d]"
+            >
+              Refresh Page
+            </button>
+          </div>
         </div>
       </div>
     }>
-      <AuthPageContent />
-    </Suspense>
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-[#58a6ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-[#c9d1d9]">Loading...</p>
+          </div>
+        </div>
+      }>
+        <AuthPageContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

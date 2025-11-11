@@ -137,7 +137,20 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
   };
   
   // Guard: never open if Supabase is not enabled or not mounted
-  if (!isSupabaseEnabled || !isOpen || !mounted) return null;
+  if (!isSupabaseEnabled || !isOpen || !mounted) {
+    return null;
+  }
+  
+  // Additional safety check
+  try {
+    const supa = getSupabaseClient();
+    if (!supa) {
+      return null;
+    }
+  } catch (err) {
+    console.error('Error initializing Supabase client:', err);
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
