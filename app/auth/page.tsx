@@ -2,373 +2,321 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
-import AuthModal from '@/components/auth/AuthModal';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
 
-function AuthPageContent() {
+function AuthForm() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [authOpen, setAuthOpen] = useState(true);
-  const [initError, setInitError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [nextPath, setNextPath] = useState<string>('/simulation');
-  const [paramsReady, setParamsReady] = useState(false);
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [supabaseReady, setSupabaseReady] = useState(false);
 
-  // Read URL params on client side only - avoids useSearchParams hook ordering issues
+  // Read URL params on mount - avoid useSearchParams hook issues
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
     try {
       const params = new URLSearchParams(window.location.search);
-      const next = params.get('next') || '/simulation';
       const tab = params.get('tab');
-      
-      setNextPath(next);
       if (tab === 'signup') {
         setMode('signup');
       }
-      setParamsReady(true);
     } catch (err) {
-      // If URL parsing fails, use defaults
-      setParamsReady(true);
+      // Ignore errors
     }
+    
+    // Check if Supabase is enabled
+    setSupabaseReady(isSupabaseEnabled());
   }, []);
 
-  useEffect(() => {
-    if (!paramsReady) return;
-    
-    let mounted = true;
-    let subscription: { unsubscribe: () => void } | null = null;
-    
-    setIsLoading(true);
-    
-    const initAuth = async () => {
-      try {
-        let enabled = false;
-        try {
-          enabled = isSupabaseEnabled();
-        } catch (err: any) {
-          console.error('Error checking Supabase enabled:', err);
-          if (mounted) {
-            setInitError('Error checking Supabase configuration.');
-            setIsLoading(false);
-          }
-          return;
-        }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
 
-        if (!enabled) {
-          if (mounted) {
-            setInitError('Supabase is not configured. Please add environment variables to Vercel.');
-            setIsLoading(false);
-          }
-          return;
-        }
-        
-        const supa = getSupabaseClient();
-        if (!supa) {
-          if (mounted) {
-            setInitError('Failed to initialize Supabase client. Environment variables may be missing.');
-            setIsLoading(false);
-          }
-          return;
-        }
+    if (!supabaseReady) {
+      setMessage('Authentication is not available. Please configure Supabase environment variables.');
+      setLoading(false);
+      return;
+    }
 
-        try {
-          const { data, error } = await supa.auth.getUser();
-          if (error) {
-            if (error.message && !error.message.includes('session') && !error.message.includes('JWT')) {
-              console.warn('Auth check warning:', error.message);
-            }
-          }
-          if (mounted && data?.user) {
-            setUser(data.user);
-            // Use window.location instead of router to avoid dependency issues
-            if (typeof window !== 'undefined') {
-              window.location.href = nextPath;
-            }
-            return;
-          }
-        } catch (err: any) {
-          if (err?.message && !err.message.includes('session') && !err.message.includes('JWT')) {
-            console.warn('Auth check warning:', err.message);
-          }
-        }
-        
-        const { data: { subscription: authSubscription } } = supa.auth.onAuthStateChange((_e, session) => {
-          if (!mounted) return;
-          if (session?.user) {
-            setUser(session.user);
-            // Use window.location instead of router to avoid dependency issues
-            if (typeof window !== 'undefined') {
-              window.location.href = nextPath;
-            }
-          } else {
-            setUser(null);
-          }
+    try {
+      const supabase = getSupabaseClient();
+      
+      if (!supabase) {
+        throw new Error('Failed to initialize Supabase client');
+      }
+
+      if (mode === 'signin') {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
-        subscription = authSubscription;
 
-        if (mounted) {
-          setIsLoading(false);
-        }
-      } catch (err: any) {
-        console.error('Error initializing auth:', err);
-        if (mounted) {
-          setInitError(err.message || 'Failed to initialize authentication.');
-          setIsLoading(false);
-        }
-      }
-    };
+        if (error) throw error;
 
-    initAuth();
-
-    return () => {
-      mounted = false;
-      subscription?.unsubscribe();
-    };
-    // Remove router from dependencies - use window.location instead to prevent re-renders
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nextPath, paramsReady]);
-
-  const handleSuccess = () => {
-    const checkProfile = async () => {
-      if (!isSupabaseEnabled()) {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/simulation';
-        }
-        return;
-      }
-      
-      const supa = getSupabaseClient();
-      if (!supa) {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/simulation';
-        }
-        return;
-      }
-      
-      try {
-        const { data: { user } } = await supa.auth.getUser();
-        if (!user) {
+        setMessage('Success! Redirecting...');
+        setTimeout(() => {
           if (typeof window !== 'undefined') {
             window.location.href = '/simulation';
           }
-          return;
-        }
+        }, 1000);
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/simulation` : undefined,
+          },
+        });
 
-        const { data: profile } = await supa
-          .from('profiles')
-          .select('username')
-          .eq('id', user.id)
-          .single();
+        if (error) throw error;
 
-        if (!profile || !profile.username || profile.username.startsWith('user_')) {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/onboarding/username';
-          }
-        } else {
-          if (typeof window !== 'undefined') {
-            window.location.href = nextPath;
-          }
-        }
-      } catch (err) {
-        console.error('Error checking profile:', err);
-        if (typeof window !== 'undefined') {
-          window.location.href = '/simulation';
-        }
+        setMessage('Check your email to confirm your account!');
       }
-    };
-
-    checkProfile();
+    } catch (error: any) {
+      setMessage(error.message || 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // All hooks must be called before any conditional returns
-  // Early returns are fine as long as all hooks are called first
-  if (user) {
+  if (!supabaseReady) {
     return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-[#c9d1d9]">You are already signed in.</p>
-          <Link href="/simulation" className="text-[#58a6ff] hover:underline mt-4 inline-block">
-            Go to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading || !paramsReady) {
-    return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-[#58a6ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#c9d1d9]">Loading authentication...</p>
-        </div>
-      </div>
-    );
-  }
-
-  let supabaseEnabled = false;
-  try {
-    supabaseEnabled = isSupabaseEnabled();
-  } catch (err) {
-    console.error('Error checking Supabase enabled:', err);
-  }
-
-  if (!supabaseEnabled || initError) {
-    return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
-        <div className="w-full max-w-md text-center">
-          <div className="mb-8">
-            <Link href="/" className="inline-flex items-center gap-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></div>
-              <span className="text-lg font-semibold text-[#c9d1d9]">Threat Hunt Lab</span>
-            </Link>
-            <h1 className="text-2xl font-bold text-[#c9d1d9] mb-4">Authentication Unavailable</h1>
-            <p className="text-[#8b949e] mb-4">
-              {initError || 'Authentication is currently being configured. You can still use the platform without an account.'}
-            </p>
-            {initError && (
-              <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 mb-4 text-left">
-                <p className="text-sm text-[#8b949e] mb-2">To fix this:</p>
-                <ol className="text-sm text-[#8b949e] list-decimal list-inside space-y-1">
-                  <li>Go to Vercel Dashboard → Settings → Environment Variables</li>
-                  <li>Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY</li>
-                  <li>Redeploy your site (new build required)</li>
-                </ol>
-              </div>
-            )}
-            <Link
-              href="/simulation"
-              className="inline-block px-6 py-3 bg-[#58a6ff] text-white rounded-md hover:bg-[#4493f8] transition-colors"
-            >
-              Continue to Simulation
-            </Link>
-          </div>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0d1117',
+        color: '#c9d1d9',
+        padding: '20px'
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '400px',
+          background: '#161b22',
+          borderRadius: '12px',
+          padding: '32px',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+          textAlign: 'center'
+        }}>
+          <h1 style={{ marginBottom: '16px', color: '#c9d1d9' }}>Authentication Unavailable</h1>
+          <p style={{ marginBottom: '24px', color: '#8b949e' }}>
+            Authentication is currently being configured. You can still use the platform without an account.
+          </p>
+          <button
+            onClick={() => router.push('/simulation')}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: '#58a6ff',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#fff',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Continue to Simulation
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center gap-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></div>
-              <span className="text-lg font-semibold text-[#c9d1d9]">Threat Hunt Lab</span>
-            </Link>
-            <h1 className="text-2xl font-bold text-[#c9d1d9] mb-2">
-              {mode === 'login' ? 'Sign In' : 'Create Account'}
-            </h1>
-            <p className="text-[#8b949e]">
-              {mode === 'login' 
-                ? 'Sign in to save your progress and unlock achievements'
-                : 'Create an account to start your threat hunting journey'
-              }
-            </p>
-          </div>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#0d1117',
+      color: '#c9d1d9',
+      padding: '20px'
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '400px',
+        background: '#161b22',
+        borderRadius: '12px',
+        padding: '32px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+        border: '1px solid #30363d'
+      }}>
+        <h1 style={{ 
+          marginBottom: '24px', 
+          textAlign: 'center',
+          color: '#c9d1d9',
+          fontSize: '24px',
+          fontWeight: '600'
+        }}>
+          {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+        </h1>
 
-          <AuthModal
-            isOpen={authOpen}
-            onClose={() => {
-              router.push('/');
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '24px',
+          borderBottom: '1px solid #30363d'
+        }}>
+          <button
+            onClick={() => setMode('signin')}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: mode === 'signin' ? '#58a6ff' : 'transparent',
+              border: 'none',
+              color: mode === 'signin' ? '#fff' : '#8b949e',
+              cursor: 'pointer',
+              borderRadius: '4px 4px 0 0',
+              fontWeight: mode === 'signin' ? '600' : '400'
             }}
-            onSuccess={handleSuccess}
-            initialMode={mode}
-            mode={mode}
-          />
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-              className="text-[#58a6ff] hover:text-[#4493f8] text-sm"
-            >
-              {mode === 'login' 
-                ? "Don't have an account? Sign up"
-                : 'Already have an account? Sign in'
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-  );
-}
-
-// Safe wrapper to prevent any render-time errors
-function SafeAuthPageContent() {
-  try {
-    return <AuthPageContent />;
-  } catch (error: any) {
-    console.error('Error rendering AuthPageContent:', error);
-    return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#161b22] border border-[#30363d] rounded-lg p-8 text-center">
-          <h2 className="text-2xl font-bold text-[#c9d1d9] mb-4">Render Error</h2>
-          <p className="text-[#8b949e] mb-4">{error?.message || 'Unknown error'}</p>
-          <pre className="text-xs text-red-400 bg-[#0d1117] p-4 rounded overflow-auto mb-4">
-            {error?.stack}
-          </pre>
-          <Link
-            href="/simulation"
-            className="inline-block px-6 py-3 bg-[#58a6ff] text-white rounded-lg hover:bg-[#4493f8] transition-colors"
           >
-            Continue to Simulation
-          </Link>
+            Sign In
+          </button>
+          <button
+            onClick={() => setMode('signup')}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: mode === 'signup' ? '#58a6ff' : 'transparent',
+              border: 'none',
+              color: mode === 'signup' ? '#fff' : '#8b949e',
+              cursor: 'pointer',
+              borderRadius: '4px 4px 0 0',
+              fontWeight: mode === 'signup' ? '600' : '400'
+            }}
+          >
+            Sign Up
+          </button>
         </div>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '16px' }}>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#0d1117',
+                border: '1px solid #30363d',
+                borderRadius: '6px',
+                color: '#c9d1d9',
+                fontSize: '16px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#0d1117',
+                border: '1px solid #30363d',
+                borderRadius: '6px',
+                color: '#c9d1d9',
+                fontSize: '16px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: loading ? '#30363d' : '#58a6ff',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#fff',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s'
+            }}
+          >
+            {loading ? 'Loading...' : (mode === 'signin' ? 'Sign In' : 'Sign Up')}
+          </button>
+        </form>
+
+        {message && (
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            background: message.includes('error') || message.includes('Error') || message.includes('Failed') 
+              ? 'rgba(248, 81, 73, 0.1)' 
+              : 'rgba(56, 139, 253, 0.1)',
+            border: `1px solid ${message.includes('error') || message.includes('Error') || message.includes('Failed') 
+              ? 'rgba(248, 81, 73, 0.3)' 
+              : 'rgba(56, 139, 253, 0.3)'}`,
+            borderRadius: '6px',
+            fontSize: '14px',
+            color: message.includes('error') || message.includes('Error') || message.includes('Failed')
+              ? '#f85149'
+              : '#58a6ff'
+          }}>
+            {message}
+          </div>
+        )}
+
+        <button
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.location.href = '/';
+            }
+          }}
+          style={{
+            marginTop: '16px',
+            width: '100%',
+            padding: '8px',
+            background: 'transparent',
+            border: '1px solid #30363d',
+            borderRadius: '6px',
+            color: '#8b949e',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          Back to Home
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
 }
 
 export default function AuthPage() {
   return (
-    <ErrorBoundary fallback={
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#161b22] border border-[#30363d] rounded-lg p-8 text-center">
-          <h2 className="text-2xl font-bold text-[#c9d1d9] mb-4">Authentication Error</h2>
-          <p className="text-[#8b949e] mb-6">
-            There was an error loading the authentication page. Check the error details below.
-          </p>
-          <div className="mb-4">
-            <Link
-              href="/debug-auth"
-              className="text-[#58a6ff] hover:underline text-sm"
-            >
-              View Debug Information →
-            </Link>
-          </div>
-          <div className="flex gap-4 justify-center">
-            <Link
-              href="/simulation"
-              className="px-6 py-3 bg-[#58a6ff] text-white rounded-lg hover:bg-[#4493f8] transition-colors"
-            >
-              Continue to Simulation
-            </Link>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-[#21262d] text-[#c9d1d9] rounded-lg hover:bg-[#30363d] transition-colors border border-[#30363d]"
-            >
-              Refresh Page
-            </button>
-          </div>
-        </div>
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0d1117',
+        color: '#c9d1d9'
+      }}>
+        Loading...
       </div>
     }>
-      <Suspense fallback={
-        <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-8 h-8 border-4 border-[#58a6ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-[#c9d1d9]">Loading...</p>
-          </div>
-        </div>
-      }>
-        <SafeAuthPageContent />
-      </Suspense>
-    </ErrorBoundary>
+      <AuthForm />
+    </Suspense>
   );
 }
