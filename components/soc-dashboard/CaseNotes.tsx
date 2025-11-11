@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
+import { sanitizeAndValidate } from '@/lib/security/input-sanitization';
 
 export interface CaseNote {
   id: string;
@@ -21,34 +23,92 @@ export default function CaseNotes({ scenarioId, onNotesChange }: Props) {
   const [newNote, setNewNote] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [filter, setFilter] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // Load notes from localStorage on mount
+  // Check authentication status
   useEffect(() => {
-    const stored = localStorage.getItem(`case_notes_${scenarioId}`);
-    if (stored) {
-      try {
-        setNotes(JSON.parse(stored));
-      } catch (e) {
-        console.error('Error loading notes:', e);
+    const checkAuth = async () => {
+      setIsCheckingAuth(true);
+      if (isSupabaseEnabled) {
+        try {
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (session?.user) {
+              setIsAuthenticated(true);
+              setUserId(session.user.id);
+            } else {
+              setIsAuthenticated(false);
+              setUserId(null);
+            }
+          } else {
+            setIsAuthenticated(false);
+          }
+        } catch (err) {
+          console.error('Error checking auth:', err);
+          setIsAuthenticated(false);
+        }
+      } else {
+        // Supabase not enabled - require account
+        setIsAuthenticated(false);
+      }
+      setIsCheckingAuth(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  // Load notes from localStorage on mount (only if authenticated)
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      const stored = localStorage.getItem(`case_notes_${scenarioId}_${userId}`);
+      if (stored) {
+        try {
+          setNotes(JSON.parse(stored));
+        } catch (e) {
+          console.error('Error loading notes:', e);
+        }
       }
     }
-  }, [scenarioId]);
+  }, [scenarioId, isAuthenticated, userId]);
 
-  // Save notes to localStorage whenever they change
+  // Save notes to localStorage whenever they change (only if authenticated)
   useEffect(() => {
-    if (notes.length > 0 || localStorage.getItem(`case_notes_${scenarioId}`)) {
-      localStorage.setItem(`case_notes_${scenarioId}`, JSON.stringify(notes));
-      onNotesChange?.(notes);
+    if (isAuthenticated && userId) {
+      if (notes.length > 0 || localStorage.getItem(`case_notes_${scenarioId}_${userId}`)) {
+        localStorage.setItem(`case_notes_${scenarioId}_${userId}`, JSON.stringify(notes));
+        onNotesChange?.(notes);
+      }
     }
-  }, [notes, scenarioId, onNotesChange]);
+  }, [notes, scenarioId, isAuthenticated, userId, onNotesChange]);
 
   const handleAddNote = () => {
     if (!newNote.trim()) return;
 
+    // Check authentication
+    if (!isAuthenticated) {
+      setError('Please sign in to add case notes. Case notes require an account for security and tracking purposes.');
+      return;
+    }
+
+    // Sanitize and validate input
+    const { sanitized, valid, reason } = sanitizeAndValidate(newNote.trim());
+    
+    if (!valid) {
+      setError(reason || 'Invalid input. Please check your note for inappropriate content or suspicious patterns.');
+      return;
+    }
+
+    // Clear any previous errors
+    setError(null);
+
     const note: CaseNote = {
       id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date().toISOString(),
-      content: newNote.trim(),
+      content: sanitized,
       tags: selectedTags,
       linkedIOCs: [],
       linkedEvents: [],
@@ -100,12 +160,35 @@ export default function CaseNotes({ scenarioId, onNotesChange }: Props) {
         </div>
       </div>
 
+      {!isCheckingAuth && !isAuthenticated && (
+        <div className="bg-yellow-900/20 border border-yellow-800/40 rounded p-3 mb-4">
+          <p className="text-sm text-yellow-400">
+            <strong>⚠️ Account Required:</strong> Case notes require an account for security and tracking purposes. 
+            <a href="/simulation" className="underline ml-1">Sign in</a> to add notes.
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-800/40 rounded p-3 mb-4">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
       <div className="space-y-3">
         <textarea
           value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Add investigation note... Document findings, observations, hypotheses, or key evidence."
-          className="w-full bg-[#0d1117] border border-[#30363d] rounded p-3 text-sm text-[#c9d1d9] placeholder-[#484f58] resize-none focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:border-transparent"
+          onChange={(e) => {
+            setNewNote(e.target.value);
+            setError(null); // Clear error on input change
+          }}
+          placeholder={
+            isAuthenticated 
+              ? "Add investigation note... Document findings, observations, hypotheses, or key evidence."
+              : "Sign in to add case notes..."
+          }
+          disabled={!isAuthenticated || isCheckingAuth}
+          className="w-full bg-[#0d1117] border border-[#30363d] rounded p-3 text-sm text-[#c9d1d9] placeholder-[#484f58] resize-none focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
           rows={4}
         />
 
@@ -134,10 +217,10 @@ export default function CaseNotes({ scenarioId, onNotesChange }: Props) {
 
         <button
           onClick={handleAddNote}
-          disabled={!newNote.trim()}
+          disabled={!newNote.trim() || !isAuthenticated || isCheckingAuth}
           className="w-full px-4 py-2 bg-[#58a6ff] text-white rounded hover:bg-[#4493f8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
         >
-          Add Note
+          {isCheckingAuth ? 'Checking...' : isAuthenticated ? 'Add Note' : 'Sign In Required'}
         </button>
       </div>
 
