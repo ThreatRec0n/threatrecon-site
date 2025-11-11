@@ -28,6 +28,9 @@ function AuthPageContent() {
         const next = searchParams.get('next') || '/simulation';
         router.push(next);
       }
+    }).catch((err) => {
+      console.error('Error checking auth state:', err);
+      // Don't crash if there's an error
     });
     
     const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
@@ -54,26 +57,43 @@ function AuthPageContent() {
   const handleSuccess = () => {
     // Check if user needs username onboarding
     const checkProfile = async () => {
-      const supa = getSupabaseClient();
-      if (!supa) return;
+      if (!isSupabaseEnabled) {
+        router.push('/simulation');
+        return;
+      }
       
-      const { data: { user } } = await supa.auth.getUser();
-      if (!user) return;
+      const supa = getSupabaseClient();
+      if (!supa) {
+        router.push('/simulation');
+        return;
+      }
+      
+      try {
+        const { data: { user } } = await supa.auth.getUser();
+        if (!user) {
+          router.push('/simulation');
+          return;
+        }
 
-      // Check if profile exists and has username
-      const { data: profile } = await supa
-        .from('profiles')
-        .select('username')
-        .eq('id', user.id)
-        .single();
+        // Check if profile exists and has username
+        const { data: profile } = await supa
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .single();
 
-      if (!profile || !profile.username || profile.username.startsWith('user_')) {
-        // Redirect to username onboarding
-        router.push('/onboarding/username');
-      } else {
-        // Redirect to intended destination or default
-        const next = searchParams.get('next') || '/simulation';
-        router.push(next);
+        if (!profile || !profile.username || profile.username.startsWith('user_')) {
+          // Redirect to username onboarding
+          router.push('/onboarding/username');
+        } else {
+          // Redirect to intended destination or default
+          const next = searchParams.get('next') || '/simulation';
+          router.push(next);
+        }
+      } catch (err) {
+        console.error('Error checking profile:', err);
+        // On error, just redirect to simulation
+        router.push('/simulation');
       }
     };
 
@@ -88,6 +108,32 @@ function AuthPageContent() {
           <Link href="/simulation" className="text-[#58a6ff] hover:underline mt-4 inline-block">
             Go to Dashboard
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if Supabase is not enabled
+  if (!isSupabaseEnabled) {
+    return (
+      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="mb-8">
+            <Link href="/" className="inline-flex items-center gap-2 mb-4">
+              <div className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></div>
+              <span className="text-lg font-semibold text-[#c9d1d9]">Threat Hunt Lab</span>
+            </Link>
+            <h1 className="text-2xl font-bold text-[#c9d1d9] mb-4">Authentication Unavailable</h1>
+            <p className="text-[#8b949e] mb-6">
+              Authentication is currently being configured. You can still use the platform without an account.
+            </p>
+            <Link
+              href="/simulation"
+              className="inline-block px-6 py-3 bg-[#58a6ff] text-white rounded-md hover:bg-[#4493f8] transition-colors"
+            >
+              Continue to Simulation
+            </Link>
+          </div>
         </div>
       </div>
     );
