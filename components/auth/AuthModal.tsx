@@ -137,11 +137,11 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
   };
   
   // Guard: never open if Supabase is not enabled or not mounted
-  if (!isSupabaseEnabled || !isOpen || !mounted) {
+  if (!isSupabaseEnabled() || !isOpen || !mounted) {
     return null;
   }
   
-  // Additional safety check
+  // Additional safety check - verify client can be created
   try {
     const supa = getSupabaseClient();
     if (!supa) {
@@ -156,7 +156,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'l
     e.preventDefault();
     
     // Guard: prevent submission if Supabase is not enabled
-    if (!isSupabaseEnabled) {
+    if (!isSupabaseEnabled()) {
       return;
     }
     

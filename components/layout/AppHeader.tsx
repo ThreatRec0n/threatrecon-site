@@ -17,7 +17,7 @@ export default function AppHeader() {
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseEnabled) {
+    if (!isSupabaseEnabled()) {
       // If Supabase is not enabled, ensure user is null and auth is checked so buttons show
       setUser(null);
       setAuthChecked(true);
@@ -137,7 +137,7 @@ export default function AppHeader() {
 
           {/* Auth Buttons - Separate and Prominent */}
           <div className="flex items-center gap-3 ml-4">
-            {isSupabaseEnabled && authChecked && user ? (
+            {isSupabaseEnabled() && authChecked && user ? (
               <ProfileDropdown user={user} />
             ) : (
               <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
@@ -205,7 +205,7 @@ export default function AppHeader() {
             >
               Docs
             </Link>
-            {!(isSupabaseEnabled && authChecked && user) && (
+            {!(isSupabaseEnabled() && authChecked && user) && (
               <>
                 <Link 
                   href="/auth" 

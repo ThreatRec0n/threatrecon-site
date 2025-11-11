@@ -19,7 +19,7 @@ function AuthPageContent() {
 
   useEffect(() => {
     // Check if Supabase is enabled
-    if (!isSupabaseEnabled) {
+    if (!isSupabaseEnabled()) {
       setInitError('Supabase is not configured. Please add environment variables to Vercel.');
       return;
     }
@@ -71,7 +71,7 @@ function AuthPageContent() {
   const handleSuccess = () => {
     // Check if user needs username onboarding
     const checkProfile = async () => {
-      if (!isSupabaseEnabled) {
+      if (!isSupabaseEnabled()) {
         router.push('/simulation');
         return;
       }
@@ -128,7 +128,7 @@ function AuthPageContent() {
   }
 
   // Show message if Supabase is not enabled or there's an init error
-  if (!isSupabaseEnabled || initError) {
+  if (!isSupabaseEnabled() || initError) {
     return (
       <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">

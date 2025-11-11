@@ -17,7 +17,7 @@ interface Profile {
 
 export default function ProfileDropdown({ user, onProgressSync }: Props) {
   // Guard: never render if Supabase is not enabled
-  if (!isSupabaseEnabled) return null;
+  if (!isSupabaseEnabled()) return null;
 
   const [isOpen, setIsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);

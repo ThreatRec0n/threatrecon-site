@@ -25,7 +25,7 @@ export interface AchievementProgress {
 export async function getUserAchievements(userId?: string): Promise<UserAchievement[]> {
   if (!isClient) return [];
   
-  if (!isSupabaseEnabled || !userId) {
+  if (!isSupabaseEnabled() || !userId) {
     // Fallback to localStorage
     const stored = localStorage.getItem('user_achievements');
     return stored ? JSON.parse(stored) : [];
@@ -64,7 +64,7 @@ export async function unlockAchievement(
   
   const now = new Date().toISOString();
 
-  if (!isSupabaseEnabled || !userId) {
+  if (!isSupabaseEnabled() || !userId) {
     // Fallback to localStorage
     const stored = localStorage.getItem('user_achievements') || '[]';
     const achievements: UserAchievement[] = JSON.parse(stored);
@@ -115,7 +115,7 @@ export async function updateAchievementProgress(
 ): Promise<boolean> {
   if (!isClient) return false;
   
-  if (!isSupabaseEnabled || !userId) {
+  if (!isSupabaseEnabled() || !userId) {
     // Store progress in localStorage
     const key = `achievement_progress_${achievementSlug}`;
     localStorage.setItem(key, progress.toString());
@@ -178,7 +178,7 @@ export async function getUserStats(userId?: string): Promise<UserStats> {
     };
   }
   
-  if (!isSupabaseEnabled || !userId) {
+  if (!isSupabaseEnabled() || !userId) {
     // Fallback to localStorage
     const stats: UserStats = {
       simulation_count: parseInt(localStorage.getItem('simulation_count') || '0'),

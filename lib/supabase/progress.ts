@@ -24,7 +24,7 @@ export function saveLocal(progress: Partial<UserProgress>) {
 }
 
 export async function syncToCloud(userId: string): Promise<{ ok: boolean; merged?: Partial<UserProgress>; error?: string }> {
-  if (!isSupabaseEnabled) return { ok: false, error: 'Supabase not configured' };
+  if (!isSupabaseEnabled()) return { ok: false, error: 'Supabase not configured' };
   const supa = getSupabaseClient();
   if (!supa) return { ok: false, error: 'Supabase client not available' };
 
@@ -56,7 +56,7 @@ export async function syncToCloud(userId: string): Promise<{ ok: boolean; merged
 }
 
 export async function fetchCloudIntoLocal(userId: string): Promise<{ ok: boolean; merged?: Partial<UserProgress>; error?: string }> {
-  if (!isSupabaseEnabled) return { ok: false, error: 'Supabase not configured' };
+  if (!isSupabaseEnabled()) return { ok: false, error: 'Supabase not configured' };
   const supa = getSupabaseClient();
   if (!supa) return { ok: false, error: 'Supabase client not available' };
 
@@ -84,7 +84,7 @@ export async function fetchCloudIntoLocal(userId: string): Promise<{ ok: boolean
 
 // Legacy functions for backward compatibility
 export async function saveUserProgress(userId: string, progress: Partial<UserProgress>) {
-  if (!isSupabaseEnabled) {
+  if (!isSupabaseEnabled()) {
     console.warn('Supabase not configured. Progress will only be saved locally.');
     return null;
   }
@@ -114,7 +114,7 @@ export async function saveUserProgress(userId: string, progress: Partial<UserPro
 }
 
 export async function loadUserProgress(userId: string): Promise<UserProgress | null> {
-  if (!isSupabaseEnabled) return null;
+  if (!isSupabaseEnabled()) return null;
 
   const supa = getSupabaseClient();
   if (!supa) return null;

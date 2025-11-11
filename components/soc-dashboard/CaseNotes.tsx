@@ -32,7 +32,7 @@ export default function CaseNotes({ scenarioId, onNotesChange }: Props) {
   useEffect(() => {
     const checkAuth = async () => {
       setIsCheckingAuth(true);
-      if (isSupabaseEnabled) {
+      if (isSupabaseEnabled()) {
         try {
           const supabase = getSupabaseClient();
           if (supabase) {

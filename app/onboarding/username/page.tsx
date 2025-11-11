@@ -19,7 +19,7 @@ export default function UsernameOnboardingPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!isSupabaseEnabled) {
+    if (!isSupabaseEnabled()) {
       router.push('/auth');
       return;
     }

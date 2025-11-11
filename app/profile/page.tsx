@@ -47,7 +47,7 @@ export default function ProfilePage() {
   const [usernameChecking, setUsernameChecking] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseEnabled) {
+    if (!isSupabaseEnabled()) {
       router.push('/auth');
       return;
     }
