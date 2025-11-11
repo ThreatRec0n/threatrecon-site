@@ -38,15 +38,12 @@ export function getSupabaseClient(): SupabaseClient | null {
   
   // Better validation - check for undefined string and empty values
   if (!url || url === 'undefined' || url === '') {
-    console.error('❌ NEXT_PUBLIC_SUPABASE_URL is not set or invalid');
-    console.error('Current value:', url);
-    console.error('All NEXT_PUBLIC_ vars:', Object.keys(process.env).filter(k => k.startsWith('NEXT_PUBLIC_')));
+    console.warn('⚠️ NEXT_PUBLIC_SUPABASE_URL is not set or invalid');
     return null;
   }
   
   if (!key || key === 'undefined' || key === '') {
-    console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY is not set or invalid');
-    console.error('Key length:', key?.length || 0);
+    console.warn('⚠️ NEXT_PUBLIC_SUPABASE_ANON_KEY is not set or invalid');
     return null;
   }
   
@@ -54,13 +51,12 @@ export function getSupabaseClient(): SupabaseClient | null {
   try {
     new URL(url);
   } catch {
-    console.error('❌ NEXT_PUBLIC_SUPABASE_URL is not a valid URL:', url);
+    console.warn('⚠️ NEXT_PUBLIC_SUPABASE_URL is not a valid URL');
     return null;
   }
   
   if (!client) {
     try {
-      console.log('✅ Creating Supabase client with URL:', url.substring(0, 30) + '...');
       client = createClient(url, key, {
         auth: {
           persistSession: true,
@@ -70,10 +66,8 @@ export function getSupabaseClient(): SupabaseClient | null {
           flowType: 'pkce',
         },
       });
-      console.log('✅ Supabase client created successfully');
     } catch (error: any) {
-      console.error('❌ Failed to create Supabase client:', error);
-      console.error('Error details:', error.message, error.stack);
+      console.warn('⚠️ Failed to create Supabase client:', error?.message || 'Unknown error');
       return null;
     }
   }

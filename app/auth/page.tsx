@@ -58,7 +58,11 @@ function AuthPageContent() {
         try {
           const { data, error } = await supa.auth.getUser();
           if (error) {
-            console.error('Error getting user:', error);
+            // AuthSessionMissingError is expected when user is not logged in
+            // Only log if it's a different error
+            if (error.message && !error.message.includes('session') && !error.message.includes('JWT')) {
+              console.warn('Auth check warning:', error.message);
+            }
           }
           if (mounted && data?.user) {
             setUser(data.user);
@@ -72,9 +76,12 @@ function AuthPageContent() {
             }
             return;
           }
-        } catch (err) {
-          console.error('Error checking auth state:', err);
-          // Don't set error for auth check failures - user might just not be logged in
+        } catch (err: any) {
+          // Silently handle auth errors - user is just not logged in
+          // Don't log AuthSessionMissingError as it's expected
+          if (err?.message && !err.message.includes('session') && !err.message.includes('JWT')) {
+            console.warn('Auth check warning:', err.message);
+          }
         }
         
         const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {

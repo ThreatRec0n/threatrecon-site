@@ -79,10 +79,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`dark ${inter.variable}`}>
       <head>
-        {/* PWA Manifest - only load if icons exist */}
-        {typeof window !== 'undefined' && (
-          <link rel="manifest" href="/manifest.json" />
-        )}
+        {/* PWA Manifest */}
+        <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#58a6ff" />
         {/* Preconnect to external domains */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

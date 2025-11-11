@@ -32,10 +32,18 @@ export default function AppHeader() {
     }
 
     // Check initial auth state
-    supa.auth.getUser().then(({ data }) => {
+    supa.auth.getUser().then(({ data, error }) => {
+      // Ignore session errors - user is just not logged in
+      if (error && !error.message?.includes('session') && !error.message?.includes('JWT')) {
+        console.warn('Auth check warning:', error.message);
+      }
       setUser(data?.user ?? null);
       setAuthChecked(true);
-    }).catch(() => {
+    }).catch((err: any) => {
+      // Silently handle auth errors - user is just not logged in
+      if (err?.message && !err.message.includes('session') && !err.message.includes('JWT')) {
+        console.warn('Auth check warning:', err.message);
+      }
       setUser(null);
       setAuthChecked(true);
     });
