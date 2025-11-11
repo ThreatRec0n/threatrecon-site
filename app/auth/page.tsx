@@ -279,6 +279,32 @@ function AuthPageContent() {
   );
 }
 
+// Safe wrapper to prevent any render-time errors
+function SafeAuthPageContent() {
+  try {
+    return <AuthPageContent />;
+  } catch (error: any) {
+    console.error('Error rendering AuthPageContent:', error);
+    return (
+      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#161b22] border border-[#30363d] rounded-lg p-8 text-center">
+          <h2 className="text-2xl font-bold text-[#c9d1d9] mb-4">Render Error</h2>
+          <p className="text-[#8b949e] mb-4">{error?.message || 'Unknown error'}</p>
+          <pre className="text-xs text-red-400 bg-[#0d1117] p-4 rounded overflow-auto mb-4">
+            {error?.stack}
+          </pre>
+          <Link
+            href="/simulation"
+            className="inline-block px-6 py-3 bg-[#58a6ff] text-white rounded-lg hover:bg-[#4493f8] transition-colors"
+          >
+            Continue to Simulation
+          </Link>
+        </div>
+      </div>
+    );
+  }
+}
+
 export default function AuthPage() {
   return (
     <ErrorBoundary fallback={
@@ -286,8 +312,16 @@ export default function AuthPage() {
         <div className="max-w-md w-full bg-[#161b22] border border-[#30363d] rounded-lg p-8 text-center">
           <h2 className="text-2xl font-bold text-[#c9d1d9] mb-4">Authentication Error</h2>
           <p className="text-[#8b949e] mb-6">
-            There was an error loading the authentication page. This might be because Supabase environment variables need to be configured in Vercel.
+            There was an error loading the authentication page. Check the error details below.
           </p>
+          <div className="mb-4">
+            <Link
+              href="/debug-auth"
+              className="text-[#58a6ff] hover:underline text-sm"
+            >
+              View Debug Information →
+            </Link>
+          </div>
           <div className="flex gap-4 justify-center">
             <Link
               href="/simulation"
@@ -313,7 +347,7 @@ export default function AuthPage() {
           </div>
         </div>
       }>
-        <AuthPageContent />
+        <SafeAuthPageContent />
       </Suspense>
     </ErrorBoundary>
   );
