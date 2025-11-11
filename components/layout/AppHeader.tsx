@@ -137,28 +137,26 @@ export default function AppHeader() {
 
           {/* Auth Buttons - Separate and Prominent */}
           <div className="flex items-center gap-3 ml-4">
-            {isSupabaseEnabled ? (
-              authChecked && user ? (
-                <ProfileDropdown user={user} />
-              ) : (
-                <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
-                  <Link
-                    href="/auth"
-                    className="rounded-md px-4 py-2 text-sm font-medium text-[#c9d1d9] hover:bg-[#21262d] transition-colors border border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
-                    aria-label="Sign In to your account"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/auth?tab=signup"
-                    className="rounded-md bg-[#58a6ff] px-4 py-2 text-sm font-medium text-white hover:bg-[#4493f8] transition-colors shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
-                    aria-label="Sign Up for a new account"
-                  >
-                    Sign Up
-                  </Link>
-                </div>
-              )
-            ) : null}
+            {isSupabaseEnabled && authChecked && user ? (
+              <ProfileDropdown user={user} />
+            ) : (
+              <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
+                <Link
+                  href="/auth"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-[#c9d1d9] hover:bg-[#21262d] transition-colors border border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
+                  aria-label="Sign In to your account"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/auth?tab=signup"
+                  className="rounded-md bg-[#58a6ff] px-4 py-2 text-sm font-medium text-white hover:bg-[#4493f8] transition-colors shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
+                  aria-label="Sign Up for a new account"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
@@ -207,7 +205,7 @@ export default function AppHeader() {
             >
               Docs
             </Link>
-            {!user && isSupabaseEnabled && (
+            {!(isSupabaseEnabled && authChecked && user) && (
               <>
                 <Link 
                   href="/auth" 
