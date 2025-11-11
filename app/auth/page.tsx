@@ -63,8 +63,13 @@ function AuthPageContent() {
           if (mounted && data?.user) {
             setUser(data.user);
             // Redirect if already logged in
-            const next = searchParams.get('next') || '/simulation';
-            router.push(next);
+            try {
+              const next = searchParams?.get('next') || '/simulation';
+              router.push(next);
+            } catch (err) {
+              console.error('Error getting next param:', err);
+              router.push('/simulation');
+            }
             return;
           }
         } catch (err) {
@@ -76,8 +81,13 @@ function AuthPageContent() {
           if (!mounted) return;
           if (session?.user) {
             setUser(session.user);
-            const next = searchParams.get('next') || '/simulation';
-            router.push(next);
+            try {
+              const next = searchParams?.get('next') || '/simulation';
+              router.push(next);
+            } catch (err) {
+              console.error('Error getting next param:', err);
+              router.push('/simulation');
+            }
           } else {
             setUser(null);
           }
@@ -110,7 +120,7 @@ function AuthPageContent() {
   // Set initial mode from URL or default to login
   useEffect(() => {
     try {
-      const tab = searchParams.get('tab');
+      const tab = searchParams?.get('tab');
       if (tab === 'signup') {
         setMode('signup');
       }
@@ -152,8 +162,13 @@ function AuthPageContent() {
           router.push('/onboarding/username');
         } else {
           // Redirect to intended destination or default
-          const next = searchParams.get('next') || '/simulation';
-          router.push(next);
+          try {
+            const next = searchParams?.get('next') || '/simulation';
+            router.push(next);
+          } catch (err) {
+            console.error('Error getting next param:', err);
+            router.push('/simulation');
+          }
         }
       } catch (err) {
         console.error('Error checking profile:', err);
