@@ -56,6 +56,7 @@ export default function SimulationDashboard() {
   const [enrichingIOC, setEnrichingIOC] = useState<{ value: string; type: 'ip' | 'domain' | 'hash' } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
+  const [lastFeedbackId, setLastFeedbackId] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [activeView, setActiveView] = useState<'main' | 'mitre' | 'purple' | 'rules' | 'case'>('main');
   const [detectedTechniques, setDetectedTechniques] = useState<string[]>([]);
@@ -341,6 +342,9 @@ export default function SimulationDashboard() {
       if (submitResponse.ok) {
         const submitData = await submitResponse.json();
         if (submitData.success && submitData.result?.id) {
+          // Store feedback ID for later access
+          setLastFeedbackId(submitData.result.id);
+          
           // Redirect to feedback page
           window.location.href = `/simulation/feedback/${submitData.result.id}`;
           return; // Exit early to prevent showing modal
@@ -899,6 +903,7 @@ export default function SimulationDashboard() {
       {evaluationResult && (
         <EvaluationReport
           result={evaluationResult}
+          feedbackId={lastFeedbackId}
           onClose={() => setEvaluationResult(null)}
           onNewInvestigation={() => {
             setEvaluationResult(null);
@@ -907,6 +912,7 @@ export default function SimulationDashboard() {
             setSelectedEvent(null);
             setSelectedStage(null);
             setDetectedTechniques([]);
+            setLastFeedbackId(null);
             initializeSimulation();
           }}
         />

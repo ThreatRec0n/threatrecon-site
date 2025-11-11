@@ -11,9 +11,10 @@ interface Props {
   result: EvaluationResult;
   onClose: () => void;
   onNewInvestigation: () => void;
+  feedbackId?: string | null;
 }
 
-export default function EvaluationReport({ result, onClose, onNewInvestigation }: Props) {
+export default function EvaluationReport({ result, onClose, onNewInvestigation, feedbackId }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'missed' | 'replay' | 'recommendations' | 'feedback'>('overview');
   
   // Build detailed answer feedback from evaluation result
@@ -515,12 +516,22 @@ export default function EvaluationReport({ result, onClose, onNewInvestigation }
 
         {/* Footer Actions */}
         <div className="p-6 border-t border-[#30363d] flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="btn-secondary"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-4">
+            {feedbackId && (
+              <a
+                href={`/simulation/feedback/${feedbackId}`}
+                className="px-4 py-2 bg-[#58a6ff] text-white rounded hover:bg-[#4493f8] transition-colors inline-flex items-center gap-2"
+              >
+                📊 View Detailed Feedback
+              </a>
+            )}
+            <button
+              onClick={onClose}
+              className="btn-secondary"
+            >
+              Close
+            </button>
+          </div>
           <button
             onClick={onNewInvestigation}
             className="btn-primary"

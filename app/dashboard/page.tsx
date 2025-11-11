@@ -86,7 +86,25 @@ export default function DashboardPage() {
       // Recent results (last 10)
       const recentResults = allResults
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, 10);
+        .slice(0, 10)
+        .map((result: any) => ({
+          ...result,
+          // Try to find feedback ID from localStorage
+          feedbackId: (() => {
+            if (typeof window !== 'undefined') {
+              const feedbackResults = JSON.parse(
+                localStorage.getItem('threatrecon_feedback_results') || '[]'
+              );
+              // Find feedback by scenario and timestamp
+              const feedback = feedbackResults.find((f: any) => 
+                f.scenario_type === result.scenario &&
+                Math.abs(new Date(f.completed_at).getTime() - new Date(result.timestamp).getTime()) < 60000
+              );
+              return feedback?.id || null;
+            }
+            return null;
+          })(),
+        }));
 
       // Calculate strengths and weaknesses (simplified)
       const strengths: string[] = [];
@@ -312,6 +330,14 @@ export default function DashboardPage() {
                     <div className="text-xs px-2 py-1 bg-[#0d1117] rounded border border-[#30363d] text-[#8b949e]">
                       {result.skill_level}
                     </div>
+                    {result.feedbackId && (
+                      <Link
+                        href={`/simulation/feedback/${result.feedbackId}`}
+                        className="px-3 py-1 text-xs bg-[#58a6ff] text-white rounded hover:bg-[#4493f8] transition-colors"
+                      >
+                        View Feedback
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}
