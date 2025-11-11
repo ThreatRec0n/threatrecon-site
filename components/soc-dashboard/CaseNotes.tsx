@@ -78,8 +78,9 @@ export default function CaseNotes({ scenarioId, onNotesChange }: Props) {
   // Save notes to localStorage whenever they change (only if authenticated)
   useEffect(() => {
     if (isAuthenticated && userId) {
-      if (notes.length > 0 || localStorage.getItem(`case_notes_${scenarioId}_${userId}`)) {
-        localStorage.setItem(`case_notes_${scenarioId}_${userId}`, JSON.stringify(notes));
+      const storageKey = `case_notes_${scenarioId}_${userId}`;
+      if (notes.length > 0 || localStorage.getItem(storageKey)) {
+        localStorage.setItem(storageKey, JSON.stringify(notes));
         onNotesChange?.(notes);
       }
     }
