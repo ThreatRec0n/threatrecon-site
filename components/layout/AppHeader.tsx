@@ -116,14 +116,15 @@ export default function AppHeader() {
             {navOpen ? '✕' : '☰'}
           </button>
 
-          <div className="flex items-center gap-2">
+          {/* Auth Buttons - Separate and Prominent */}
+          <div className="flex items-center gap-3 ml-4">
             {isSupabaseEnabled ? (
               user ? (
                 <ProfileDropdown user={user} />
               ) : (
-                <>
+                <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
                   <button
-                    className="rounded-md px-3 py-1.5 text-sm text-[#c9d1d9] hover:bg-[#21262d] transition-colors border border-[#30363d] hover:border-[#58a6ff]"
+                    className="rounded-md px-4 py-2 text-sm font-medium text-[#c9d1d9] hover:bg-[#21262d] transition-colors border border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
                     onClick={() => {
                       if (!isSupabaseEnabled) return;
                       setMode('login');
@@ -134,7 +135,7 @@ export default function AppHeader() {
                     Sign In
                   </button>
                   <button
-                    className="rounded-md bg-[#58a6ff] px-3 py-1.5 text-sm text-white hover:bg-[#4493f8] transition-colors"
+                    className="rounded-md bg-[#58a6ff] px-4 py-2 text-sm font-medium text-white hover:bg-[#4493f8] transition-colors shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:ring-offset-2 focus:ring-offset-[#161b22]"
                     onClick={() => {
                       if (!isSupabaseEnabled) return;
                       setMode('signup');
@@ -144,7 +145,7 @@ export default function AppHeader() {
                   >
                     Sign Up
                   </button>
-                </>
+                </div>
               )
             ) : null}
           </div>
