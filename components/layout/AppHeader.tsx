@@ -17,44 +17,62 @@ export default function AppHeader() {
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseEnabled()) {
-      // If Supabase is not enabled, ensure user is null and auth is checked so buttons show
-      setUser(null);
-      setAuthChecked(true);
-      return;
-    }
-    
-    const supa = getSupabaseClient();
-    if (!supa) {
-      setUser(null);
-      setAuthChecked(true);
-      return;
-    }
+    let subscription: { unsubscribe: () => void } | null = null;
+    let mounted = true;
 
-    // Check initial auth state
-    supa.auth.getUser().then(({ data, error }) => {
-      // Ignore session errors - user is just not logged in
-      if (error && !error.message?.includes('session') && !error.message?.includes('JWT')) {
-        console.warn('Auth check warning:', error.message);
+    const initAuth = () => {
+      if (!isSupabaseEnabled()) {
+        // If Supabase is not enabled, ensure user is null and auth is checked so buttons show
+        if (mounted) {
+          setUser(null);
+          setAuthChecked(true);
+        }
+        return;
       }
-      setUser(data?.user ?? null);
-      setAuthChecked(true);
-    }).catch((err: any) => {
-      // Silently handle auth errors - user is just not logged in
-      if (err?.message && !err.message.includes('session') && !err.message.includes('JWT')) {
-        console.warn('Auth check warning:', err.message);
+      
+      const supa = getSupabaseClient();
+      if (!supa) {
+        if (mounted) {
+          setUser(null);
+          setAuthChecked(true);
+        }
+        return;
       }
-      setUser(null);
-      setAuthChecked(true);
-    });
-    
-    // Listen for auth state changes
-    const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-      setAuthChecked(true);
-    });
 
-    return () => subscription?.unsubscribe();
+      // Check initial auth state
+      supa.auth.getUser().then(({ data, error }) => {
+        if (!mounted) return;
+        // Ignore session errors - user is just not logged in
+        if (error && !error.message?.includes('session') && !error.message?.includes('JWT')) {
+          console.warn('Auth check warning:', error.message);
+        }
+        setUser(data?.user ?? null);
+        setAuthChecked(true);
+      }).catch((err: any) => {
+        if (!mounted) return;
+        // Silently handle auth errors - user is just not logged in
+        if (err?.message && !err.message.includes('session') && !err.message.includes('JWT')) {
+          console.warn('Auth check warning:', err.message);
+        }
+        setUser(null);
+        setAuthChecked(true);
+      });
+      
+      // Listen for auth state changes
+      const { data: { subscription: authSubscription } } = supa.auth.onAuthStateChange((_e, session) => {
+        if (!mounted) return;
+        setUser(session?.user ?? null);
+        setAuthChecked(true);
+      });
+      subscription = authSubscription;
+    };
+
+    initAuth();
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   return (

@@ -16,14 +16,15 @@ interface Profile {
 }
 
 export default function ProfileDropdown({ user, onProgressSync }: Props) {
-  // Guard: never render if Supabase is not enabled
-  if (!isSupabaseEnabled()) return null;
-
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
   const [isOpen, setIsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
   const [profile, setProfile] = useState<Profile | null>(null);
+
+  // Guard: never render if Supabase is not enabled (after hooks)
+  if (!isSupabaseEnabled()) return null;
 
   // Load profile on mount
   useEffect(() => {
