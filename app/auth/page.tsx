@@ -15,36 +15,49 @@ function AuthPageContent() {
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [authOpen, setAuthOpen] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseEnabled) return;
+    // Check if Supabase is enabled
+    if (!isSupabaseEnabled) {
+      setInitError('Supabase is not configured. Please add environment variables to Vercel.');
+      return;
+    }
     
-    const supa = getSupabaseClient();
-    if (!supa) return;
-
-    supa.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        setUser(data.user);
-        // Redirect if already logged in
-        const next = searchParams.get('next') || '/simulation';
-        router.push(next);
+    try {
+      const supa = getSupabaseClient();
+      if (!supa) {
+        setInitError('Failed to initialize Supabase client. Environment variables may be missing.');
+        return;
       }
-    }).catch((err) => {
-      console.error('Error checking auth state:', err);
-      // Don't crash if there's an error
-    });
-    
-    const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        const next = searchParams.get('next') || '/simulation';
-        router.push(next);
-      } else {
-        setUser(null);
-      }
-    });
 
-    return () => subscription?.unsubscribe();
+      supa.auth.getUser().then(({ data }) => {
+        if (data?.user) {
+          setUser(data.user);
+          // Redirect if already logged in
+          const next = searchParams.get('next') || '/simulation';
+          router.push(next);
+        }
+      }).catch((err) => {
+        console.error('Error checking auth state:', err);
+        setInitError('Failed to check authentication status.');
+      });
+      
+      const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          const next = searchParams.get('next') || '/simulation';
+          router.push(next);
+        } else {
+          setUser(null);
+        }
+      });
+
+      return () => subscription?.unsubscribe();
+    } catch (err: any) {
+      console.error('Error initializing auth:', err);
+      setInitError(err.message || 'Failed to initialize authentication.');
+    }
   }, [router, searchParams]);
 
   // Set initial mode from URL or default to login
@@ -114,8 +127,8 @@ function AuthPageContent() {
     );
   }
 
-  // Show message if Supabase is not enabled
-  if (!isSupabaseEnabled) {
+  // Show message if Supabase is not enabled or there's an init error
+  if (!isSupabaseEnabled || initError) {
     return (
       <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
@@ -125,9 +138,19 @@ function AuthPageContent() {
               <span className="text-lg font-semibold text-[#c9d1d9]">Threat Hunt Lab</span>
             </Link>
             <h1 className="text-2xl font-bold text-[#c9d1d9] mb-4">Authentication Unavailable</h1>
-            <p className="text-[#8b949e] mb-6">
-              Authentication is currently being configured. You can still use the platform without an account.
+            <p className="text-[#8b949e] mb-4">
+              {initError || 'Authentication is currently being configured. You can still use the platform without an account.'}
             </p>
+            {initError && (
+              <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 mb-4 text-left">
+                <p className="text-sm text-[#8b949e] mb-2">To fix this:</p>
+                <ol className="text-sm text-[#8b949e] list-decimal list-inside space-y-1">
+                  <li>Go to Vercel Dashboard → Settings → Environment Variables</li>
+                  <li>Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY</li>
+                  <li>Redeploy your site (new build required)</li>
+                </ol>
+              </div>
+            )}
             <Link
               href="/simulation"
               className="inline-block px-6 py-3 bg-[#58a6ff] text-white rounded-md hover:bg-[#4493f8] transition-colors"
