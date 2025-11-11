@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { isSupabaseEnabled as checkEnabled } from './client';
 
 export function isSupabaseEnabled(): boolean {
-  return checkEnabled;
+  return checkEnabled();
 }
 
 export async function getSupabaseClient() {
