@@ -68,13 +68,14 @@ export class ErrorBoundary extends Component<Props, State> {
                 Go Home
               </button>
             </div>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {this.state.error && (
               <details className="mt-6 text-left">
                 <summary className="text-sm text-[#8b949e] cursor-pointer mb-2">
-                  Error Details (Development Only)
+                  Error Details {process.env.NODE_ENV === 'development' ? '(Development)' : '(Click to view)'}
                 </summary>
-                <pre className="text-xs text-red-400 bg-[#0d1117] p-4 rounded overflow-auto">
+                <pre className="text-xs text-red-400 bg-[#0d1117] p-4 rounded overflow-auto max-h-60">
                   {this.state.error.toString()}
+                  {'\n\n'}
                   {this.state.error.stack}
                 </pre>
               </details>

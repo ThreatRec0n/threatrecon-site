@@ -16,55 +16,106 @@ function AuthPageContent() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [authOpen, setAuthOpen] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if Supabase is enabled
-    if (!isSupabaseEnabled()) {
-      setInitError('Supabase is not configured. Please add environment variables to Vercel.');
-      return;
-    }
+    let mounted = true;
+    setIsLoading(true);
     
-    try {
-      const supa = getSupabaseClient();
-      if (!supa) {
-        setInitError('Failed to initialize Supabase client. Environment variables may be missing.');
-        return;
+    // Wrap everything in try-catch to prevent errors from bubbling up
+    const initAuth = async () => {
+      try {
+        // Check if Supabase is enabled
+        let enabled = false;
+        try {
+          enabled = isSupabaseEnabled();
+        } catch (err: any) {
+          console.error('Error checking Supabase enabled:', err);
+          if (mounted) {
+            setInitError('Error checking Supabase configuration.');
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (!enabled) {
+          if (mounted) {
+            setInitError('Supabase is not configured. Please add environment variables to Vercel.');
+            setIsLoading(false);
+          }
+          return;
+        }
+        
+        const supa = getSupabaseClient();
+        if (!supa) {
+          if (mounted) {
+            setInitError('Failed to initialize Supabase client. Environment variables may be missing.');
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        try {
+          const { data, error } = await supa.auth.getUser();
+          if (error) {
+            console.error('Error getting user:', error);
+          }
+          if (mounted && data?.user) {
+            setUser(data.user);
+            // Redirect if already logged in
+            const next = searchParams.get('next') || '/simulation';
+            router.push(next);
+            return;
+          }
+        } catch (err) {
+          console.error('Error checking auth state:', err);
+          // Don't set error for auth check failures - user might just not be logged in
+        }
+        
+        const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
+          if (!mounted) return;
+          if (session?.user) {
+            setUser(session.user);
+            const next = searchParams.get('next') || '/simulation';
+            router.push(next);
+          } else {
+            setUser(null);
+          }
+        });
+
+        if (mounted) {
+          setIsLoading(false);
+        }
+
+        return () => {
+          mounted = false;
+          subscription?.unsubscribe();
+        };
+      } catch (err: any) {
+        console.error('Error initializing auth:', err);
+        if (mounted) {
+          setInitError(err.message || 'Failed to initialize authentication.');
+          setIsLoading(false);
+        }
       }
+    };
 
-      supa.auth.getUser().then(({ data }) => {
-        if (data?.user) {
-          setUser(data.user);
-          // Redirect if already logged in
-          const next = searchParams.get('next') || '/simulation';
-          router.push(next);
-        }
-      }).catch((err) => {
-        console.error('Error checking auth state:', err);
-        setInitError('Failed to check authentication status.');
-      });
-      
-      const { data: { subscription } } = supa.auth.onAuthStateChange((_e, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          const next = searchParams.get('next') || '/simulation';
-          router.push(next);
-        } else {
-          setUser(null);
-        }
-      });
+    initAuth();
 
-      return () => subscription?.unsubscribe();
-    } catch (err: any) {
-      console.error('Error initializing auth:', err);
-      setInitError(err.message || 'Failed to initialize authentication.');
-    }
+    return () => {
+      mounted = false;
+    };
   }, [router, searchParams]);
 
   // Set initial mode from URL or default to login
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'signup') {
-      setMode('signup');
+    try {
+      const tab = searchParams.get('tab');
+      if (tab === 'signup') {
+        setMode('signup');
+      }
+    } catch (err) {
+      console.error('Error reading search params:', err);
     }
   }, [searchParams]);
 
@@ -127,8 +178,27 @@ function AuthPageContent() {
     );
   }
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-[#58a6ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#c9d1d9]">Loading authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show message if Supabase is not enabled or there's an init error
-  if (!isSupabaseEnabled() || initError) {
+  let supabaseEnabled = false;
+  try {
+    supabaseEnabled = isSupabaseEnabled();
+  } catch (err) {
+    console.error('Error checking Supabase enabled:', err);
+  }
+
+  if (!supabaseEnabled || initError) {
     return (
       <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
