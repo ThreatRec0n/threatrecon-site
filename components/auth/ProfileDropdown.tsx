@@ -23,11 +23,10 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
   const [error, setError] = useState('');
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  // Guard: never render if Supabase is not enabled (after hooks)
-  if (!isSupabaseEnabled()) return null;
-
-  // Load profile on mount
+  // Load profile on mount - must be called before early return
   useEffect(() => {
+    if (!isSupabaseEnabled()) return;
+    
     const loadProfile = async () => {
       const supa = getSupabaseClient();
       if (!supa || !user) return;
@@ -45,6 +44,9 @@ export default function ProfileDropdown({ user, onProgressSync }: Props) {
 
     loadProfile();
   }, [user]);
+
+  // Guard: never render if Supabase is not enabled (after ALL hooks)
+  if (!isSupabaseEnabled()) return null;
 
   const handleSync = async () => {
     if (!user) return;
