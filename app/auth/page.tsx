@@ -8,8 +8,6 @@ import { getSupabaseClient, isSupabaseEnabled } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import AuthModal from '@/components/auth/AuthModal';
 
-export const dynamic = 'force-dynamic';
-
 export default function AuthPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
