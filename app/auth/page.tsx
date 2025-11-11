@@ -86,7 +86,10 @@ function AuthPageContent() {
           }
           if (mounted && data?.user) {
             setUser(data.user);
-            router.push(nextPath);
+            // Use window.location instead of router to avoid dependency issues
+            if (typeof window !== 'undefined') {
+              window.location.href = nextPath;
+            }
             return;
           }
         } catch (err: any) {
@@ -99,7 +102,10 @@ function AuthPageContent() {
           if (!mounted) return;
           if (session?.user) {
             setUser(session.user);
-            router.push(nextPath);
+            // Use window.location instead of router to avoid dependency issues
+            if (typeof window !== 'undefined') {
+              window.location.href = nextPath;
+            }
           } else {
             setUser(null);
           }
@@ -124,25 +130,33 @@ function AuthPageContent() {
       mounted = false;
       subscription?.unsubscribe();
     };
-  }, [router, nextPath, paramsReady]);
+    // Remove router from dependencies - use window.location instead to prevent re-renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextPath, paramsReady]);
 
   const handleSuccess = () => {
     const checkProfile = async () => {
       if (!isSupabaseEnabled()) {
-        router.push('/simulation');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/simulation';
+        }
         return;
       }
       
       const supa = getSupabaseClient();
       if (!supa) {
-        router.push('/simulation');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/simulation';
+        }
         return;
       }
       
       try {
         const { data: { user } } = await supa.auth.getUser();
         if (!user) {
-          router.push('/simulation');
+          if (typeof window !== 'undefined') {
+            window.location.href = '/simulation';
+          }
           return;
         }
 
@@ -153,13 +167,19 @@ function AuthPageContent() {
           .single();
 
         if (!profile || !profile.username || profile.username.startsWith('user_')) {
-          router.push('/onboarding/username');
+          if (typeof window !== 'undefined') {
+            window.location.href = '/onboarding/username';
+          }
         } else {
-          router.push(nextPath);
+          if (typeof window !== 'undefined') {
+            window.location.href = nextPath;
+          }
         }
       } catch (err) {
         console.error('Error checking profile:', err);
-        router.push('/simulation');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/simulation';
+        }
       }
     };
 
