@@ -4,7 +4,29 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config({ path: '.env.local' });
+const path = require('path');
+const fs = require('fs');
+
+// Load .env.local manually if dotenv doesn't work
+const envPath = path.join(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const match = line.match(/^([^=:#]+)=(.*)$/);
+    if (match) {
+      const key = match[1].trim();
+      const value = match[2].trim().replace(/^["']|["']$/g, '');
+      process.env[key] = value;
+    }
+  });
+}
+
+// Also try dotenv as fallback
+try {
+  require('dotenv').config({ path: '.env.local' });
+} catch (e) {
+  // dotenv not available, using manual parsing above
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
