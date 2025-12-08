@@ -21,10 +21,17 @@ import type {
   IOCEnrichmentResult,
 } from './ioc-tracking';
 
-import type {
-  LogSourceType,
-  LogSource,
-} from './multi-source-log-generator';
+// Log source types (moved from deleted multi-source-log-generator.ts)
+export type LogSourceType = 'EDR' | 'SIEM' | 'Firewall' | 'Proxy' | 'DNS' | 'Email Gateway' | 'Cloud' | 'AD';
+
+export interface LogSource {
+  name: string;
+  type: LogSourceType;
+  availability: number; // 0-100% uptime
+  latency: number; // Delay in minutes for logs to appear
+  retention: number; // Days of data available
+  eventTypes: string[];
+}
 
 // Investigation State Types
 export interface InvestigationState {
