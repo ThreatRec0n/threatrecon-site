@@ -510,7 +510,7 @@ export default function SimulationDashboard() {
                 onEventSelect={setSelectedEvent}
               />
               
-              {learningMode && selectedEvent && <LearningMode event={selectedEvent} />}
+              {learningMode && selectedEvent && <LearningMode event={selectedEvent} enabled={learningMode} />}
               
               <IOCTaggingPanel
                 iocs={extractedIOCs}
