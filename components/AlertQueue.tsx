@@ -6,10 +6,9 @@ import type { Alert } from '@/lib/simulation-engine/core-types';
 interface Props {
   alerts: Alert[];
   onSelectAlert: (alert: Alert) => void;
-  onTriageAlert: (alertId: string, classification: 'True Positive' | 'False Positive') => void;
 }
 
-export default function AlertQueue({ alerts, onSelectAlert, onTriageAlert }: Props) {
+export default function AlertQueue({ alerts, onSelectAlert }: Props) {
   const [sortBy, setSortBy] = useState<'priority' | 'sla'>('priority');
   
   useEffect(() => {
@@ -74,7 +73,7 @@ export default function AlertQueue({ alerts, onSelectAlert, onTriageAlert }: Pro
           <div
             key={alert.id}
             onClick={() => onSelectAlert(alert)}
-            className={`p-4 border-b border-[#30363d] hover:bg-[#161b22] cursor-pointer transition-colors ${
+            className={`p-4 border-b border-[#30363d] hover:bg-[#161b22] cursor-pointer ${
               alert.sla_status === 'Breached' ? 'bg-red-950/30' : ''
             }`}
           >
@@ -103,16 +102,10 @@ export default function AlertQueue({ alerts, onSelectAlert, onTriageAlert }: Pro
             <p className="text-xs text-gray-400 mb-2">{alert.initial_description}</p>
             
             <div className="flex justify-between items-center text-xs">
-              <div className="flex gap-2 text-gray-500">
-                <span>Priority: {alert.priority_score}</span>
-                {alert.requires_containment && (
-                  <span className="text-orange-400">⚠ Containment Required</span>
-                )}
-              </div>
+              <span className="text-gray-500">Priority: {alert.priority_score}</span>
               <span className={`px-2 py-0.5 rounded ${
                 alert.status === 'New' ? 'bg-blue-500/20 text-blue-400' :
-                alert.status === 'Investigating' ? 'bg-yellow-500/20 text-yellow-400' :
-                'bg-gray-500/20 text-gray-400'
+                'bg-yellow-500/20 text-yellow-400'
               }`}>
                 {alert.status}
               </span>
@@ -120,38 +113,6 @@ export default function AlertQueue({ alerts, onSelectAlert, onTriageAlert }: Pro
           </div>
         ))}
       </div>
-      
-      <div className="p-3 border-t border-[#30363d] bg-[#161b22]">
-        <div className="grid grid-cols-4 gap-2 text-center text-xs">
-          <div>
-            <div className="text-red-400 font-bold">
-              {alerts.filter(a => a.severity === 'Critical').length}
-            </div>
-            <div className="text-gray-500">Critical</div>
-          </div>
-          <div>
-            <div className="text-orange-400 font-bold">
-              {alerts.filter(a => a.severity === 'High').length}
-            </div>
-            <div className="text-gray-500">High</div>
-          </div>
-          <div>
-            <div className="text-green-400 font-bold">
-              {alerts.filter(a => a.status === 'New').length}
-            </div>
-            <div className="text-gray-500">New</div>
-          </div>
-          <div>
-            <div className={`font-bold ${
-              alerts.some(a => a.sla_status === 'Breached') ? 'text-red-400 animate-pulse' : 'text-green-400'
-            }`}>
-              {alerts.filter(a => a.sla_status === 'Breached').length}
-            </div>
-            <div className="text-gray-500">Breached</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
-

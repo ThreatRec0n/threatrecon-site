@@ -1,8 +1,6 @@
 import type { Alert, SimulatedEvent, InvestigationSession } from './core-types';
 import { EventFactory } from './event-factory';
 import { AlertFactory } from './alert-factory';
-import { generateCorrelatedEvents } from './event-generator';
-import type { EventGenerationContext } from './event-generator';
 import { randomUUID } from 'crypto';
 
 export class SimulationEngine {
@@ -10,9 +8,6 @@ export class SimulationEngine {
   private alertFactory = new AlertFactory();
   private currentSession: InvestigationSession | null = null;
   
-  /**
-   * Generate complete investigation session
-   */
   createSession(config: {
     difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
     scenario_type: 'ransomware' | 'apt' | 'insider';
@@ -20,21 +15,20 @@ export class SimulationEngine {
     
     const sessionId = randomUUID();
     
-    // Generate attack events (use existing logic)
-    const attackEvents = this.generateAttackEvents(sessionId, config.scenario_type);
+    // Generate minimal attack events
+    const attackEvents = this.generateMinimalAttackEvents(sessionId);
     
-    // Generate MASSIVE volume of benign events
+    // Generate massive benign events
     const allEvents = this.eventFactory.generateEventSet({
       session_id: sessionId,
       difficulty: config.difficulty,
       attack_events: attackEvents
     });
     
-    // Generate realistic alert queue
+    // Generate alerts
     const alerts = this.alertFactory.generateAlertQueue({
       session_id: sessionId,
-      difficulty: config.difficulty,
-      attack_event_count: attackEvents.length
+      difficulty: config.difficulty
     });
     
     console.log(`✓ Generated ${allEvents.length} events (${attackEvents.length} malicious, ${allEvents.length - attackEvents.length} benign)`);
@@ -47,8 +41,8 @@ export class SimulationEngine {
       alerts,
       events: allEvents,
       attack_chain: {
-        stages: [...new Set(attackEvents.map(e => e.stage).filter(Boolean) as string[])],
-        techniques: [...new Set(attackEvents.map(e => e.technique_id).filter(Boolean) as string[])]
+        stages: ['execution', 'persistence', 'command-and-control'],
+        techniques: ['T1059.001', 'T1547.001', 'T1071.001']
       },
       alerts_triaged: 0,
       correct_identifications: 0,
@@ -69,58 +63,53 @@ export class SimulationEngine {
     return this.currentSession;
   }
   
-  private generateAttackEvents(sessionId: string, scenarioType: string): SimulatedEvent[] {
-    const context: EventGenerationContext = {
-      scenario_id: sessionId,
-      session_id: sessionId,
-      hostname: 'VICTIM-PC',
-      username: 'user42',
-      sourceIP: '10.50.12.42',
-      attack_chain: {
+  private generateMinimalAttackEvents(sessionId: string): SimulatedEvent[] {
+    const now = new Date();
+    
+    return [
+      {
         id: randomUUID(),
-        scenario_id: sessionId,
         session_id: sessionId,
-        name: scenarioType,
-        description: '',
-        stages: [],
-        status: 'active',
-        start_time: new Date().toISOString()
+        source: 'sysmon',
+        event_type: 'ProcessCreate',
+        timestamp: new Date(now.getTime() - 3600000).toISOString(),
+        hostname: 'VICTIM-PC',
+        username: 'user42',
+        process_name: 'powershell.exe',
+        command_line: 'powershell.exe -EncodedCommand JABjAGwAaQBlAG4A...',
+        is_malicious: true,
+        technique_id: 'T1059.001',
+        stage: 'execution',
+        threat_score: 85,
+        raw_log: {
+          EventID: 1,
+          Image: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+          CommandLine: 'powershell.exe -EncodedCommand JABjAGwAaQBlAG4A...'
+        }
       },
-      shared_artifacts: {
-        malicious_ips: ['185.220.101.47'],
-        malicious_domains: ['evil-c2.com'],
-        malicious_hashes: [],
-        processes: new Map()
+      {
+        id: randomUUID(),
+        session_id: sessionId,
+        source: 'zeek',
+        event_type: 'conn',
+        timestamp: new Date(now.getTime() - 3500000).toISOString(),
+        hostname: 'VICTIM-PC',
+        source_ip: '10.50.12.42',
+        dest_ip: '185.220.101.47',
+        dest_port: 4444,
+        protocol: 'tcp',
+        is_malicious: true,
+        technique_id: 'T1071.001',
+        stage: 'command-and-control',
+        threat_score: 90,
+        raw_log: {
+          id_orig_h: '10.50.12.42',
+          id_resp_h: '185.220.101.47',
+          id_resp_p: 4444,
+          proto: 'tcp'
+        }
       }
-    };
-    
-    const rawEvents = generateCorrelatedEvents(context, {
-      stage: 'execution',
-      technique_id: 'T1059.001',
-      timestamp: new Date().toISOString(),
-      events: []
-    });
-    
-    return rawEvents.map(event => ({
-      id: event.id,
-      session_id: sessionId,
-      source: event.source as any,
-      event_type: 'attack',
-      timestamp: event.timestamp,
-      hostname: 'VICTIM-PC',
-      username: 'user42',
-      process_name: event.details?.Image || event.details?.ProcessName,
-      command_line: event.details?.CommandLine,
-      source_ip: event.network_context?.source_ip,
-      dest_ip: event.network_context?.dest_ip,
-      dest_port: event.network_context?.dest_port,
-      protocol: event.network_context?.protocol,
-      is_malicious: true,
-      technique_id: event.technique_id,
-      stage: event.stage,
-      threat_score: event.threat_score || 80,
-      raw_log: event.details || {}
-    }));
+    ];
   }
 }
 

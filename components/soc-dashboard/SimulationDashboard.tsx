@@ -8,14 +8,8 @@ import LearningMode from './LearningMode';
 import IOCEnrichment from './IOCEnrichment';
 import EvaluationReport from './EvaluationReport';
 import MitreNavigator from './MitreNavigator';
-import DetectionRuleBuilder, { type DetectionRule } from '@/components/DetectionRuleBuilder';
 import InvestigationGuide from './InvestigationGuide';
-import OnboardingModal from './OnboardingModal';
-import ScenarioSelector from './ScenarioSelector';
 import ProgressTracker, { markScenarioCompleted } from './ProgressTracker';
-import CaseNotes, { type CaseNote } from './CaseNotes';
-import EvidenceBinder, { type EvidenceItem } from './EvidenceBinder';
-import ReportExport from './ReportExport';
 import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
 import { HelpSidebar } from '@/components/ui/ContextualHelp';
@@ -41,6 +35,11 @@ export default function SimulationDashboard() {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [iocTags, setIocTags] = useState<Record<string, string>>({});
+  const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
+  const [lastFeedbackId, setLastFeedbackId] = useState<string | null>(null);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
   // Initialize simulation on mount
   useEffect(() => {
@@ -159,12 +158,7 @@ export default function SimulationDashboard() {
     return Array.from(uniqueStages).sort();
   }, [session]);
 
-  // Filter events by selected stage
-  const filteredEvents = useMemo(() => {
-    if (!session) return [];
-    if (!selectedStage) return session.events;
-    return session.events.filter(e => e.stage === selectedStage);
-  }, [session, selectedStage]);
+  // Filter events by selected stage (removed - using all events)
 
   // Extract IOCs from events using comprehensive extractor
   const extractedIOCs = useMemo(() => {
@@ -189,23 +183,20 @@ export default function SimulationDashboard() {
       // Evaluate the investigation
       const result = evaluateInvestigation(iocTags, {
         events: session.events,
-        attack_chains: session.attack_chains,
+        attack_chains: [session.attack_chain],
         alerts: session.alerts,
       });
 
       setEvaluationResult(result);
       
       // Mark scenario as completed
-      if (currentScenarioType) {
-        markScenarioCompleted(currentScenarioType);
-      }
+      const scenarioType = session.scenario_name;
+      markScenarioCompleted(scenarioType);
       
       // Save progress to localStorage
       const progress = JSON.parse(localStorage.getItem('threatrecon_scenario_progress') || '{}');
-      if (currentScenarioType) {
-        progress[currentScenarioType] = true;
-        localStorage.setItem('threatrecon_scenario_progress', JSON.stringify(progress));
-      }
+      progress[scenarioType] = true;
+      localStorage.setItem('threatrecon_scenario_progress', JSON.stringify(progress));
 
       // Save score
       const scores = JSON.parse(localStorage.getItem('threatrecon_scores') || '[]');
@@ -214,7 +205,7 @@ export default function SimulationDashboard() {
                         result.score >= 50 ? 'SOC Analyst' : 'Analyst in Training';
       
       scores.push({
-        scenario: currentScenarioType,
+        scenario: scenarioType,
         score: result.score,
         timestamp: new Date().toISOString(),
         skill_level: skillLevel,
@@ -227,7 +218,7 @@ export default function SimulationDashboard() {
         const leaderboardEntry = {
           score: result.score,
           time: completionTime,
-          scenario: currentScenarioType,
+          scenario: scenarioType,
           timestamp: new Date().toISOString(),
           skillLevel: skillLevel,
         };
@@ -243,22 +234,6 @@ export default function SimulationDashboard() {
         });
         localStorage.setItem('threatrecon_leaderboard', JSON.stringify(leaderboard.slice(0, 100)));
       }
-      
-      // Update detected techniques based on evaluation
-      const detected = new Set<string>();
-      session.events.forEach(event => {
-        if (event.technique_id && result.breakdown.truePositives > 0) {
-          // If IOC from this technique was correctly tagged, mark as detected
-          const iocsFromEvent = extractedIOCs.ips.concat(extractedIOCs.domains, extractedIOCs.hashes);
-          const hasCorrectTag = iocsFromEvent.some((ioc: string) =>
-            iocTags[ioc] === 'confirmed-threat' || iocTags[ioc] === 'suspicious'
-          );
-          if (hasCorrectTag) {
-            detected.add(event.technique_id);
-          }
-        }
-      });
-      setDetectedTechniques(Array.from(detected));
 
       // Submit to API
       await fetch('/api/simulation', {
@@ -271,14 +246,13 @@ export default function SimulationDashboard() {
       });
 
       // Submit results to feedback API
-      const currentScenario = session.scenario_stories[0];
       const submitResponse = await fetch('/api/simulation/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           evaluationResult: result,
-          scenarioType: currentScenarioType,
-          scenarioName: currentScenario?.name || 'Unknown Scenario',
+          scenarioType: scenarioType,
+          scenarioName: session.scenario_name,
           iocTags: iocTags,
           completionTime: timedMode && startTime ? elapsedTime : undefined,
           timedMode: timedMode,
@@ -308,8 +282,8 @@ export default function SimulationDashboard() {
             eventData: {
               score: result.score,
               time: timedMode && startTime ? elapsedTime : undefined,
-              difficulty: currentScenario?.difficulty || 'intermediate',
-              scenario: currentScenarioType,
+              difficulty: session.difficulty.toLowerCase() || 'intermediate',
+              scenario: scenarioType,
             },
           }),
         });
@@ -442,14 +416,6 @@ export default function SimulationDashboard() {
               </button>
               
               <ProgressTracker />
-              <button
-                onClick={() => setShowScenarioSelector(true)}
-                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-                aria-label="Open Scenario Settings - Customize attack scenario type, stages, and noise level"
-                title="Customize scenario type, attack stages, and noise level"
-              >
-                🧬 Scenario Settings
-              </button>
               
               <a
                 href="/leaderboard"
@@ -528,63 +494,6 @@ export default function SimulationDashboard() {
                 🎓 Replay Tutorial
               </button>
               <button
-                onClick={() => setHelpSidebarOpen(true)}
-                className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-                aria-label="Open Help & Documentation"
-                title="View help documentation and glossary"
-              >
-                ❓ Help
-              </button>
-              <button
-                onClick={() => setLearningMode(!learningMode)}
-                disabled={isLocked}
-                className={`px-3 py-1.5 rounded border text-sm transition-colors ${
-                  learningMode
-                    ? 'bg-[#58a6ff] text-[#0d1117] border-[#58a6ff]'
-                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
-                } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-[#58a6ff]`}
-                aria-label={`Toggle Learning Mode ${learningMode ? 'OFF' : 'ON'} - Show MITRE technique definitions and detection tips`}
-                title={learningMode ? "Learning mode ON - Click to hide educational overlays" : "Learning mode OFF - Click to show MITRE definitions and detection tips"}
-              >
-                📘 Learning {learningMode ? 'ON' : 'OFF'}
-              </button>
-              <button
-                onClick={() => setActiveView(activeView === 'mitre' ? 'main' : 'mitre')}
-                className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                  activeView === 'mitre'
-                    ? 'bg-purple-900/40 text-purple-400 border-purple-800/60'
-                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-purple-800/60'
-                }`}
-                aria-label={activeView === 'mitre' ? "Close MITRE ATT&CK Navigator and return to main view" : "Open MITRE ATT&CK Navigator - View attack techniques matrix"}
-                title={activeView === 'mitre' ? "Close MITRE Navigator" : "View MITRE ATT&CK techniques matrix for this scenario"}
-              >
-                🎯 ATT&CK Navigator
-              </button>
-              <button
-                onClick={() => setActiveView(activeView === 'rules' ? 'main' : 'rules')}
-                className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                  activeView === 'rules'
-                    ? 'bg-green-900/40 text-green-400 border-green-800/60'
-                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-green-800/60'
-                }`}
-                aria-label={activeView === 'rules' ? "Close Detection Rule Builder and return to main view" : "Open Detection Rule Builder - Create Sigma, YARA, and KQL rules"}
-                title={activeView === 'rules' ? "Close Detection Rule Builder" : "Detection Rule Builder - Create and test detection rules (Sigma, YARA, KQL)"}
-              >
-                📝 Detection Rules
-              </button>
-              <button
-                onClick={() => setActiveView(activeView === 'case' ? 'main' : 'case')}
-                className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  activeView === 'case'
-                    ? 'bg-blue-900/40 text-blue-400 border-blue-800/60'
-                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-blue-800/60'
-                }`}
-                aria-label={activeView === 'case' ? "Close Case Notes and return to main view" : "Open Case Notes - Document investigation findings"}
-                title={activeView === 'case' ? "Close Case Notes" : "Case Notes - Document findings, attach evidence, and export reports"}
-              >
-                📋 Case Notes
-              </button>
-              <button
                 onClick={handleFinalizeInvestigation}
                 disabled={isLocked || isSubmitting}
                 data-tutorial="finalize-button"
@@ -605,112 +514,6 @@ export default function SimulationDashboard() {
 
       {/* Main Content Area */}
       <div className="p-4">
-        {/* Scenario Introduction Banner */}
-        {showScenarioIntro && currentScenario?.narrative && (
-          <div className="mb-4 siem-card border-l-4 border-[#58a6ff]" data-tutorial="scenario-intro">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3 flex-wrap">
-                  <h2 className="text-xl font-bold text-[#c9d1d9]">{currentScenario.name}</h2>
-                  {currentScenario.difficulty && (
-                    <span className={`text-xs px-2 py-1 rounded border ${
-                      currentScenario.difficulty === 'beginner' ? 'bg-green-900/40 text-green-400 border-green-800/60' :
-                      currentScenario.difficulty === 'intermediate' ? 'bg-yellow-900/40 text-yellow-400 border-yellow-800/60' :
-                      currentScenario.difficulty === 'advanced' ? 'bg-orange-900/40 text-orange-400 border-orange-800/60' :
-                      'bg-red-900/40 text-red-400 border-red-800/60'
-                    }`}>
-                      {currentScenario.difficulty === 'beginner' ? '🟢 Beginner' :
-                       currentScenario.difficulty === 'intermediate' ? '🟡 Intermediate' :
-                       currentScenario.difficulty === 'advanced' ? '🟠 Advanced' :
-                       '🔴 Expert'}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => setShowScenarioIntro(false)}
-                    className="text-[#8b949e] hover:text-[#c9d1d9] text-sm"
-                  >
-                    ✕ Dismiss
-                  </button>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-[#8b949e] font-semibold">Background: </span>
-                    <span className="text-[#c9d1d9]">{currentScenario.narrative.background}</span>
-                  </div>
-                  <div>
-                    <span className="text-[#8b949e] font-semibold">Incident: </span>
-                    <span className="text-[#c9d1d9]">{currentScenario.narrative.incident}</span>
-                  </div>
-                  <div>
-                    <span className="text-[#8b949e] font-semibold">Your Role: </span>
-                    <span className="text-[#c9d1d9]">{currentScenario.narrative.yourRole}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* View Switcher */}
-        {activeView === 'mitre' && (
-          <div className="mb-4" data-tutorial="mitre-navigator">
-            <MitreNavigator
-              events={session.events}
-              attackChains={session.attack_chains}
-              detectedTechniques={detectedTechniques}
-            />
-          </div>
-        )}
-
-        {activeView === 'rules' && (
-          <div className="mb-4">
-            <DetectionRuleBuilder
-              onSave={(rule) => {
-                setSavedRules(prev => [...prev, rule]);
-                rule.mitreTechniques.forEach(tech => {
-                  if (!detectedTechniques.includes(tech)) {
-                    setDetectedTechniques(prev => [...prev, tech]);
-                  }
-                });
-              }}
-              onTest={(rule) => {
-                console.log('Testing rule:', rule);
-              }}
-            />
-          </div>
-        )}
-
-        {activeView === 'case' && session && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <CaseNotes
-              scenarioId={session.session_id}
-              onNotesChange={setCaseNotes}
-            />
-            <EvidenceBinder
-              scenarioId={session.session_id}
-              onEvidenceChange={setEvidence}
-            />
-          </div>
-        )}
-
-        {activeView === 'case' && session && (
-          <div className="mb-4">
-            <ReportExport
-              scenarioName={currentScenario?.name || 'Active Investigation'}
-              scenarioId={session.session_id}
-              notes={caseNotes}
-              evidence={evidence}
-              events={session.events}
-              evaluationResult={evaluationResult}
-              iocTags={iocTags}
-              onExport={(format) => {
-                console.log('Exporting report in format:', format);
-                // Export logic is handled in ReportExport component
-              }}
-            />
-          </div>
-        )}
-
         {/* Main Layout: Alert Queue + Log Explorer */}
         {session && !loading && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-2rem)]">
@@ -723,22 +526,6 @@ export default function SimulationDashboard() {
                   alert.status = 'Investigating';
                   alert.viewed_at = new Date();
                 }}
-                onTriageAlert={(alertId, classification) => {
-                  const alert = session.alerts.find(a => a.id === alertId);
-                  if (alert) {
-                    alert.status = 'Closed';
-                    alert.triaged_at = new Date();
-                    session.alerts_triaged++;
-                    
-                    if (classification === 'True Positive' && alert.is_true_threat) {
-                      session.correct_identifications++;
-                    } else if (classification === 'False Positive' && !alert.is_true_threat) {
-                      session.correct_identifications++;
-                    } else {
-                      session.missed_threats++;
-                    }
-                  }
-                }}
               />
             </div>
             
@@ -746,8 +533,14 @@ export default function SimulationDashboard() {
             <div className="lg:col-span-2">
               <LogExplorer
                 events={session.events}
-                selectedStage={null}
-                onEventSelect={setSelectedEvent}
+                selectedEvent={selectedEvent}
+                onSelectEvent={setSelectedEvent}
+              />
+              
+              <IOCTaggingPanel
+                iocs={extractedIOCs}
+                tags={iocTags}
+                onTag={(ioc, tag) => setIocTags({ ...iocTags, [ioc]: tag })}
               />
             </div>
           </div>
@@ -765,8 +558,6 @@ export default function SimulationDashboard() {
             setIsLocked(false);
             setIocTags({});
             setSelectedEvent(null);
-            setSelectedStage(null);
-            setDetectedTechniques([]);
             setLastFeedbackId(null);
             initializeSimulation();
           }}
@@ -775,27 +566,10 @@ export default function SimulationDashboard() {
 
       {/* Investigation Guide */}
       <InvestigationGuide
-        scenarioName={currentScenario?.name || 'Active Investigation'}
+        scenarioName={session?.scenario_name || 'Active Investigation'}
         attackStages={stages}
-        isOpen={investigationGuideOpen}
-        onOpenChange={setInvestigationGuideOpen}
-      />
-
-      {/* Onboarding Modal */}
-      <OnboardingModal
-        onOpenGuide={() => {
-          setInvestigationGuideOpen(true);
-        }}
-        onStart={() => {
-          // Modal will close itself
-        }}
-      />
-
-      {/* Scenario Selector */}
-      <ScenarioSelector
-        isOpen={showScenarioSelector}
-        onClose={() => setShowScenarioSelector(false)}
-        onRegenerate={handleRegenerateScenario}
+        isOpen={false}
+        onOpenChange={() => {}}
       />
 
       {/* Welcome Modal */}

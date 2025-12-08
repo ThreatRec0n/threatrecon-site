@@ -2,9 +2,6 @@ import type { SimulatedEvent } from './core-types';
 import { randomUUID } from 'crypto';
 
 export class EventFactory {
-  /**
-   * Generate realistic event volume: 95% noise, 5% attack
-   */
   generateEventSet(config: {
     session_id: string;
     difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
@@ -30,14 +27,12 @@ export class EventFactory {
       
       const eventType = Math.random();
       
-      if (eventType < 0.35) {
+      if (eventType < 0.40) {
         noiseEvents.push(this.generateNormalProcess(config.session_id, timestamp));
-      } else if (eventType < 0.60) {
+      } else if (eventType < 0.70) {
         noiseEvents.push(this.generateWebTraffic(config.session_id, timestamp));
-      } else if (eventType < 0.80) {
-        noiseEvents.push(this.generateFileActivity(config.session_id, timestamp));
       } else {
-        noiseEvents.push(this.generateSystemUpdate(config.session_id, timestamp));
+        noiseEvents.push(this.generateFileActivity(config.session_id, timestamp));
       }
     }
     
@@ -52,7 +47,7 @@ export class EventFactory {
     const processes = [
       { name: 'chrome.exe', cmd: 'chrome.exe --type=renderer' },
       { name: 'outlook.exe', cmd: 'outlook.exe' },
-      { name: 'teams.exe', cmd: 'teams.exe --type=gpu-process' },
+      { name: 'teams.exe', cmd: 'teams.exe' },
       { name: 'excel.exe', cmd: 'EXCEL.EXE' }
     ];
     
@@ -73,20 +68,13 @@ export class EventFactory {
       raw_log: {
         EventID: 1,
         Image: `C:\\Program Files\\${proc.name}`,
-        CommandLine: proc.cmd,
-        ParentImage: 'C:\\Windows\\explorer.exe'
+        CommandLine: proc.cmd
       }
     };
   }
   
   private generateWebTraffic(sessionId: string, timestamp: Date): SimulatedEvent {
-    const domains = [
-      'www.google.com',
-      'github.com',
-      'stackoverflow.com',
-      'docs.microsoft.com'
-    ];
-    
+    const domains = ['www.google.com', 'github.com', 'stackoverflow.com', 'docs.microsoft.com'];
     const domain = domains[Math.floor(Math.random() * domains.length)];
     
     return {
@@ -134,26 +122,4 @@ export class EventFactory {
       }
     };
   }
-  
-  private generateSystemUpdate(sessionId: string, timestamp: Date): SimulatedEvent {
-    return {
-      id: randomUUID(),
-      session_id: sessionId,
-      source: 'sysmon',
-      event_type: 'ProcessCreate',
-      timestamp: timestamp.toISOString(),
-      hostname: `SERVER-${Math.floor(Math.random() * 10)}`,
-      username: 'SYSTEM',
-      process_name: 'WindowsUpdate.exe',
-      command_line: 'WindowsUpdate.exe /silent',
-      is_malicious: false,
-      threat_score: 0,
-      raw_log: {
-        EventID: 1,
-        Image: 'C:\\Windows\\System32\\WindowsUpdate.exe',
-        User: 'NT AUTHORITY\\SYSTEM'
-      }
-    };
-  }
 }
-

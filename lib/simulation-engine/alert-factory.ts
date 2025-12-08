@@ -8,7 +8,6 @@ export class AlertFactory {
   generateAlertQueue(config: {
     session_id: string;
     difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-    attack_event_count: number;
   }): Alert[] {
     
     const alertCounts = {
@@ -42,20 +41,20 @@ export class AlertFactory {
     const templates = [
       {
         title: 'Suspicious PowerShell Execution Detected',
-        rule: 'PowerShell with Encoded Command + Network Connection',
-        description: 'PowerShell executed with -EncodedCommand flag and made outbound connection to suspicious IP',
+        rule: 'PowerShell with Encoded Command',
+        description: 'PowerShell executed with -EncodedCommand flag',
         source: 'EDR' as const
       },
       {
-        title: 'Potential Credential Dumping - LSASS Access',
-        rule: 'Unusual Process Accessing LSASS Memory',
-        description: 'Non-system process attempted to read LSASS process memory',
+        title: 'Potential Credential Dumping',
+        rule: 'LSASS Memory Access',
+        description: 'Process attempted to read LSASS memory',
         source: 'EDR' as const
       },
       {
-        title: 'Lateral Movement Detected - Multiple SMB Connections',
-        rule: 'Single Host SMB to Multiple Targets',
-        description: 'Host initiated SMB connections to 5+ different systems within 10 minutes',
+        title: 'Lateral Movement Detected',
+        rule: 'Multiple SMB Connections',
+        description: 'Host initiated SMB to multiple systems',
         source: 'SIEM' as const
       }
     ];
@@ -100,7 +99,7 @@ export class AlertFactory {
       id: randomUUID(),
       ticket_number: `INC-2024-${String(this.ticketCounter++).padStart(6, '0')}`,
       session_id: sessionId,
-      title: 'Outbound Connection to Recently Registered Domain',
+      title: 'Outbound Connection to New Domain',
       severity: 'Medium',
       source: 'Firewall',
       detection_rule: 'Domain Age < 30 Days',
@@ -115,7 +114,7 @@ export class AlertFactory {
       sla_status: 'Safe',
       priority_score: 40,
       requires_containment: false,
-      initial_description: 'User accessed newly registered domain - likely legitimate CDN or cloud service',
+      initial_description: 'User accessed newly registered domain',
       related_event_ids: [],
       is_true_threat: false,
       expected_classification: 'False Positive',
@@ -134,7 +133,7 @@ export class AlertFactory {
       title: 'Scheduled Task Execution',
       severity: 'Low',
       source: 'SIEM',
-      detection_rule: 'Scheduled Task Activity Log',
+      detection_rule: 'Scheduled Task Activity',
       affected_systems: [{
         hostname: `SERVER-${Math.floor(Math.random() * 10)}`,
         ip: `10.50.1.${Math.floor(Math.random() * 254) + 1}`
@@ -146,7 +145,7 @@ export class AlertFactory {
       sla_status: 'Safe',
       priority_score: 10,
       requires_containment: false,
-      initial_description: 'Routine scheduled task executed - Windows backup service',
+      initial_description: 'Routine scheduled task executed',
       related_event_ids: [],
       is_true_threat: false,
       expected_classification: 'False Positive',
@@ -163,4 +162,3 @@ export class AlertFactory {
     return arr;
   }
 }
-
