@@ -1,4 +1,5 @@
 import type { SimulatedEvent } from './core-types';
+import { randomUUID } from 'crypto';
 
 export class EventFactory {
   /**
@@ -58,7 +59,7 @@ export class EventFactory {
     const proc = processes[Math.floor(Math.random() * processes.length)];
     
     return {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       session_id: sessionId,
       source: 'sysmon',
       event_type: 'ProcessCreate',
@@ -89,7 +90,7 @@ export class EventFactory {
     const domain = domains[Math.floor(Math.random() * domains.length)];
     
     return {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       session_id: sessionId,
       source: 'zeek',
       event_type: 'http',
@@ -118,7 +119,7 @@ export class EventFactory {
     ];
     
     return {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       session_id: sessionId,
       source: 'sysmon',
       event_type: 'FileCreate',
@@ -136,7 +137,7 @@ export class EventFactory {
   
   private generateSystemUpdate(sessionId: string, timestamp: Date): SimulatedEvent {
     return {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       session_id: sessionId,
       source: 'sysmon',
       event_type: 'ProcessCreate',

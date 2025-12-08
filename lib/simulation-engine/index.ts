@@ -3,6 +3,7 @@ import { EventFactory } from './event-factory';
 import { AlertFactory } from './alert-factory';
 import { generateCorrelatedEvents } from './event-generator';
 import type { EventGenerationContext } from './event-generator';
+import { randomUUID } from 'crypto';
 
 export class SimulationEngine {
   private eventFactory = new EventFactory();
@@ -17,7 +18,7 @@ export class SimulationEngine {
     scenario_type: 'ransomware' | 'apt' | 'insider';
   }): InvestigationSession {
     
-    const sessionId = crypto.randomUUID();
+    const sessionId = randomUUID();
     
     // Generate attack events (use existing logic)
     const attackEvents = this.generateAttackEvents(sessionId, config.scenario_type);
@@ -76,7 +77,7 @@ export class SimulationEngine {
       username: 'user42',
       sourceIP: '10.50.12.42',
       attack_chain: {
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         scenario_id: sessionId,
         session_id: sessionId,
         name: scenarioType,
