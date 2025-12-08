@@ -30,6 +30,7 @@ export interface Alert {
 export interface SimulatedEvent {
   id: string;
   session_id: string;
+  scenario_id: string;
   source: 'sysmon' | 'zeek' | 'windows' | 'firewall';
   event_type: string;
   timestamp: string;
@@ -46,6 +47,20 @@ export interface SimulatedEvent {
   stage?: string;
   threat_score: number;
   raw_log: Record<string, any>;
+  details: Record<string, any>;
+  related_event_ids: string[];
+  correlation_key?: string;
+  network_context?: {
+    source_ip: string;
+    dest_ip: string;
+    source_port: number;
+    dest_port: number;
+    protocol: string;
+    bytes_sent: number;
+    bytes_received: number;
+    duration: number;
+    related_connections: string[];
+  };
 }
 
 export interface InvestigationSession {

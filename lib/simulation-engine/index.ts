@@ -64,11 +64,23 @@ export class SimulationEngine {
   
   private generateMinimalAttackEvents(sessionId: string): SimulatedEvent[] {
     const now = new Date();
+    const rawLog1 = {
+      EventID: 1,
+      Image: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+      CommandLine: 'powershell.exe -EncodedCommand JABjAGwAaQBlAG4A...'
+    };
+    const rawLog2 = {
+      id_orig_h: '10.50.12.42',
+      id_resp_h: '185.220.101.47',
+      id_resp_p: 4444,
+      proto: 'tcp'
+    };
     
     return [
       {
         id: crypto.randomUUID(),
         session_id: sessionId,
+        scenario_id: sessionId,
         source: 'sysmon',
         event_type: 'ProcessCreate',
         timestamp: new Date(now.getTime() - 3600000).toISOString(),
@@ -80,15 +92,14 @@ export class SimulationEngine {
         technique_id: 'T1059.001',
         stage: 'execution',
         threat_score: 85,
-        raw_log: {
-          EventID: 1,
-          Image: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-          CommandLine: 'powershell.exe -EncodedCommand JABjAGwAaQBlAG4A...'
-        }
+        raw_log: rawLog1,
+        details: rawLog1,
+        related_event_ids: []
       },
       {
         id: crypto.randomUUID(),
         session_id: sessionId,
+        scenario_id: sessionId,
         source: 'zeek',
         event_type: 'conn',
         timestamp: new Date(now.getTime() - 3500000).toISOString(),
@@ -101,12 +112,9 @@ export class SimulationEngine {
         technique_id: 'T1071.001',
         stage: 'command-and-control',
         threat_score: 90,
-        raw_log: {
-          id_orig_h: '10.50.12.42',
-          id_resp_h: '185.220.101.47',
-          id_resp_p: 4444,
-          proto: 'tcp'
-        }
+        raw_log: rawLog2,
+        details: rawLog2,
+        related_event_ids: []
       }
     ];
   }

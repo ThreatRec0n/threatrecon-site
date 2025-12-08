@@ -51,10 +51,16 @@ export class EventFactory {
     ];
     
     const proc = processes[Math.floor(Math.random() * processes.length)];
+    const rawLog = {
+      EventID: 1,
+      Image: `C:\\Program Files\\${proc.name}`,
+      CommandLine: proc.cmd
+    };
     
     return {
       id: crypto.randomUUID(),
       session_id: sessionId,
+      scenario_id: sessionId,
       source: 'sysmon',
       event_type: 'ProcessCreate',
       timestamp: timestamp.toISOString(),
@@ -64,21 +70,26 @@ export class EventFactory {
       command_line: proc.cmd,
       is_malicious: false,
       threat_score: 0,
-      raw_log: {
-        EventID: 1,
-        Image: `C:\\Program Files\\${proc.name}`,
-        CommandLine: proc.cmd
-      }
+      raw_log: rawLog,
+      details: rawLog,
+      related_event_ids: []
     };
   }
   
   private generateWebTraffic(sessionId: string, timestamp: Date): SimulatedEvent {
     const domains = ['www.google.com', 'github.com', 'stackoverflow.com', 'docs.microsoft.com'];
     const domain = domains[Math.floor(Math.random() * domains.length)];
+    const rawLog = {
+      host: domain,
+      method: 'GET',
+      uri: '/',
+      status_code: 200
+    };
     
     return {
       id: crypto.randomUUID(),
       session_id: sessionId,
+      scenario_id: sessionId,
       source: 'zeek',
       event_type: 'http',
       timestamp: timestamp.toISOString(),
@@ -89,12 +100,9 @@ export class EventFactory {
       protocol: 'tcp',
       is_malicious: false,
       threat_score: 0,
-      raw_log: {
-        host: domain,
-        method: 'GET',
-        uri: '/',
-        status_code: 200
-      }
+      raw_log: rawLog,
+      details: rawLog,
+      related_event_ids: []
     };
   }
   
@@ -104,10 +112,15 @@ export class EventFactory {
       'C:\\Users\\sarah\\Downloads\\installer.msi',
       'C:\\Windows\\Temp\\update.tmp'
     ];
+    const rawLog = {
+      EventID: 11,
+      TargetFilename: files[Math.floor(Math.random() * files.length)]
+    };
     
     return {
       id: crypto.randomUUID(),
       session_id: sessionId,
+      scenario_id: sessionId,
       source: 'sysmon',
       event_type: 'FileCreate',
       timestamp: timestamp.toISOString(),
@@ -115,10 +128,9 @@ export class EventFactory {
       username: `user${Math.floor(Math.random() * 20)}`,
       is_malicious: false,
       threat_score: 0,
-      raw_log: {
-        EventID: 11,
-        TargetFilename: files[Math.floor(Math.random() * files.length)]
-      }
+      raw_log: rawLog,
+      details: rawLog,
+      related_event_ids: []
     };
   }
 }

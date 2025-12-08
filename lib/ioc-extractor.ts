@@ -1,7 +1,7 @@
 // Comprehensive IOC extraction from simulated events
 // Handles multiple log sources, formats, and extraction methods
 
-import type { SimulatedEvent } from './simulation-engine/types';
+import type { SimulatedEvent } from './simulation-engine/core-types';
 
 export interface ExtractedIOCs {
   ips: string[];
