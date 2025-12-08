@@ -1,4 +1,4 @@
-import type { Alert, SimulatedEvent, InvestigationSession, AttackStage } from './core-types';
+import type { Alert, SimulatedEvent, InvestigationSession, AttackStage, AttackChain, AttackChainStage } from './core-types';
 import { EventFactory } from './event-factory';
 import { AlertFactory } from './alert-factory';
 
@@ -33,16 +33,46 @@ export class SimulationEngine {
     console.log(`✓ Generated ${allEvents.length} events (${attackEvents.length} malicious, ${allEvents.length - attackEvents.length} benign)`);
     console.log(`✓ Generated ${alerts.length} alerts`);
     
+    // Create proper AttackChain with AttackChainStage objects
+    const attackChain: AttackChain = {
+      id: crypto.randomUUID(),
+      scenario_id: sessionId,
+      session_id: sessionId,
+      name: `${config.scenario_type} Attack`,
+      description: `${config.difficulty} level ${config.scenario_type} scenario`,
+      stages: [
+        {
+          stage: 'execution' as AttackStage,
+          technique_id: 'T1059.001',
+          technique_name: 'PowerShell',
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          success: true,
+          events: attackEvents.filter(e => e.stage === 'execution').map(e => e.id),
+          artifacts: [],
+          description: 'Executed malicious PowerShell command'
+        },
+        {
+          stage: 'command-and-control' as AttackStage,
+          technique_id: 'T1071.001',
+          technique_name: 'Web Protocols',
+          timestamp: new Date(Date.now() - 3500000).toISOString(),
+          success: true,
+          events: attackEvents.filter(e => e.stage === 'command-and-control').map(e => e.id),
+          artifacts: [],
+          description: 'Established C2 communication'
+        }
+      ],
+      status: 'active',
+      start_time: new Date(Date.now() - 3600000).toISOString()
+    };
+    
     this.currentSession = {
       session_id: sessionId,
       scenario_name: `${config.difficulty} ${config.scenario_type} Investigation`,
       difficulty: config.difficulty,
       alerts,
       events: allEvents,
-      attack_chain: {
-        stages: ['execution', 'persistence', 'command-and-control'],
-        techniques: ['T1059.001', 'T1547.001', 'T1071.001']
-      },
+      attack_chain: attackChain,
       alerts_triaged: 0,
       correct_identifications: 0,
       false_positives_flagged: 0,

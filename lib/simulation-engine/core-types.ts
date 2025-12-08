@@ -49,7 +49,7 @@ export interface AttackChain {
   session_id: string;
   name: string;
   description: string;
-  stages: AttackStage[];
+  stages: AttackChainStage[];
   status: 'active' | 'completed' | 'detected' | 'failed';
   start_time: string;
   end_time?: string;
@@ -178,6 +178,7 @@ export interface SimulatedEvent {
     duration: number;
     related_connections: string[];
   };
+  process_tree?: ProcessTreeNode;
 }
 
 export interface InvestigationSession {
@@ -186,10 +187,7 @@ export interface InvestigationSession {
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   alerts: Alert[];
   events: SimulatedEvent[];
-  attack_chain: {
-    stages: string[];
-    techniques: string[];
-  };
+  attack_chain: AttackChain;
   alerts_triaged: number;
   correct_identifications: number;
   false_positives_flagged: number;
