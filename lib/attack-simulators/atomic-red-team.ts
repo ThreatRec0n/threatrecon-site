@@ -1,6 +1,6 @@
 // Atomic Red Team technique simulator - executes MITRE ATT&CK techniques and generates logs
 
-import type { AttackStage } from '@/lib/attack-chains';
+import type { AttackStage } from '@/lib/simulation-engine/core-types';
 import { generateSysmonEvent, SYSMON_EVENT_IDS } from '@/lib/log-generators/sysmon-generator';
 import { generateZeekConnLog, generateZeekHTTPLog, generateZeekDNSLog } from '@/lib/log-generators/zeek-generator';
 import type { SIEMEvent } from '@/lib/types';
