@@ -13,7 +13,7 @@ import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
 import AchievementUnlockToast from '@/components/achievements/AchievementUnlockToast';
 import AlertQueue from '@/components/AlertQueue';
-import type { InvestigationSession } from '@/lib/simulation-engine';
+import type { InvestigationSession, Alert } from '@/lib/simulation-engine';
 import type { SimulatedEvent } from '@/lib/simulation-engine/core-types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 import { extractIOCsFromEvents } from '@/lib/ioc-extractor';
