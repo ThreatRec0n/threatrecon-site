@@ -31,7 +31,7 @@ export default function LogExplorer({ events, selectedStage, onEventSelect }: Pr
 
     if (filters.host) {
       filtered = filtered.filter(e => 
-        e.process_tree?.hostname?.toLowerCase().includes(filters.host.toLowerCase()) ||
+        e.hostname?.toLowerCase().includes(filters.host.toLowerCase()) ||
         e.details?.Computer?.toLowerCase().includes(filters.host.toLowerCase())
       );
     }
