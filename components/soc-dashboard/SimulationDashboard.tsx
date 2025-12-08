@@ -506,8 +506,8 @@ export default function SimulationDashboard() {
             <div className="lg:col-span-2 space-y-4">
               <LogExplorer
                 events={session.events}
-                selectedEvent={selectedEvent}
-                onSelectEvent={setSelectedEvent}
+                selectedStage={selectedEvent?.stage || null}
+                onEventSelect={setSelectedEvent}
               />
               
               {learningMode && selectedEvent && <LearningMode event={selectedEvent} />}
