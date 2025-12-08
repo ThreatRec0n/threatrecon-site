@@ -45,8 +45,8 @@ export interface SimulatedEvent {
   dest_port?: number;
   protocol?: string;
   is_malicious: boolean;
-  technique_id?: string;
-  stage?: string;
+  technique_id: string;
+  stage: string;
   threat_score: number;
   raw_log: Record<string, any>;
   details: Record<string, any>;
