@@ -209,6 +209,16 @@ function generateExternalIP(): string {
   return octets.join('.');
 }
 
+function generateInternalIP(): string {
+  // Generate internal IP in 10.0.0.0/8 or 192.168.0.0/16 range
+  const ranges = [
+    () => `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+    () => `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+    () => `172.${16 + Math.floor(Math.random() * 16)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
+  ];
+  return ranges[Math.floor(Math.random() * ranges.length)]();
+}
+
 function generateHostname(): string {
   const prefixes = ['WORKSTATION', 'LAPTOP', 'SERVER', 'DC'];
   const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
