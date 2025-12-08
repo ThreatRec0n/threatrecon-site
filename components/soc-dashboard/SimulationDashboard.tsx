@@ -8,7 +8,6 @@ import LearningMode from './LearningMode';
 import IOCEnrichment from './IOCEnrichment';
 import EvaluationReport from './EvaluationReport';
 import MitreNavigator from './MitreNavigator';
-import PurpleTeamMode from './PurpleTeamMode';
 import DetectionRuleBuilder, { type DetectionRule } from '@/components/DetectionRuleBuilder';
 import InvestigationGuide from './InvestigationGuide';
 import OnboardingModal from './OnboardingModal';
@@ -556,18 +555,6 @@ export default function SimulationDashboard() {
                 🎯 ATT&CK Navigator
               </button>
               <button
-                onClick={() => setActiveView(activeView === 'purple' ? 'main' : 'purple')}
-                className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                  activeView === 'purple'
-                    ? 'bg-orange-900/40 text-orange-400 border-orange-800/60'
-                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-orange-800/60'
-                }`}
-                aria-label={activeView === 'purple' ? "Close Purple Team Mode and return to main view" : "Open Purple Team Mode - Execute attacks and test detections"}
-                title={activeView === 'purple' ? "Close Purple Team Mode" : "Purple Team Mode - Execute Atomic Red Team techniques and test detections"}
-              >
-                🟣 Purple Team
-              </button>
-              <button
                 onClick={() => setActiveView(activeView === 'rules' ? 'main' : 'rules')}
                 className={`px-3 py-1.5 rounded border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 ${
                   activeView === 'rules'
@@ -665,50 +652,6 @@ export default function SimulationDashboard() {
               events={session.events}
               attackChains={session.attack_chains}
               detectedTechniques={detectedTechniques}
-            />
-          </div>
-        )}
-
-        {activeView === 'purple' && (
-          <div className="mb-4">
-            <PurpleTeamMode
-              events={session.events}
-              onExecuteAttack={async (techniqueId) => {
-                try {
-                  const response = await fetch('/api/simulation', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      action: 'execute_attack',
-                      config: {
-                        technique_id: techniqueId,
-                        session_id: session.session_id,
-                      },
-                    }),
-                  });
-                  const data = await response.json();
-                  if (data.success && data.events) {
-                    const sessionResponse = await fetch('/api/simulation', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ action: 'get_session' }),
-                    });
-                    const sessionData = await sessionResponse.json();
-                    if (sessionData.success) {
-                      setSession(sessionData.session);
-                    }
-                  }
-                } catch (err) {
-                  console.error('Error executing attack:', err);
-                }
-              }}
-              onTestDetection={(rule) => {
-                rule.mitreTechniques.forEach(tech => {
-                  if (!detectedTechniques.includes(tech)) {
-                    setDetectedTechniques(prev => [...prev, tech]);
-                  }
-                });
-              }}
             />
           </div>
         )}
