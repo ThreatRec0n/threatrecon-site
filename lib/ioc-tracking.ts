@@ -164,7 +164,7 @@ export function tagIOC(ioc: IOC, tag: IOCTag, author: string, note?: string): IO
     tag,
     notes: [...ioc.notes, noteEntry],
     investigationStatus: tag === 'confirmed-threat' ? 'investigating' : 
-                        tag === 'false-positive' ? 'resolved' : 
+                        tag === 'benign' ? 'resolved' : 
                         ioc.investigationStatus,
   };
 }
