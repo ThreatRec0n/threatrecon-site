@@ -1,6 +1,6 @@
 // Realistic Log Noise Generator - Creates 95% noise with realistic distributions
 
-import type { SimulatedEvent } from './simulation-engine/types';
+import type { SimulatedEvent } from './simulation-engine/core-types';
 import { generateSysmonEvent, SYSMON_EVENT_IDS } from './log-generators/sysmon-generator';
 import { generateZeekConnLog, generateZeekHTTPLog, generateZeekDNSLog } from './log-generators/zeek-generator';
 

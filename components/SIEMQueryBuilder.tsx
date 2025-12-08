@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import type { SimulatedEvent } from '@/lib/simulation-engine/types';
+import type { SimulatedEvent } from '@/lib/simulation-engine/core-types';
 
 export type QuerySyntax = 'SPL' | 'KQL' | 'ELK';
 

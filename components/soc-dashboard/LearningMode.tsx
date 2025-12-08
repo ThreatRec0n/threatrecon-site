@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { SimulatedEvent } from '@/lib/simulation-engine/types';
+import type { SimulatedEvent } from '@/lib/simulation-engine/core-types';
 import { getMitreTechnique } from '@/lib/mitre';
 
 interface Props {

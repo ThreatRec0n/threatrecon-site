@@ -1,6 +1,6 @@
 // Detection rule engine - evaluates events against detection rules and generates alerts
 
-import type { SimulatedEvent, DetectionRule, GeneratedAlert } from './types';
+import type { SimulatedEvent, DetectionRule, GeneratedAlert } from './core-types';
 
 // Predefined detection rules (like Sigma rules)
 export const DETECTION_RULES: DetectionRule[] = [

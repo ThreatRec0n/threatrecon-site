@@ -12,7 +12,7 @@ import { generateAlertBatch } from '@/lib/alert-generator';
 import { generateRealisticLogVolume, DEFAULT_NOISE_CONFIG } from '@/lib/log-noise-generator';
 import { executeQuery } from '@/lib/siem-query-engine';
 import type { Alert, AlertStatus } from '@/lib/soc-alert-types';
-import type { SimulatedEvent } from '@/lib/simulation-engine/types';
+import type { SimulatedEvent } from '@/lib/simulation-engine/core-types';
 import EnhancedAlertQueue from '@/components/EnhancedAlertQueue';
 import SIEMQueryBuilder from '@/components/SIEMQueryBuilder';
 

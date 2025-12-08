@@ -1,6 +1,6 @@
 // SIEM Query Engine - Executes SPL/KQL/ELK queries against event data
 
-import type { SimulatedEvent } from './simulation-engine/types';
+import type { SimulatedEvent } from './simulation-engine/core-types';
 
 export interface QueryResult {
   eventCount: number;

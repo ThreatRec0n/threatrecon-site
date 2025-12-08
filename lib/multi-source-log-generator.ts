@@ -1,6 +1,6 @@
 // Multi-Source Log Generator - Creates realistic logs from multiple SOC sources
 
-import type { SimulatedEvent } from './simulation-engine/types';
+import type { SimulatedEvent } from './simulation-engine/core-types';
 import { generateSysmonEvent, SYSMON_EVENT_IDS } from './log-generators/sysmon-generator';
 import { generateZeekConnLog, generateZeekHTTPLog, generateZeekDNSLog } from './log-generators/zeek-generator';
 

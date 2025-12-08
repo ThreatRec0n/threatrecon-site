@@ -1,4 +1,4 @@
-import type { Alert, SimulatedEvent, InvestigationSession } from './core-types';
+import type { Alert, SimulatedEvent, InvestigationSession, AttackStage } from './core-types';
 import { EventFactory } from './event-factory';
 import { AlertFactory } from './alert-factory';
 
@@ -90,7 +90,7 @@ export class SimulationEngine {
         command_line: 'powershell.exe -EncodedCommand JABjAGwAaQBlAG4A...',
         is_malicious: true,
         technique_id: 'T1059.001',
-        stage: 'execution',
+        stage: 'execution' as AttackStage,
         threat_score: 85,
         raw_log: rawLog1,
         details: rawLog1,
@@ -110,7 +110,7 @@ export class SimulationEngine {
         protocol: 'tcp',
         is_malicious: true,
         technique_id: 'T1071.001',
-        stage: 'command-and-control',
+        stage: 'command-and-control' as AttackStage,
         threat_score: 90,
         raw_log: rawLog2,
         details: rawLog2,

@@ -7,7 +7,7 @@ import type {
   AttackChain,
   ProcessTreeNode,
   NetworkContext 
-} from './types';
+} from './core-types';
 import { generateSysmonEvent, SYSMON_EVENT_IDS, type SysmonEvent } from '../log-generators/sysmon-generator';
 import { generateZeekConnLog, generateZeekHTTPLog, generateZeekDNSLog, type ZeekConnLog, type ZeekHTTPLog, type ZeekDNSLog } from '../log-generators/zeek-generator';
 

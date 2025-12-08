@@ -6,7 +6,7 @@ import type {
   AttackChainStage, 
   AttackStage,
   ScenarioTimelineEvent 
-} from './types';
+} from './core-types';
 import { executeAttackChain } from '../attack-simulators/atomic-red-team';
 
 // Predefined attack chain templates

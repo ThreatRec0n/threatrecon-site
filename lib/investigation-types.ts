@@ -359,7 +359,7 @@ export type {
   ScenarioTimelineEvent,
   DetectionRule,
   GeneratedAlert,
-} from './simulation-engine/types';
+} from './simulation-engine/core-types';
 
 export type {
   AlertQueueItem,

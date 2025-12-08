@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { SimulatedEvent } from '@/lib/simulation-engine/types';
+import type { SimulatedEvent } from '@/lib/simulation-engine/core-types';
 
 interface Props {
   stages: string[];

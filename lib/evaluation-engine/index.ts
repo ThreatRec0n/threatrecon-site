@@ -1,6 +1,6 @@
 // Evaluation engine - scores user investigation performance
 
-import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
+import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/core-types';
 
 export interface IOCClassification {
   ioc: string;

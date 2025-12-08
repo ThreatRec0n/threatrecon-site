@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { SimulatedEvent, AttackChain } from '@/lib/simulation-engine/types';
+import type { SimulatedEvent, AttackChain } from '@/lib/simulation-engine/core-types';
 import { MITRE_TECHNIQUES } from '@/lib/mitre';
 
 interface Props {

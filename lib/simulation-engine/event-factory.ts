@@ -1,4 +1,4 @@
-import type { SimulatedEvent } from './core-types';
+import type { SimulatedEvent, AttackStage } from './core-types';
 
 export class EventFactory {
   generateEventSet(config: {
@@ -70,7 +70,7 @@ export class EventFactory {
       command_line: proc.cmd,
       is_malicious: false,
       technique_id: '',
-      stage: 'execution',
+      stage: 'execution' as AttackStage,
       threat_score: 0,
       raw_log: rawLog,
       details: rawLog,
@@ -102,7 +102,7 @@ export class EventFactory {
       protocol: 'tcp',
       is_malicious: false,
       technique_id: '',
-      stage: 'execution',
+      stage: 'execution' as AttackStage,
       threat_score: 0,
       raw_log: rawLog,
       details: rawLog,
@@ -132,7 +132,7 @@ export class EventFactory {
       username: `user${Math.floor(Math.random() * 20)}`,
       is_malicious: false,
       technique_id: '',
-      stage: 'execution',
+      stage: 'execution' as AttackStage,
       threat_score: 0,
       raw_log: rawLog,
       details: rawLog,
