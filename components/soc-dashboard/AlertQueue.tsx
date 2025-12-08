@@ -19,7 +19,11 @@ export default function AlertQueue({ alerts, onSelectAlert, onUpdateAlert }: Ale
     const interval = setInterval(() => {
       const now = new Date();
       alerts.forEach(alert => {
-        const remaining = Math.floor((alert.sla_deadline.getTime() - now.getTime()) / 1000);
+        // Handle both Date objects and date strings
+        const deadline = alert.sla_deadline instanceof Date 
+          ? alert.sla_deadline 
+          : new Date(alert.sla_deadline);
+        const remaining = Math.floor((deadline.getTime() - now.getTime()) / 1000);
         const total = alert.sla_remaining_seconds;
         
         let status: Alert['sla_status'] = 'OnTime';
@@ -54,7 +58,9 @@ export default function AlertQueue({ alerts, onSelectAlert, onUpdateAlert }: Ale
         const severityOrder = { Critical: 4, High: 3, Medium: 2, Low: 1, Informational: 0 };
         return severityOrder[b.severity] - severityOrder[a.severity];
       case 'created':
-        return b.created_at.getTime() - a.created_at.getTime();
+        const aCreated = a.created_at instanceof Date ? a.created_at : new Date(a.created_at);
+        const bCreated = b.created_at instanceof Date ? b.created_at : new Date(b.created_at);
+        return bCreated.getTime() - aCreated.getTime();
       default:
         return 0;
     }
