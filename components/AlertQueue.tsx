@@ -16,7 +16,11 @@ export default function AlertQueue({ alerts, onSelectAlert }: Props) {
       const now = new Date();
       alerts.forEach(alert => {
         if (alert.status === 'New' || alert.status === 'Investigating') {
-          const remaining = Math.floor((alert.sla_deadline.getTime() - now.getTime()) / 1000);
+          // Handle both Date objects and date strings
+          const deadline = alert.sla_deadline instanceof Date 
+            ? alert.sla_deadline 
+            : new Date(alert.sla_deadline);
+          const remaining = Math.floor((deadline.getTime() - now.getTime()) / 1000);
           alert.sla_remaining_seconds = remaining;
           
           if (remaining < 0) alert.sla_status = 'Breached';
