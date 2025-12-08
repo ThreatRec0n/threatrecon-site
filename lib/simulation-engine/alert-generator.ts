@@ -119,7 +119,7 @@ export class AlertGenerator {
     const fpTemplates = [
       {
         title: 'Outbound Connection to Suspicious Domain',
-        source: 'Proxy' as const,
+        source: 'Firewall' as const,
         rule: 'Connection to Recently Registered Domain',
         context: 'User accessed newly registered domain - likely legitimate CDN',
         priority: 40
