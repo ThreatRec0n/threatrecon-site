@@ -1,6 +1,8 @@
 // Core types for the threat hunting platform
 
-import type { Severity, Status } from './siem-types';
+// Type definitions
+export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Informational';
+export type Status = 'New' | 'Open' | 'InProgress' | 'Resolved' | 'Closed' | 'False Positive';
 
 export type ScenarioType = 
   | 'malware-infection'
