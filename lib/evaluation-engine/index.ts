@@ -1,6 +1,6 @@
 // Evaluation engine - scores user investigation performance
 
-import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/core-types';
+import type { SimulatedEvent, Alert, AttackChain } from '@/lib/simulation-engine/core-types';
 
 export interface IOCClassification {
   ioc: string;
@@ -64,7 +64,7 @@ export function evaluateInvestigation(
   session: {
     events: SimulatedEvent[];
     attack_chains: AttackChain[];
-    alerts: GeneratedAlert[];
+    alerts?: Alert[];
   }
 ): EvaluationResult {
   // Extract ground truth IOCs from simulation
