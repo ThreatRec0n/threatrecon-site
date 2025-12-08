@@ -22,59 +22,20 @@ import WelcomeModal from '@/components/tutorial/WelcomeModal';
 import { HelpSidebar } from '@/components/ui/ContextualHelp';
 import { SkeletonCard, SkeletonTable, SkeletonIOCPanel } from '@/components/ui/SkeletonLoader';
 import AchievementUnlockToast from '@/components/achievements/AchievementUnlockToast';
-import type { SimulatedEvent, GeneratedAlert, AttackChain } from '@/lib/simulation-engine/types';
+import AlertQueue from '@/components/AlertQueue';
+import type { Alert, SimulatedEvent, InvestigationSession } from '@/lib/simulation-engine/core-types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 import { extractIOCsFromEvents } from '@/lib/ioc-extractor';
 
-interface SimulationSession {
-  session_id: string;
-  scenario_stories: Array<{
-    id: string;
-    name: string;
-    description: string;
-    difficulty?: 'beginner' | 'intermediate' | 'advanced';
-    narrative?: {
-      background: string;
-      incident: string;
-      yourRole: string;
-    };
-  }>;
-  events: SimulatedEvent[];
-  alerts: GeneratedAlert[];
-  attack_chains: AttackChain[];
-  start_time: string;
-}
-
 export default function SimulationDashboard() {
-  const [session, setSession] = useState<SimulationSession | null>(null);
+  const [session, setSession] = useState<InvestigationSession | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
-  const [iocTags, setIocTags] = useState<Record<string, 'confirmed-threat' | 'suspicious' | 'benign'>>({});
-  const [learningMode, setLearningMode] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<SimulatedEvent | null>(null);
-  const [enrichingIOC, setEnrichingIOC] = useState<{ value: string; type: 'ip' | 'domain' | 'hash' } | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
-  const [lastFeedbackId, setLastFeedbackId] = useState<string | null>(null);
-  const [isLocked, setIsLocked] = useState(false);
-  const [activeView, setActiveView] = useState<'main' | 'mitre' | 'purple' | 'rules' | 'case'>('main');
-  const [detectedTechniques, setDetectedTechniques] = useState<string[]>([]);
-  const [savedRules, setSavedRules] = useState<DetectionRule[]>([]);
-  const [caseNotes, setCaseNotes] = useState<CaseNote[]>([]);
-  const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
-  const [showScenarioIntro, setShowScenarioIntro] = useState(true);
-  const [showScenarioSelector, setShowScenarioSelector] = useState(false);
-  const [currentScenarioType, setCurrentScenarioType] = useState<string>('');
-  const [investigationGuideOpen, setInvestigationGuideOpen] = useState(false);
-  const [timedMode, setTimedMode] = useState(false);
-  const [startTime, setStartTime] = useState<Date | null>(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [simulationLoaded, setSimulationLoaded] = useState(false);
-  const [helpSidebarOpen, setHelpSidebarOpen] = useState(false);
-  const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
   // Initialize simulation on mount
   useEffect(() => {
@@ -141,56 +102,37 @@ export default function SimulationDashboard() {
   // Initialize simulation
   const initializeSimulation = async (config?: {
     story_type?: string;
-    stages?: number;
-    noise_level?: 'low' | 'medium' | 'high';
+    difficulty?: 'Beginner' | 'Intermediate' | 'Advanced';
   }) => {
     setLoading(true);
     setError(null);
-    setIsLocked(false);
-    setIocTags({});
     setSelectedEvent(null);
-    setSelectedStage(null);
-    setEvaluationResult(null);
-    setShowScenarioIntro(true);
+    setSelectedAlert(null);
 
     try {
-      const storyType = config?.story_type || ['ransomware-deployment', 'apt29-cozy-bear', 'credential-harvesting', 'ransomware-lockbit', 'insider-threat'][Math.floor(Math.random() * 5)];
-      const noiseCount = config?.noise_level === 'low' ? 25 : config?.noise_level === 'high' ? 100 : 50;
-
-      setCurrentScenarioType(storyType);
-
       const response = await fetch('/api/simulation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'initialize',
           config: {
-            story_type: storyType,
-            difficulty: 'intermediate',
-            add_noise: true,
-            noise_count: noiseCount,
+            difficulty: config?.difficulty || 'Intermediate',
+            scenario_type: config?.story_type || 'ransomware',
           },
         }),
       });
 
       const data = await response.json();
-
+      
       if (!data.success) {
-        throw new Error(data.error || 'Failed to initialize simulation');
+        throw new Error(data.error || 'Failed to initialize');
       }
 
       setSession(data.session);
       setSimulationLoaded(true);
-      
-      // Start timer if timed mode is enabled
-      if (timedMode) {
-        setStartTime(new Date());
-        setElapsedTime(0);
-      }
     } catch (err: any) {
-      setError(err.message || 'Failed to load simulation');
-      console.error('Simulation initialization error:', err);
-      setSimulationLoaded(false);
+      setError(err.message);
+      console.error('Simulation error:', err);
     } finally {
       setLoading(false);
     }
@@ -431,8 +373,6 @@ export default function SimulationDashboard() {
       </div>
     );
   }
-
-  const currentScenario = session.scenario_stories[0];
 
   return (
     <div className="min-h-screen bg-[#0d1117]">
@@ -822,78 +762,44 @@ export default function SimulationDashboard() {
           </div>
         )}
 
-        {/* Main 3-Column Layout */}
-        {activeView === 'main' && (
-          <div className="grid grid-cols-12 gap-4">
-            {/* Left Column: Timeline & Navigator */}
-            <div className="col-span-12 lg:col-span-3 space-y-4">
-              <TimelinePanel
-                stages={stages}
-                events={session.events}
-                selectedStage={selectedStage}
-                onStageSelect={setSelectedStage}
-              />
-              <div className="siem-card p-4">
-                <h3 className="text-sm font-semibold text-[#c9d1d9] mb-2">Quick Stats</h3>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-[#8b949e]">High Threat Events:</span>
-                    <span className="text-red-400 font-semibold">
-                      {session.events.filter(e => (e.threat_score || 0) >= 70).length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#8b949e]">Attack Stages:</span>
-                    <span className="text-[#c9d1d9] font-semibold">{stages.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#8b949e]">Techniques Observed:</span>
-                    <span className="text-[#c9d1d9] font-semibold">
-                      {new Set(session.events.map(e => e.technique_id).filter(Boolean)).size}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Middle Column: Log Explorer & Learning Mode */}
-            <div className="col-span-12 lg:col-span-6 space-y-4">
-              <div data-tutorial="log-explorer">
-                <LogExplorer
-                  events={filteredEvents}
-                  selectedStage={selectedStage}
-                  onEventSelect={(event) => {
-                    setSelectedEvent(event);
-                  }}
-                />
-              </div>
-              {learningMode && selectedEvent && (
-                <LearningMode event={selectedEvent} enabled={learningMode} />
-              )}
-            </div>
-
-            {/* Right Column: IOC Tagging & Enrichment */}
-            <div className="col-span-12 lg:col-span-3 space-y-4" data-tutorial="ioc-panel">
-              <IOCTaggingPanel
-                iocs={extractedIOCs}
-                tags={iocTags}
-                isLocked={isLocked}
-                onTagChange={(ioc, tag) => {
-                  if (!isLocked) {
-                    setIocTags(prev => ({ ...prev, [ioc]: tag }));
+        {/* Main Layout: Alert Queue + Log Explorer */}
+        {session && !loading && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-2rem)]">
+            {/* LEFT: Alert Queue */}
+            <div className="lg:col-span-1">
+              <AlertQueue
+                alerts={session.alerts}
+                onSelectAlert={(alert) => {
+                  setSelectedAlert(alert);
+                  alert.status = 'Investigating';
+                  alert.viewed_at = new Date();
+                }}
+                onTriageAlert={(alertId, classification) => {
+                  const alert = session.alerts.find(a => a.id === alertId);
+                  if (alert) {
+                    alert.status = 'Closed';
+                    alert.triaged_at = new Date();
+                    session.alerts_triaged++;
+                    
+                    if (classification === 'True Positive' && alert.is_true_threat) {
+                      session.correct_identifications++;
+                    } else if (classification === 'False Positive' && !alert.is_true_threat) {
+                      session.correct_identifications++;
+                    } else {
+                      session.missed_threats++;
+                    }
                   }
                 }}
-                onEnrich={(ioc, type) => {
-                  setEnrichingIOC({ value: ioc, type });
-                }}
               />
-              {enrichingIOC && (
-                <IOCEnrichment
-                  ioc={enrichingIOC.value}
-                  type={enrichingIOC.type}
-                  onClose={() => setEnrichingIOC(null)}
-                />
-              )}
+            </div>
+            
+            {/* CENTER: Log Explorer */}
+            <div className="lg:col-span-2">
+              <LogExplorer
+                events={session.events}
+                selectedStage={null}
+                onEventSelect={setSelectedEvent}
+              />
             </div>
           </div>
         )}

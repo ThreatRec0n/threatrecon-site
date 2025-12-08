@@ -514,6 +514,195 @@ CREATE TRIGGER on_auth_user_created
   EXECUTE FUNCTION handle_new_user();
 
 -- ============================================================================
+-- 11. ALERT QUEUE SYSTEM
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS alerts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ticket_number VARCHAR(50) UNIQUE NOT NULL,
+  session_id UUID NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  
+  -- Alert metadata
+  title VARCHAR(500) NOT NULL,
+  severity VARCHAR(20) NOT NULL CHECK (severity IN ('Critical', 'High', 'Medium', 'Low', 'Informational')),
+  alert_source VARCHAR(100) NOT NULL,
+  detection_rule VARCHAR(300) NOT NULL,
+  
+  -- Affected assets
+  affected_assets JSONB NOT NULL DEFAULT '[]',
+  
+  -- Status tracking
+  status VARCHAR(50) DEFAULT 'New' CHECK (status IN ('New', 'Investigating', 'Escalated', 'Closed', 'False Positive')),
+  assigned_to VARCHAR(100) DEFAULT 'Your Queue',
+  
+  -- SLA tracking
+  sla_deadline TIMESTAMPTZ NOT NULL,
+  sla_remaining_seconds INTEGER,
+  sla_status VARCHAR(20) CHECK (sla_status IN ('OnTime', 'Warning', 'Breached')),
+  
+  -- Priority scoring
+  priority_score INTEGER NOT NULL DEFAULT 50,
+  containment_required BOOLEAN DEFAULT FALSE,
+  
+  -- Correlation
+  related_alert_ids UUID[] DEFAULT '{}',
+  related_event_ids UUID[] DEFAULT '{}',
+  
+  -- Context
+  initial_context TEXT,
+  is_true_positive BOOLEAN,
+  
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  first_viewed_at TIMESTAMPTZ,
+  action_taken_at TIMESTAMPTZ,
+  closed_at TIMESTAMPTZ,
+  
+  -- Performance tracking
+  time_to_triage_seconds INTEGER,
+  time_to_containment_seconds INTEGER,
+  user_classification VARCHAR(50)
+);
+
+CREATE INDEX idx_alerts_session ON alerts(session_id);
+CREATE INDEX idx_alerts_status ON alerts(status);
+CREATE INDEX idx_alerts_severity ON alerts(severity);
+CREATE INDEX idx_alerts_sla ON alerts(sla_deadline);
+
+-- ============================================================================
+-- 12. RESPONSE ACTIONS LOG
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS response_actions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  alert_id UUID REFERENCES alerts(id) ON DELETE CASCADE,
+  
+  -- Action details
+  action_type VARCHAR(100) NOT NULL,
+  target VARCHAR(500) NOT NULL,
+  parameters JSONB DEFAULT '{}',
+  
+  -- Timing
+  executed_at TIMESTAMPTZ DEFAULT NOW(),
+  effective_at TIMESTAMPTZ,
+  duration_seconds INTEGER,
+  
+  -- Evaluation
+  was_appropriate BOOLEAN,
+  impact_score INTEGER,
+  effectiveness_score INTEGER,
+  
+  -- Results
+  success BOOLEAN DEFAULT TRUE,
+  result_message TEXT,
+  side_effects JSONB DEFAULT '{}',
+  
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 13. OSINT LOOKUPS LOG
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS osint_lookups (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  
+  -- Lookup details
+  indicator_value VARCHAR(500) NOT NULL,
+  indicator_type VARCHAR(50) NOT NULL,
+  tool_used VARCHAR(100) NOT NULL,
+  
+  -- Resource tracking
+  api_calls_used INTEGER DEFAULT 1,
+  cost_credits INTEGER DEFAULT 1,
+  
+  -- Results
+  threat_score INTEGER,
+  classification VARCHAR(50),
+  raw_results JSONB,
+  
+  -- Performance tracking
+  response_time_ms INTEGER,
+  was_helpful BOOLEAN,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 14. INVESTIGATION SESSIONS (Enhanced tracking)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS investigation_sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID UNIQUE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  scenario_type VARCHAR(100) NOT NULL,
+  
+  -- Configuration
+  difficulty VARCHAR(20) NOT NULL,
+  noise_level VARCHAR(20) NOT NULL,
+  sla_mode_enabled BOOLEAN DEFAULT FALSE,
+  total_events INTEGER NOT NULL,
+  total_alerts INTEGER NOT NULL,
+  
+  -- Progress tracking
+  alerts_triaged INTEGER DEFAULT 0,
+  alerts_correct INTEGER DEFAULT 0,
+  alerts_incorrect INTEGER DEFAULT 0,
+  actions_performed INTEGER DEFAULT 0,
+  osint_lookups INTEGER DEFAULT 0,
+  
+  -- Performance metrics
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  total_duration_seconds INTEGER,
+  average_triage_time_seconds DECIMAL,
+  sla_compliance_rate DECIMAL,
+  
+  -- Scoring
+  final_score INTEGER,
+  accuracy_score DECIMAL,
+  speed_score DECIMAL,
+  efficiency_score DECIMAL,
+  
+  -- State
+  current_state JSONB DEFAULT '{}',
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TRIGGER update_investigation_sessions_updated_at BEFORE UPDATE ON investigation_sessions
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- RLS Policies for new tables
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE response_actions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE osint_lookups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE investigation_sessions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own alerts"
+  ON alerts FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage own response actions"
+  ON response_actions FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage own osint lookups"
+  ON osint_lookups FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage own investigation sessions"
+  ON investigation_sessions FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================
 
