@@ -1,5 +1,17 @@
 // Comprehensive TypeScript Types for SOC Investigation System
 
+// Import types for use in this file
+import type {
+  Alert,
+  AlertSeverity,
+  AlertSource,
+  AlertStatus,
+  SLATimer,
+  SLATimerStatus,
+  AlertNote,
+  ThreatIntelMatch,
+} from './soc-alert-types';
+
 // Re-export core types
 export type {
   Alert,
