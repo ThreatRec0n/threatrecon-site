@@ -319,6 +319,15 @@ export default function SimulationDashboard() {
     );
   }
 
+  // No session loaded yet
+  if (!session) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-[#8b949e]">Initializing session...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0d1117]">
       {/* Top Navigation Bar */}
