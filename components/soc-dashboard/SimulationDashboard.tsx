@@ -34,7 +34,7 @@ export default function SimulationDashboard() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [iocTags, setIocTags] = useState<Record<string, string>>({});
+  const [iocTags, setIocTags] = useState<Record<string, 'confirmed-threat' | 'suspicious' | 'benign'>>({});
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [lastFeedbackId, setLastFeedbackId] = useState<string | null>(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
