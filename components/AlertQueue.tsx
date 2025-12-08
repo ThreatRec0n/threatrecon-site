@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { HelpCircle } from 'lucide-react';
 import type { Alert } from '@/lib/simulation-engine/core-types';
 
 interface Props {
   alerts: Alert[];
   onSelectAlert: (alert: Alert) => void;
+  onOpenTechnique?: (techniqueId: string) => void;
 }
 
-export default function AlertQueue({ alerts, onSelectAlert }: Props) {
+export default function AlertQueue({ alerts, onSelectAlert, onOpenTechnique }: Props) {
   const [sortBy, setSortBy] = useState<'priority' | 'sla'>('priority');
   
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function AlertQueue({ alerts, onSelectAlert }: Props) {
   };
   
   return (
-    <div className="h-full bg-[#0d1117] rounded-lg border border-[#30363d] flex flex-col">
+    <div className="h-full bg-[#0d1117] rounded-lg border border-[#30363d] flex flex-col" data-tutorial="alert-queue">
       <div className="p-4 border-b border-[#30363d]">
         <h2 className="text-xl font-bold text-white mb-3">
           🚨 Alert Queue ({alerts.filter(a => a.status === 'New').length} New)
@@ -73,13 +75,14 @@ export default function AlertQueue({ alerts, onSelectAlert }: Props) {
       </div>
       
       <div className="flex-1 overflow-y-auto">
-        {sorted.map(alert => (
+        {sorted.map((alert, index) => (
           <div
             key={alert.id}
             onClick={() => onSelectAlert(alert)}
             className={`p-4 border-b border-[#30363d] hover:bg-[#161b22] cursor-pointer ${
               alert.sla_status === 'Breached' ? 'bg-red-950/30' : ''
             }`}
+            data-tutorial={index === 0 && alert.severity === 'Critical' ? 'first-alert' : undefined}
           >
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1">
@@ -88,11 +91,30 @@ export default function AlertQueue({ alerts, onSelectAlert }: Props) {
                   <span className={`text-xs px-2 py-0.5 rounded border ${getSeverityColor(alert.severity)}`}>
                     {alert.severity}
                   </span>
+                  {(alert as any).aptGroup && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-red-900/50 text-red-400 border border-red-800/50 font-semibold">
+                      {(alert as any).aptGroup}
+                    </span>
+                  )}
                 </div>
-                <h3 className="text-sm font-medium text-white">{alert.title}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-white">{alert.title}</h3>
+                  {(alert as any).technique_id && onOpenTechnique && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenTechnique((alert as any).technique_id);
+                      }}
+                      className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
+                      title="Learn about this technique"
+                    >
+                      <HelpCircle className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
               
-              <div className="text-right ml-4">
+              <div className="text-right ml-4" data-tutorial={index === 0 && alert.severity === 'Critical' ? 'sla-timer' : undefined}>
                 <div className={`text-sm font-mono font-bold ${
                   alert.sla_status === 'Breached' ? 'text-red-500 animate-pulse' :
                   alert.sla_status === 'Warning' ? 'text-yellow-500' : 'text-green-500'

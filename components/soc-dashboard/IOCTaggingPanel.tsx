@@ -79,7 +79,7 @@ export default function IOCTaggingPanel({ iocs, tags, onTagChange, onTag, onEnri
   };
 
   return (
-    <div className="siem-card space-y-4">
+    <div className="siem-card space-y-4" data-tutorial="ioc-panel">
       <div>
         <h2 className="text-xl font-bold text-[#c9d1d9]">IOC Tagging Panel</h2>
         <p className="text-xs text-[#8b949e] mt-1">

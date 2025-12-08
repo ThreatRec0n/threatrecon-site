@@ -3,13 +3,14 @@ import type { SimulatedEvent, AttackStage } from './core-types';
 export class EventFactory {
   generateEventSet(config: {
     session_id: string;
-    difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+    difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
     attack_events: SimulatedEvent[];
   }): SimulatedEvent[] {
     
     const targetTotal = 
-      config.difficulty === 'Beginner' ? 500 :
-      config.difficulty === 'Intermediate' ? 3000 : 8000;
+      config.difficulty === 'Beginner' ? 100 :
+      config.difficulty === 'Intermediate' ? 500 :
+      config.difficulty === 'Advanced' ? 2000 : 5000;
     
     const noiseCount = targetTotal - config.attack_events.length;
     const noiseEvents: SimulatedEvent[] = [];

@@ -1,445 +1,181 @@
 'use client';
 
-import Link from 'next/link';
-
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { Trophy, Medal, Award } from 'lucide-react';
 
 interface LeaderboardEntry {
-  score: number;
-  time: number;
-  scenario: string;
-  timestamp: string;
-  skillLevel: string;
+  username: string;
+  level: number;
+  totalScore: number;
+  investigations: number;
+  achievements: number;
+  rank: number;
 }
 
 export default function LeaderboardPage() {
-  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'global' | 'weekly' | 'monthly'>('global');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [sortBy, setSortBy] = useState<'score' | 'time' | 'combined'>('combined');
-  const [showReset, setShowReset] = useState(false);
-  const [timeFilter, setTimeFilter] = useState<'all-time' | 'monthly'>('all-time');
-  const [scenarioFilter, setScenarioFilter] = useState<string>('all');
-  const [skillFilter, setSkillFilter] = useState<string>('all');
-  const [sortColumn, setSortColumn] = useState<'score' | 'time' | 'scenario' | 'skill' | 'date'>('score');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [userRank, setUserRank] = useState<number | null>(null);
 
   useEffect(() => {
     loadLeaderboard();
-  }, []);
+  }, [activeTab]);
 
   const loadLeaderboard = () => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('threatrecon_leaderboard');
-      const entries: LeaderboardEntry[] = stored ? JSON.parse(stored) : [];
-      setLeaderboard(entries);
-    }
-  };
-
-  const handleReset = () => {
-    if (confirm('Are you sure you want to reset the leaderboard? This cannot be undone.')) {
-      localStorage.removeItem('threatrecon_leaderboard');
-      setLeaderboard([]);
-      setShowReset(false);
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hrs > 0) {
-      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getSkillEmoji = (level: string) => {
-    if (level.includes('Commander')) return '🔥';
-    if (level.includes('Hunter')) return '🕵️‍♂️';
-    if (level.includes('Analyst')) return '🛡️';
-    return '📚';
-  };
-
-  const getSkillColor = (level: string) => {
-    if (level.includes('Commander')) return 'text-red-400';
-    if (level.includes('Hunter')) return 'text-purple-400';
-    if (level.includes('Analyst')) return 'text-blue-400';
-    return 'text-yellow-400';
-  };
-
-  const scenarioNames: Record<string, string> = {
-    'apt29-cozy-bear': 'APT29',
-    'ransomware-lockbit': 'LockBit',
-    'insider-threat': 'Insider Threat',
-    'credential-harvesting': 'Credential Harvesting',
-    'ransomware-deployment': 'Ransomware',
-    'bec-compromise': 'BEC',
-    'phishing-malware-dropper': 'Phishing Dropper',
-    'insider-sabotage': 'Insider Sabotage',
-    'cloud-misconfiguration': 'Cloud Breach',
-    'supply-chain-compromise': 'Supply Chain',
-  };
-
-  const allScenarios = Array.from(new Set(leaderboard.map(e => e.scenario)));
-
-  // Filter and sort leaderboard
-  const filteredAndSorted = useMemo(() => {
-    let filtered = [...leaderboard];
-
-    // Time filter (monthly vs all-time)
-    if (timeFilter === 'monthly') {
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-      filtered = filtered.filter(entry => new Date(entry.timestamp) >= oneMonthAgo);
-    }
-
-    // Scenario filter
-    if (scenarioFilter !== 'all') {
-      filtered = filtered.filter(entry => entry.scenario === scenarioFilter);
-    }
-
-    // Skill filter
-    if (skillFilter !== 'all') {
-      filtered = filtered.filter(entry => {
-        if (skillFilter === 'commander') return entry.skillLevel.includes('Commander');
-        if (skillFilter === 'hunter') return entry.skillLevel.includes('Hunter');
-        if (skillFilter === 'analyst') return entry.skillLevel.includes('Analyst');
-        if (skillFilter === 'training') return entry.skillLevel.includes('Training');
-        return true;
-      });
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortColumn) {
-        case 'score':
-          comparison = a.score - b.score;
-          break;
-        case 'time':
-          comparison = a.time - b.time;
-          break;
-        case 'scenario':
-          comparison = (scenarioNames[a.scenario] || a.scenario).localeCompare(scenarioNames[b.scenario] || b.scenario);
-          break;
-        case 'skill':
-          comparison = a.skillLevel.localeCompare(b.skillLevel);
-          break;
-        case 'date':
-          comparison = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-          break;
+    // Load from localStorage (in production, this would be from API)
+    const scores = JSON.parse(localStorage.getItem('threatrecon_scores') || '[]');
+    const achievements = JSON.parse(localStorage.getItem('threatrecon_achievements') || '[]');
+    
+    // Aggregate user data
+    const userData: Record<string, LeaderboardEntry> = {};
+    
+    scores.forEach((score: any) => {
+      const username = score.username || 'Anonymous';
+      if (!userData[username]) {
+        userData[username] = {
+          username,
+          level: 1,
+          totalScore: 0,
+          investigations: 0,
+          achievements: 0,
+          rank: 0,
+        };
       }
-
-      return sortDirection === 'asc' ? comparison : -comparison;
+      userData[username].totalScore += score.score || 0;
+      userData[username].investigations += 1;
     });
 
-    return filtered;
-  }, [leaderboard, timeFilter, scenarioFilter, skillFilter, sortColumn, sortDirection]);
+    // Count achievements
+    achievements.forEach((ach: any) => {
+      const username = ach.username || 'Anonymous';
+      if (userData[username]) {
+        userData[username].achievements += 1;
+      }
+    });
 
-  const handleSort = (column: typeof sortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
+    // Calculate levels (simplified)
+    Object.values(userData).forEach(entry => {
+      entry.level = Math.floor(entry.investigations / 5) + 1;
+    });
+
+    // Sort by total score
+    const sorted = Object.values(userData).sort((a, b) => b.totalScore - a.totalScore);
+    
+    // Add ranks
+    sorted.forEach((entry, index) => {
+      entry.rank = index + 1;
+    });
+
+    setLeaderboard(sorted);
+    
+    // Find user's rank (simplified - would use actual user ID in production)
+    const userEntry = sorted.find(e => e.username === 'You' || e.username === 'Anonymous');
+    setUserRank(userEntry ? userEntry.rank : null);
   };
 
-  const handleViewInvestigation = (entry: LeaderboardEntry) => {
-    // Placeholder - could link to investigation details or replay
-    alert(`Investigation details for ${scenarioNames[entry.scenario] || entry.scenario} - Score: ${entry.score}/100 - Time: ${formatTime(entry.time)}\n\nThis feature will show full investigation replay in a future update.`);
+  const getMedalIcon = (rank: number) => {
+    if (rank === 1) return <Trophy className="w-6 h-6 text-yellow-400" />;
+    if (rank === 2) return <Medal className="w-6 h-6 text-gray-300" />;
+    if (rank === 3) return <Award className="w-6 h-6 text-orange-400" />;
+    return <span className="text-gray-500 font-bold">#{rank}</span>;
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-[#c9d1d9] p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-[#c9d1d9] mb-2">🏆 Leaderboard</h1>
-            <p className="text-[#8b949e]">Top performances in timed challenge mode</p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {leaderboard.length > 0 && (
-              <button
-                onClick={() => setShowReset(!showReset)}
-                className="px-4 py-2 text-sm rounded border border-red-800/40 text-red-400 hover:bg-red-900/20 transition-colors"
-                aria-label="Reset Leaderboard"
-              >
-                Reset Leaderboard
-              </button>
-            )}
+    <div className="min-h-screen bg-[#0d1117] p-4">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold text-white mb-2">Leaderboard</h1>
+        <p className="text-gray-400 mb-8">Compete with other analysts</p>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-gray-800">
+          {(['global', 'weekly', 'monthly'] as const).map((tab) => (
             <button
-              onClick={() => router.push('/simulation')}
-              className="px-4 py-2 text-sm rounded border border-[#30363d] text-[#c9d1d9] hover:bg-[#161b22] transition-colors"
-              aria-label="Return to Dashboard"
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 font-semibold transition-colors ${
+                activeTab === tab
+                  ? 'text-blue-400 border-b-2 border-blue-400'
+                  : 'text-gray-400 hover:text-white'
+              }`}
             >
-              ← Dashboard
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
-          </div>
+          ))}
         </div>
 
-        {/* Reset Confirmation */}
-        {showReset && (
-          <div className="mb-4 p-4 bg-red-900/20 border border-red-800/40 rounded">
-            <p className="text-red-400 mb-2">Are you sure you want to reset the leaderboard?</p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 bg-red-900/40 text-red-400 rounded hover:bg-red-900/60 transition-colors"
-              >
-                Yes, Reset
-              </button>
-              <button
-                onClick={() => setShowReset(false)}
-                className="px-4 py-2 bg-[#161b22] text-[#c9d1d9] rounded border border-[#30363d] hover:bg-[#0d1117] transition-colors"
-              >
-                Cancel
-              </button>
+        {/* User Rank Banner */}
+        {userRank && (
+          <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-gray-400">Your Rank</div>
+                <div className="text-2xl font-bold text-white">#{userRank}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-gray-400">Total Score</div>
+                <div className="text-xl font-bold text-white">
+                  {leaderboard.find(e => e.rank === userRank)?.totalScore || 0}
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Filters */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Time Filter */}
-          <div>
-            <label className="block text-sm font-medium text-[#c9d1d9] mb-2">
-              Time Period
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setTimeFilter('all-time')}
-                className={`flex-1 px-3 py-2 text-sm rounded border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] ${
-                  timeFilter === 'all-time'
-                    ? 'bg-[#58a6ff] text-white border-[#58a6ff]'
-                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
-                }`}
-                aria-label="Filter leaderboard to show all-time results"
-                title="Show all-time leaderboard entries"
-              >
-                All Time
-              </button>
-              <button
-                onClick={() => setTimeFilter('monthly')}
-                className={`flex-1 px-3 py-2 text-sm rounded border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] ${
-                  timeFilter === 'monthly'
-                    ? 'bg-[#58a6ff] text-white border-[#58a6ff]'
-                    : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
-                }`}
-                aria-label="Filter leaderboard to show monthly results"
-                title="Show leaderboard entries from this month only"
-              >
-                This Month
-              </button>
-            </div>
-          </div>
-
-          {/* Scenario Filter */}
-          <div>
-            <label className="block text-sm font-medium text-[#c9d1d9] mb-2">
-              Scenario Type
-            </label>
-            <select
-              value={scenarioFilter}
-              onChange={(e) => setScenarioFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded text-[#c9d1d9] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-            >
-              <option value="all">All Scenarios</option>
-              {allScenarios.map(scenario => (
-                <option key={scenario} value={scenario}>
-                  {scenarioNames[scenario] || scenario}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Skill Filter */}
-          <div>
-            <label className="block text-sm font-medium text-[#c9d1d9] mb-2">
-              Skill Badge
-            </label>
-            <select
-              value={skillFilter}
-              onChange={(e) => setSkillFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded text-[#c9d1d9] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-            >
-              <option value="all">All Levels</option>
-              <option value="commander">🔥 Incident Commander</option>
-              <option value="hunter">🕵️‍♂️ Threat Hunter</option>
-              <option value="analyst">🛡️ SOC Analyst</option>
-              <option value="training">📚 Analyst in Training</option>
-            </select>
-          </div>
-
-          {/* Sort Options */}
-          <div>
-            <label className="block text-sm font-medium text-[#c9d1d9] mb-2">
-              Sort By
-            </label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'score' | 'time' | 'combined')}
-              className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded text-[#c9d1d9] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-            >
-              <option value="combined">Score + Time</option>
-              <option value="score">Score</option>
-              <option value="time">Time</option>
-            </select>
-          </div>
-        </div>
-
         {/* Leaderboard Table */}
-        {filteredAndSorted.length > 0 ? (
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#0d1117] border-b border-[#30363d]">
+        <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-800 border-b border-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Rank</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Username</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Level</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">Total Score</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">Investigations</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">Achievements</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {leaderboard.length === 0 ? (
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#8b949e] uppercase">Rank</th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-semibold text-[#8b949e] uppercase cursor-pointer hover:text-[#58a6ff] transition-colors"
-                      onClick={() => handleSort('score')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSort('score')}
-                      aria-label="Sort by Score"
-                    >
-                      Score {sortColumn === 'score' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-semibold text-[#8b949e] uppercase cursor-pointer hover:text-[#58a6ff] transition-colors"
-                      onClick={() => handleSort('time')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSort('time')}
-                      aria-label="Sort by Time"
-                    >
-                      Time {sortColumn === 'time' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-semibold text-[#8b949e] uppercase cursor-pointer hover:text-[#58a6ff] transition-colors"
-                      onClick={() => handleSort('scenario')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSort('scenario')}
-                      aria-label="Sort by Scenario"
-                    >
-                      Scenario {sortColumn === 'scenario' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-semibold text-[#8b949e] uppercase cursor-pointer hover:text-[#58a6ff] transition-colors"
-                      onClick={() => handleSort('skill')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSort('skill')}
-                      aria-label="Sort by Skill Level"
-                    >
-                      Skill Level {sortColumn === 'skill' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-semibold text-[#8b949e] uppercase cursor-pointer hover:text-[#58a6ff] transition-colors"
-                      onClick={() => handleSort('date')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSort('date')}
-                      aria-label="Sort by Date"
-                    >
-                      Date {sortColumn === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#8b949e] uppercase">Actions</th>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                      No entries yet. Be the first!
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredAndSorted.map((entry, index) => (
+                ) : (
+                  leaderboard.slice(0, 100).map((entry) => (
                     <tr
-                      key={index}
-                      className={`border-b border-[#30363d] ${
-                        index < 3 ? 'bg-[#0d1117]' : 'hover:bg-[#0d1117]/50'
+                      key={entry.username}
+                      className={`hover:bg-gray-800/50 transition-colors ${
+                        entry.rank === userRank ? 'bg-blue-900/20' : ''
                       }`}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          {index === 0 && <span className="text-2xl">🥇</span>}
-                          {index === 1 && <span className="text-2xl">🥈</span>}
-                          {index === 2 && <span className="text-2xl">🥉</span>}
-                          <span className={`font-bold ${
-                            index === 0 ? 'text-yellow-400' :
-                            index === 1 ? 'text-gray-300' :
-                            index === 2 ? 'text-orange-400' :
-                            'text-[#c9d1d9]'
-                          }`}>
-                            #{index + 1}
-                          </span>
+                          {getMedalIcon(entry.rank)}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`font-bold ${
-                          entry.score >= 90 ? 'text-green-400' :
-                          entry.score >= 70 ? 'text-yellow-400' :
-                          entry.score >= 50 ? 'text-orange-400' :
-                          'text-red-400'
-                        }`}>
-                          {entry.score}/100
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-mono text-[#c9d1d9]">
-                        {formatTime(entry.time)}
-                      </td>
-                      <td className="px-6 py-4 text-[#c9d1d9]">
-                        {scenarioNames[entry.scenario] || entry.scenario}
+                        <div className="text-white font-medium">{entry.username}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`flex items-center gap-1 ${getSkillColor(entry.skillLevel)}`}>
-                          <span>{getSkillEmoji(entry.skillLevel)}</span>
-                          <span className="text-sm">{entry.skillLevel}</span>
-                        </span>
+                        <span className="text-sm text-gray-300">Level {entry.level}</span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-[#8b949e]">
-                        {new Date(entry.timestamp).toLocaleDateString()}
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-white font-semibold">{entry.totalScore.toLocaleString()}</span>
                       </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => handleViewInvestigation(entry)}
-                          className="px-3 py-1.5 text-xs rounded border border-[#30363d] text-[#58a6ff] hover:bg-[#58a6ff]/10 transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
-                          aria-label={`View investigation for ${scenarioNames[entry.scenario] || entry.scenario}`}
-                        >
-                          View Details
-                        </button>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-gray-300">{entry.investigations}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-gray-300">{entry.achievements}</span>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-12 text-center">
-            <div className="text-6xl mb-4">🏆</div>
-            <h2 className="text-xl font-bold text-[#c9d1d9] mb-2">No Leaderboard Entries Yet</h2>
-            <p className="text-[#8b949e] mb-6">
-              {timeFilter === 'monthly' 
-                ? 'No entries found for this month. Complete investigations in timed mode to appear on the leaderboard!'
-                : 'Complete investigations in timed mode to appear on the leaderboard!'}
-            </p>
-            <button
-              onClick={() => router.push('/simulation')}
-              className="px-6 py-3 bg-[#58a6ff] text-white rounded hover:bg-[#4493f8] transition-colors"
-            >
-              Start Timed Challenge
-            </button>
-          </div>
-        )}
-
-        {/* Info Box */}
-        <div className="mt-6 bg-blue-900/20 border border-blue-800/40 rounded-lg p-4">
-          <p className="text-sm text-[#c9d1d9]">
-            <strong className="text-blue-400">💡 How to appear on the leaderboard:</strong> Enable "Timed Mode" 
-            in the simulation dashboard, complete an investigation, and your score and completion time will be 
-            automatically recorded. Leaderboard entries are stored locally in your browser.
-          </p>
         </div>
       </div>
     </div>

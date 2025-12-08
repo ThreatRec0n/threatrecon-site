@@ -40,6 +40,11 @@ export interface Alert {
   initial_context: string;
   is_true_positive?: boolean; // Hidden from user, for grading
   
+  // Learning & Scenario
+  technique_id?: string; // MITRE technique ID (e.g., T1059.001)
+  aptGroup?: 'APT28' | 'APT29' | 'Lazarus' | 'FIN7' | 'Wizard Spider' | null;
+  scenarioType?: 'phishing' | 'ransomware' | 'insider' | 'cryptominer' | 'apt';
+  
   // Timestamps
   created_at: Date;
   first_viewed_at?: Date;

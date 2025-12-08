@@ -13,6 +13,14 @@ import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
 import AchievementUnlockToast from '@/components/achievements/AchievementUnlockToast';
 import AlertQueue from '@/components/AlertQueue';
+import TechniqueExplainerPanel from '@/components/learning/TechniqueExplainerPanel';
+import { DifficultySelector, type Difficulty } from '@/components/simulation/DifficultySelector';
+import { MITRE_TECHNIQUES } from '@/lib/learning/mitre-knowledge';
+import { getUserLevel } from '@/lib/user/leveling-system';
+import ProgressDashboard from '@/components/progress/ProgressDashboard';
+import { HintSystem } from '@/components/investigation/HintSystem';
+import AttackTimeline from '@/components/scenarios/AttackTimeline';
+import WeeklyChallengeCard from '@/components/scenarios/WeeklyChallengeCard';
 import type { InvestigationSession, Alert } from '@/lib/simulation-engine';
 import type { SimulatedEvent } from '@/lib/simulation-engine/core-types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
@@ -39,6 +47,13 @@ export default function SimulationDashboard() {
   const [lastFeedbackId, setLastFeedbackId] = useState<string | null>(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
   const [learningMode, setLearningMode] = useState(false);
+  const [selectedTechnique, setSelectedTechnique] = useState<string | null>(null);
+  const [showExplainer, setShowExplainer] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
+  const [showDifficultySelector, setShowDifficultySelector] = useState(false);
+  const [userLevel, setUserLevel] = useState(getUserLevel());
+  const [showProgressDashboard, setShowProgressDashboard] = useState(false);
+  const [hintPenalty, setHintPenalty] = useState(0);
   
   // Simple markScenarioCompleted function
   const markScenarioCompleted = (scenarioType: string) => {
@@ -49,7 +64,14 @@ export default function SimulationDashboard() {
 
   // Initialize simulation on mount
   useEffect(() => {
-    initializeSimulation();
+    // Check for saved difficulty
+    const savedDifficulty = localStorage.getItem('selected_difficulty') as Difficulty | null;
+    if (savedDifficulty) {
+      setDifficulty(savedDifficulty);
+      initializeSimulation();
+    } else {
+      setShowDifficultySelector(true);
+    }
     
     // Track simulation visit
     fetch('/api/analytics', {
@@ -62,29 +84,31 @@ export default function SimulationDashboard() {
     }).catch(() => {});
   }, []);
 
-  // Check if tutorial should be shown after simulation loads
+  // Auto-trigger tutorial on first visit
   useEffect(() => {
     if (!session || !simulationLoaded) return;
-
-    // Check URL param for forced tutorial
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('tutorial') === 'true') {
-        setShowWelcomeModal(true);
-        window.history.replaceState({}, '', '/simulation');
-        return;
-      }
-    }
-
-    // Check if user has seen tutorial before
-    const hasSeenTutorial = localStorage.getItem('walkthrough_seen_v1') === 'true';
-    if (!hasSeenTutorial) {
-      // Small delay to ensure UI is fully rendered
+    
+    const hasCompletedTutorial = localStorage.getItem('threatrecon_tutorial_completed');
+    const hasSeenWelcome = localStorage.getItem('has_seen_welcome');
+    
+    if (!hasCompletedTutorial && !hasSeenWelcome) {
       setTimeout(() => {
         setShowWelcomeModal(true);
-      }, 500);
+      }, 1000);
     }
   }, [session, simulationLoaded]);
+
+  const openTechniqueExplainer = (techniqueId: string) => {
+    setSelectedTechnique(techniqueId);
+    setShowExplainer(true);
+  };
+
+  const handleDifficultySelect = (selectedDifficulty: Difficulty) => {
+    setDifficulty(selectedDifficulty);
+    setShowDifficultySelector(false);
+    localStorage.setItem('selected_difficulty', selectedDifficulty);
+    initializeSimulation();
+  };
 
   // Timer effect
   useEffect(() => {
@@ -112,7 +136,7 @@ export default function SimulationDashboard() {
   // Initialize simulation
   const initializeSimulation = async (config?: {
     story_type?: string;
-    difficulty?: 'Beginner' | 'Intermediate' | 'Advanced';
+    difficulty?: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
   }) => {
     setLoading(true);
     setError(null);
@@ -120,13 +144,17 @@ export default function SimulationDashboard() {
     setSelectedAlert(null);
 
     try {
+      const difficultyToUse = difficulty 
+        ? difficulty.charAt(0).toUpperCase() + difficulty.slice(1) as 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert'
+        : config?.difficulty || 'Intermediate';
+
       const response = await fetch('/api/simulation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'initialize',
           config: {
-            difficulty: config?.difficulty || 'Intermediate',
+            difficulty: difficultyToUse,
             scenario_type: config?.story_type || 'ransomware',
           },
         }),
@@ -287,7 +315,32 @@ export default function SimulationDashboard() {
         const achievementData = await achievementResponse.json();
         if (achievementData.unlocked && achievementData.unlocked.length > 0) {
           setUnlockedAchievements(achievementData.unlocked);
+          
+          // Add XP for achievements
+          const { addXP, XP_REWARDS } = await import('@/lib/user/leveling-system');
+          achievementData.unlocked.forEach((ach: any) => {
+            const xpReward = ach.tier === 'platinum' ? XP_REWARDS.achievementLegendary :
+                           ach.tier === 'gold' ? XP_REWARDS.achievementEpic :
+                           ach.tier === 'silver' ? XP_REWARDS.achievementRare :
+                           XP_REWARDS.achievementCommon;
+            addXP(xpReward);
+          });
+          
+          // Update user level display
+          setUserLevel(getUserLevel());
         }
+        
+        // Add XP for completing investigation
+        const { addXP, XP_REWARDS } = await import('@/lib/user/leveling-system');
+        let xpEarned = XP_REWARDS.completeInvestigation;
+        if (result.score === 100) {
+          xpEarned += XP_REWARDS.perfectScore;
+        }
+        // Subtract hint penalty
+        xpEarned = Math.max(0, xpEarned - hintPenalty);
+        const newLevel = addXP(xpEarned);
+        setUserLevel(newLevel);
+        setHintPenalty(0); // Reset penalty
       } catch (achievementErr) {
         console.error('Error checking achievements:', achievementErr);
         // Don't fail the investigation if achievement check fails
@@ -365,6 +418,24 @@ export default function SimulationDashboard() {
                 </div>
               )}
               
+              {/* XP Progress Bar */}
+              {session && (
+                <button
+                  onClick={() => setShowProgressDashboard(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                  title={`Level ${userLevel.level} - ${userLevel.title}`}
+                >
+                  <span className="text-xs">Lv {userLevel.level}</span>
+                  <div className="w-20 h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-300"
+                      style={{ width: `${Math.min((userLevel.xp / userLevel.xpToNextLevel) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-500 hidden md:inline">{userLevel.xp}/{userLevel.xpToNextLevel}</span>
+                </button>
+              )}
+
               {/* Timed Mode Toggle */}
               <button
                 onClick={() => {
@@ -455,9 +526,20 @@ export default function SimulationDashboard() {
                   </a>
                 </div>
               </div>
+              {difficulty && (
+                <span className={`px-3 py-1.5 rounded border text-sm font-semibold ${
+                  difficulty === 'beginner' ? 'bg-green-500/10 text-green-400 border-green-500/30' :
+                  difficulty === 'intermediate' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
+                  difficulty === 'advanced' ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' :
+                  'bg-red-500/10 text-red-400 border-red-500/30'
+                }`}>
+                  Difficulty: {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                </span>
+              )}
               <button
                 onClick={() => {
                   localStorage.removeItem('walkthrough_seen_v1');
+                  localStorage.removeItem('threatrecon_tutorial_completed');
                   setShowWelcomeModal(true);
                 }}
                 className="px-3 py-1.5 rounded border text-sm transition-colors bg-[#161b22] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff] hover:text-[#58a6ff] focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
@@ -487,6 +569,13 @@ export default function SimulationDashboard() {
 
       {/* Main Content Area */}
       <div className="p-4">
+        {/* Weekly Challenge Card */}
+        {session && !loading && (
+          <div className="mb-4">
+            <WeeklyChallengeCard />
+          </div>
+        )}
+        
         {/* Main Layout: Alert Queue + Log Explorer */}
         {session && !loading && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-2rem)]">
@@ -499,6 +588,7 @@ export default function SimulationDashboard() {
                   alert.status = 'Investigating';
                   alert.viewed_at = new Date();
                 }}
+                onOpenTechnique={openTechniqueExplainer}
               />
             </div>
             
@@ -508,9 +598,26 @@ export default function SimulationDashboard() {
                 events={session.events}
                 selectedStage={selectedEvent?.stage || null}
                 onEventSelect={setSelectedEvent}
+                onOpenTechnique={openTechniqueExplainer}
               />
               
               {learningMode && selectedEvent && <LearningMode event={selectedEvent} enabled={learningMode} />}
+              
+              {/* Hint System */}
+              {difficulty && selectedAlert && (
+                <HintSystem
+                  difficulty={difficulty}
+                  alertTitle={selectedAlert.title}
+                  alertType={selectedAlert.detection_rule.toLowerCase().includes('powershell') ? 'powershell' : undefined}
+                  onHintUsed={(cost) => setHintPenalty(prev => prev + cost)}
+                />
+              )}
+              
+              {/* Attack Timeline */}
+              <AttackTimeline
+                events={session.events}
+                discoveredIOCs={new Set(Object.keys(iocTags))}
+              />
               
               <IOCTaggingPanel
                 iocs={extractedIOCs}
@@ -558,12 +665,36 @@ export default function SimulationDashboard() {
         />
       )}
 
+      {/* Difficulty Selector */}
+      {showDifficultySelector && (
+        <DifficultySelector
+          onSelect={handleDifficultySelect}
+          defaultDifficulty="intermediate"
+        />
+      )}
+
+      {/* Technique Explainer Panel */}
+      <TechniqueExplainerPanel
+        technique={selectedTechnique ? MITRE_TECHNIQUES[selectedTechnique] || null : null}
+        isOpen={showExplainer}
+        onClose={() => {
+          setShowExplainer(false);
+          setSelectedTechnique(null);
+        }}
+      />
+
+      {/* Progress Dashboard */}
+      {showProgressDashboard && (
+        <ProgressDashboard onClose={() => setShowProgressDashboard(false)} />
+      )}
+
       {/* Tutorial Walkthrough */}
       {showTutorial && (
         <TutorialWalkthrough
           onComplete={() => {
             setShowTutorial(false);
             localStorage.setItem('walkthrough_seen_v1', 'true');
+            localStorage.setItem('threatrecon_tutorial_completed', 'true');
           }}
           onSkip={() => {
             setShowTutorial(false);

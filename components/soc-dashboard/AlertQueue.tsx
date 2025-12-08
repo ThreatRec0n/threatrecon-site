@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { HelpCircle } from 'lucide-react';
 import type { Alert } from '@/lib/simulation-engine/alert-types';
 
 interface AlertQueueProps {
   alerts: Alert[];
   onSelectAlert: (alert: Alert) => void;
   onUpdateAlert: (alertId: string, updates: Partial<Alert>) => void;
+  onOpenTechnique?: (techniqueId: string) => void;
 }
 
-export default function AlertQueue({ alerts, onSelectAlert, onUpdateAlert }: AlertQueueProps) {
+export default function AlertQueue({ alerts, onSelectAlert, onUpdateAlert, onOpenTechnique }: AlertQueueProps) {
   const [sortBy, setSortBy] = useState<'priority' | 'sla' | 'severity' | 'created'>('priority');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -96,7 +98,7 @@ export default function AlertQueue({ alerts, onSelectAlert, onUpdateAlert }: Ale
   };
   
   return (
-    <div className="h-full flex flex-col bg-[#0d1117] rounded-lg border border-[#30363d]">
+    <div className="h-full flex flex-col bg-[#0d1117] rounded-lg border border-[#30363d]" data-tutorial="alert-queue">
       <div className="p-4 border-b border-[#30363d]">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -151,13 +153,14 @@ export default function AlertQueue({ alerts, onSelectAlert, onUpdateAlert }: Ale
           </div>
         ) : (
           <div className="divide-y divide-[#30363d]">
-            {sortedAlerts.map(alert => (
+            {sortedAlerts.map((alert, index) => (
               <div
                 key={alert.id}
                 onClick={() => onSelectAlert(alert)}
                 className={`p-4 hover:bg-[#161b22] cursor-pointer transition-colors ${
                   alert.sla_status === 'Breached' ? 'bg-red-950/20' : ''
                 }`}
+                data-tutorial={index === 0 && alert.severity === 'Critical' ? 'first-alert' : undefined}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1 min-w-0">
@@ -171,16 +174,35 @@ export default function AlertQueue({ alerts, onSelectAlert, onUpdateAlert }: Ale
                       <span className="text-xs text-gray-500">
                         {alert.alert_source}
                       </span>
+                      {alert.aptGroup && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-red-900/50 text-red-400 border border-red-800/50 font-semibold">
+                          {alert.aptGroup}
+                        </span>
+                      )}
                     </div>
-                    <h3 className="text-sm font-medium text-white truncate">
-                      {alert.title}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-white truncate">
+                        {alert.title}
+                      </h3>
+                      {alert.technique_id && onOpenTechnique && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenTechnique(alert.technique_id!);
+                          }}
+                          className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
+                          title="Learn about this technique"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400 mt-1 line-clamp-2">
                       {alert.initial_context}
                     </p>
                   </div>
                   
-                  <div className="text-right flex-shrink-0">
+                  <div className="text-right flex-shrink-0" data-tutorial={index === 0 && alert.severity === 'Critical' ? 'sla-timer' : undefined}>
                     <div className={`text-xs font-mono font-bold ${getSLAColor(alert.sla_status)}`}>
                       {formatTimeRemaining(alert.sla_remaining_seconds)}
                     </div>

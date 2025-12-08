@@ -1,0 +1,209 @@
+🎯 COMPLETE FIX PROMPT FOR CURSOR
+
+Copy and paste this ENTIRE prompt into Cursor:
+
+---
+
+I need to fix the missing and incomplete features in my ThreatRecon platform based on test results. The current implementation score is 63% and I need to get it to 90%+ by completing these critical features.
+
+═══════════════════════════════════════════════════════════════════════════
+PRIORITY 1: COMPLETE TUTORIAL INTEGRATION (CRITICAL)
+═══════════════════════════════════════════════════════════════════════════
+
+CURRENT STATE:
+- Tutorial component exists (components/tutorial/OnboardingTutorial.tsx)
+- Only 1 data-tutorial marker found: data-tutorial="finalize-button"
+- Tutorial buttons exist but tutorial doesn't trigger
+- Missing 6 critical tutorial markers
+
+REQUIRED FIXES:
+
+1. Add Missing Tutorial Markers to Components:
+
+In components/soc-dashboard/AlertQueue.tsx:
+- Add data-tutorial="alert-queue" to the main alert queue container div
+- Add data-tutorial="first-alert" to the FIRST Critical severity alert card
+- Add data-tutorial="sla-timer" to the SLA timer element
+
+In components/soc-dashboard/LogExplorer.tsx or equivalent log component:
+- Add data-tutorial="log-explorer" to the main log panel container
+
+In components/soc-dashboard/IOCTaggingPanel.tsx or IOC panel component:
+- Add data-tutorial="ioc-panel" to the IOC tagging panel container
+
+2. Auto-Trigger Tutorial on First Visit:
+
+In app/simulation/page.tsx:
+- Check localStorage for 'threatrecon_tutorial_completed'
+- If not found AND it's user's first visit, automatically show tutorial
+- Set up useEffect to trigger tutorial modal on mount
+
+3. Ensure Tutorial State Management:
+- Make sure OnboardingTutorial component is imported and rendered
+- Pass showTutorial state and setShowTutorial handler as props
+- On tutorial completion, set localStorage.setItem('threatrecon_tutorial_completed', 'true')
+- Ensure "🎓 Replay Tutorial" button clears this flag and re-shows tutorial
+
+4. Fix Tutorial Highlighting:
+- For each step with highlightSelector, use querySelector to find the element
+- Add a pulsing glow effect to the highlighted element
+- Use CSS: box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.6), 0 0 20px rgba(88, 166, 255, 0.4)
+
+═══════════════════════════════════════════════════════════════════════════
+PRIORITY 2: ADD LEARNING MODE WITH MITRE EXPLANATIONS (CRITICAL)
+═══════════════════════════════════════════════════════════════════════════
+
+CURRENT STATE:
+- MITRE technique IDs are shown (T1071.001, T1059.001)
+- No "?" help icons
+- No explainer panels
+- lib/learning/mitre-knowledge.ts exists but not used
+
+REQUIRED FIXES:
+
+1. Add Help Icons to Alert Cards:
+
+In components/soc-dashboard/AlertQueue.tsx:
+- Add a small "?" button next to each alert title
+- Use HelpCircle icon from lucide-react
+- Style: text-blue-400 hover:text-blue-300
+- On click, open TechniqueExplainerPanel with the alert's MITRE technique
+
+2. Create or Update TechniqueExplainerPanel Component:
+
+File: components/learning/TechniqueExplainerPanel.tsx
+
+Requirements:
+- Sliding panel from right side (400px width)
+- Shows content from lib/learning/mitre-knowledge.ts
+- Sections: 🎯 Why Suspicious, 🔍 How to Investigate, 📖 Real-World Example, 🛡️ How to Defend, 🔗 Related Techniques
+- Bottom buttons: [Read Full MITRE Page] [Close]
+- Smooth slide-in animation with framer-motion
+- Backdrop blur when open
+
+3. Integrate TechniqueExplainerPanel:
+
+In app/simulation/page.tsx:
+- Add state: const [selectedTechnique, setSelectedTechnique] = useState<string | null>(null);
+- Add state: const [showExplainer, setShowExplainer] = useState(false);
+- Add function to open explainer
+- Pass openTechniqueExplainer function to AlertQueue component
+- Render TechniqueExplainerPanel component
+
+4. Add Learning Mode Toggle:
+
+In navigation header:
+- Add toggle switch: "Learning Mode"
+- When OFF, hide all "?" help icons
+- Store preference in localStorage: 'learning_mode_enabled'
+- Default to ON for new users
+
+═══════════════════════════════════════════════════════════════════════════
+PRIORITY 3: ADD DIFFICULTY SELECTION SYSTEM (CRITICAL)
+═══════════════════════════════════════════════════════════════════════════
+
+CURRENT STATE:
+- All users get same difficulty (3000 events, 10 alerts)
+- No difficulty selector
+- No way for beginners to start easy
+
+REQUIRED FIXES:
+
+1. Create Difficulty Selector Component:
+
+File: components/simulation/DifficultySelector.tsx
+
+Create component with 4 difficulty cards:
+- 🌱 Beginner: 100 events, 3 alerts, 5-8 IOCs, 2x SLA time
+- 📊 Intermediate: 500 events, 6 alerts, 15-20 IOCs, normal SLA
+- 🎯 Advanced: 2000 events, 10 alerts, 30-40 IOCs, 0.8x SLA
+- 💀 Expert: 5000 events, 20 alerts, 60-80 IOCs, 0.5x SLA
+
+Each card shows: Icon, name, description, stats, recommended experience, selected state
+
+2. Integrate Difficulty Selection:
+
+In app/simulation/page.tsx:
+- Add state for selected difficulty
+- Show DifficultySelector before main content if no difficulty selected
+- Save selected difficulty to localStorage
+- Pass difficulty to simulation initialization
+
+3. Adjust Event Generation Based on Difficulty:
+
+In lib/simulation-engine/event-factory.ts:
+- Add difficulty parameter
+- Adjust event counts: Beginner=100, Intermediate=500, Advanced=2000, Expert=5000
+
+In lib/simulation-engine/alert-factory.ts:
+- Adjust alert counts:
+  - Beginner: 3 threats, 0 false positives
+  - Intermediate: 4 threats, 2 false positives
+  - Advanced: 6 threats, 3 false positives, 1 benign
+  - Expert: 8 threats, 8 false positives, 4 benign
+
+4. Display Current Difficulty:
+
+In header/nav:
+- Show badge: "Difficulty: Intermediate"
+- Color-code: Green (Beginner), Blue (Intermediate), Orange (Advanced), Red (Expert)
+
+═══════════════════════════════════════════════════════════════════════════
+PRIORITY 4: ENHANCE SCENARIO CONTENT (HIGH PRIORITY)
+═══════════════════════════════════════════════════════════════════════════
+
+1. Add Scenario Metadata to Alerts:
+- Add aptGroup field: 'APT28' | 'APT29' | 'Lazarus' | 'FIN7' | null
+- Add scenarioType field: 'phishing' | 'ransomware' | 'insider' | 'cryptominer' | 'apt'
+
+2. Display APT Group Badges:
+In AlertQueue component:
+- If alert.aptGroup exists, show badge with APT group name
+- Style with red background for threat groups
+
+3. Add Scenario Briefing Modal:
+- Show before starting investigation
+- Display incident briefing with situation, mission, assets at risk
+
+═══════════════════════════════════════════════════════════════════════════
+PRIORITY 5: ADD PROGRESS BARS & VISUAL FEEDBACK
+═══════════════════════════════════════════════════════════════════════════
+
+1. Add XP Progress Bar to Header:
+- Show level and title: "Level 5 - SOC Analyst"
+- Show XP progress bar with current/max XP
+- Make it clickable to open progress dashboard
+
+2. Add Achievement Unlock Toast:
+- Use react-hot-toast for achievement notifications
+- Show achievement icon, name, and XP reward
+- Auto-dismiss after 5 seconds
+
+═══════════════════════════════════════════════════════════════════════════
+IMPLEMENTATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════
+
+☐ 1. Add all missing data-tutorial attributes (5 locations)
+☐ 2. Auto-trigger tutorial on first visit
+☐ 3. Add "?" help icons to all alert cards
+☐ 4. Create/update TechniqueExplainerPanel component
+☐ 5. Integrate TechniqueExplainerPanel into simulation page
+☐ 6. Create DifficultySelector component
+☐ 7. Integrate difficulty selection before starting investigation
+☐ 8. Adjust event/alert generation based on selected difficulty
+☐ 9. Add difficulty badge to header
+☐ 10. Add APT group badges to alerts
+☐ 11. Add XP progress bar to header
+☐ 12. Add achievement unlock toasts
+
+CRITICAL: Make sure to:
+- Keep all existing functionality working
+- Use TypeScript types correctly
+- Match the existing dark theme styling (#0a0e14 background, #58a6ff accent)
+- Use framer-motion for animations
+- Use lucide-react for icons
+- Handle localStorage safely
+- Add proper error handling
+
+Start implementing now. Show me progress after each major feature is complete.
+

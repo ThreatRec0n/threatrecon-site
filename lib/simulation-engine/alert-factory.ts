@@ -6,13 +6,14 @@ export class AlertFactory {
   
   generateAlertQueue(config: {
     session_id: string;
-    difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+    difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
   }): Alert[] {
     
     const alertCounts = {
-      Beginner: { threats: 2, fps: 1, benign: 2 },
-      Intermediate: { threats: 4, fps: 3, benign: 3 },
-      Advanced: { threats: 6, fps: 5, benign: 4 }
+      Beginner: { threats: 3, fps: 0, benign: 0 },
+      Intermediate: { threats: 4, fps: 2, benign: 0 },
+      Advanced: { threats: 6, fps: 3, benign: 1 },
+      Expert: { threats: 8, fps: 8, benign: 4 }
     };
     
     const counts = alertCounts[config.difficulty];

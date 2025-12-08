@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { HelpCircle } from 'lucide-react';
 import type { SimulatedEvent } from '@/lib/simulation-engine/core-types';
 
 interface Props {
   events: SimulatedEvent[];
   selectedStage: string | null;
   onEventSelect: (event: SimulatedEvent) => void;
+  onOpenTechnique?: (techniqueId: string) => void;
 }
 
-export default function LogExplorer({ events, selectedStage, onEventSelect }: Props) {
+export default function LogExplorer({ events, selectedStage, onEventSelect, onOpenTechnique }: Props) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     source: '',
@@ -95,7 +97,7 @@ export default function LogExplorer({ events, selectedStage, onEventSelect }: Pr
   };
 
   return (
-    <div className="siem-card space-y-4">
+    <div className="siem-card space-y-4" data-tutorial="log-explorer">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-[#c9d1d9]">Log Explorer</h2>
@@ -231,7 +233,21 @@ export default function LogExplorer({ events, selectedStage, onEventSelect }: Pr
                   </td>
                   <td className="px-3 py-2">
                     {event.technique_id ? (
-                      <span className="text-xs font-mono text-[#58a6ff]">{event.technique_id}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-[#58a6ff]">{event.technique_id}</span>
+                        {onOpenTechnique && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenTechnique(event.technique_id!);
+                            }}
+                            className="text-blue-400 hover:text-blue-300 transition-colors"
+                            title="Learn about this technique"
+                          >
+                            <HelpCircle className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs text-[#8b949e]">-</span>
                     )}
