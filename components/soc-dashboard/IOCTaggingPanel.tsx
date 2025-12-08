@@ -13,12 +13,15 @@ interface Props {
     pids: string[];
   };
   tags: Record<string, IOCTag>;
-  onTagChange: (ioc: string, tag: IOCTag) => void;
+  onTagChange?: (ioc: string, tag: IOCTag) => void;
+  onTag?: (ioc: string, tag: IOCTag) => void;
   onEnrich?: (ioc: string, type: 'ip' | 'domain' | 'hash') => void;
   isLocked?: boolean;
 }
 
-export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich, isLocked = false }: Props) {
+export default function IOCTaggingPanel({ iocs, tags, onTagChange, onTag, onEnrich, isLocked = false }: Props) {
+  // Use onTag if provided, otherwise fall back to onTagChange
+  const handleTagChange = onTag || onTagChange;
   const [activeTab, setActiveTab] = useState<'ips' | 'domains' | 'hashes' | 'pids'>('ips');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -190,7 +193,7 @@ export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich, isL
                   </button>
                 )}
                 <button
-                  onClick={() => !isLocked && onTagChange(ioc, 'confirmed-threat')}
+                  onClick={() => !isLocked && handleTagChange?.(ioc, 'confirmed-threat')}
                   disabled={isLocked}
                   className={`px-2 py-1 text-xs rounded border transition-colors ${
                     currentTag === 'confirmed-threat'
@@ -202,7 +205,7 @@ export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich, isL
                   ✅
                 </button>
                 <button
-                  onClick={() => !isLocked && onTagChange(ioc, 'suspicious')}
+                  onClick={() => !isLocked && handleTagChange?.(ioc, 'suspicious')}
                   disabled={isLocked}
                   className={`px-2 py-1 text-xs rounded border transition-colors ${
                     currentTag === 'suspicious'
@@ -214,7 +217,7 @@ export default function IOCTaggingPanel({ iocs, tags, onTagChange, onEnrich, isL
                   ❓
                 </button>
                 <button
-                  onClick={() => !isLocked && onTagChange(ioc, 'benign')}
+                  onClick={() => !isLocked && handleTagChange?.(ioc, 'benign')}
                   disabled={isLocked}
                   className={`px-2 py-1 text-xs rounded border transition-colors ${
                     currentTag === 'benign'
