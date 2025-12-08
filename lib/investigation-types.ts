@@ -361,11 +361,3 @@ export type {
   GeneratedAlert,
 } from './simulation-engine/core-types';
 
-export type {
-  AlertQueueItem,
-  EvidenceItem,
-  CaseArtifact,
-  SOCRole,
-  CaseStatus,
-} from './soc-workflows';
-
