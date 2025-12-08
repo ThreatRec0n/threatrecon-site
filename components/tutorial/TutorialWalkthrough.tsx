@@ -12,10 +12,11 @@ interface TutorialStep {
 }
 
 interface Props {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   onComplete: () => void;
-  currentPage: 'landing' | 'simulation';
+  onSkip?: () => void;
+  currentPage?: 'landing' | 'simulation';
 }
 
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -69,7 +70,9 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   },
 ];
 
-export default function TutorialWalkthrough({ isOpen, onClose, onComplete, currentPage }: Props) {
+export default function TutorialWalkthrough({ isOpen = true, onClose, onComplete, onSkip, currentPage = 'simulation' }: Props) {
+  // Use onSkip if provided, otherwise fall back to onClose, otherwise use onComplete
+  const handleSkip = onSkip || onClose || onComplete;
   const [currentStep, setCurrentStep] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
   const [highlightedElement, setHighlightedElement] = useState<HTMLElement | null>(null);
@@ -113,7 +116,7 @@ export default function TutorialWalkthrough({ isOpen, onClose, onComplete, curre
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen]);
+  }, [isOpen, onSkip, onClose]);
 
   const handleNext = () => {
     if (showIntro) {
@@ -128,7 +131,11 @@ export default function TutorialWalkthrough({ isOpen, onClose, onComplete, curre
 
   const handleSkip = () => {
     localStorage.setItem('walkthrough_seen_v1', 'true');
-    onClose();
+    if (onSkip) {
+      onSkip();
+    } else if (onClose) {
+      onClose();
+    }
   };
 
   const handleComplete = async () => {
@@ -148,7 +155,9 @@ export default function TutorialWalkthrough({ isOpen, onClose, onComplete, curre
     }
     
     onComplete();
-    onClose();
+    if (onClose) {
+      onClose();
+    }
   };
 
   if (!isOpen) return null;

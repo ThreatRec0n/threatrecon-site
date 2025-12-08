@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react';
 
 interface Props {
-  isOpen: boolean;
+  isOpen?: boolean;
   onStartTutorial: () => void;
-  onSkip: () => void;
+  onSkip?: () => void;
+  onClose?: () => void;
 }
 
-export default function WelcomeModal({ isOpen, onStartTutorial, onSkip }: Props) {
+export default function WelcomeModal({ isOpen = true, onStartTutorial, onSkip, onClose }: Props) {
+  // Use onClose if provided, otherwise fall back to onSkip
+  const handleClose = onClose || onSkip || (() => {});
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -20,13 +23,13 @@ export default function WelcomeModal({ isOpen, onStartTutorial, onSkip }: Props)
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onSkip();
+        handleClose();
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onSkip]);
+  }, [isOpen, handleClose]);
 
   if (!isOpen || !mounted) return null;
 
@@ -40,7 +43,7 @@ export default function WelcomeModal({ isOpen, onStartTutorial, onSkip }: Props)
       {/* Dimmed background */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onSkip}
+        onClick={handleClose}
         aria-hidden="true"
       />
 
@@ -77,7 +80,7 @@ export default function WelcomeModal({ isOpen, onStartTutorial, onSkip }: Props)
               Start Tutorial
             </button>
             <button
-              onClick={onSkip}
+              onClick={handleClose}
               className="px-6 py-3 bg-[#161b22] border border-[#30363d] text-[#c9d1d9] rounded-lg hover:border-[#58a6ff] transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
               aria-label="Skip tutorial and start investigating"
             >
