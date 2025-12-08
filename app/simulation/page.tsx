@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
+import { LearningProvider } from '@/lib/contexts/LearningContext';
 
 // Dynamically import the heavy simulation dashboard (client-side only)
 const SimulationDashboard = dynamic(() => import('@/components/soc-dashboard/SimulationDashboard'), {
@@ -22,16 +23,18 @@ const SimulationDashboard = dynamic(() => import('@/components/soc-dashboard/Sim
 
 export default function SimulationPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0d1117] p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-12 bg-[#161b22] rounded w-1/3"></div>
-          <div className="h-64 bg-[#161b22] rounded"></div>
+    <LearningProvider>
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#0d1117] p-4">
+          <div className="animate-pulse space-y-4">
+            <div className="h-12 bg-[#161b22] rounded w-1/3"></div>
+            <div className="h-64 bg-[#161b22] rounded"></div>
+          </div>
         </div>
-      </div>
-    }>
-      <SimulationDashboard />
-    </Suspense>
+      }>
+        <SimulationDashboard />
+      </Suspense>
+    </LearningProvider>
   );
 }
 
