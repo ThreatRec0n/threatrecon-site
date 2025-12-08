@@ -71,8 +71,6 @@ const TUTORIAL_STEPS: TutorialStep[] = [
 ];
 
 export default function TutorialWalkthrough({ isOpen = true, onClose, onComplete, onSkip, currentPage = 'simulation' }: Props) {
-  // Use onSkip if provided, otherwise fall back to onClose, otherwise use onComplete
-  const handleSkip = onSkip || onClose || onComplete;
   const [currentStep, setCurrentStep] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
   const [highlightedElement, setHighlightedElement] = useState<HTMLElement | null>(null);
@@ -104,6 +102,17 @@ export default function TutorialWalkthrough({ isOpen = true, onClose, onComplete
     }
   }, [isOpen, currentStep, showIntro]);
 
+  const handleSkip = () => {
+    localStorage.setItem('walkthrough_seen_v1', 'true');
+    if (onSkip) {
+      onSkip();
+    } else if (onClose) {
+      onClose();
+    } else {
+      onComplete();
+    }
+  };
+
   // Handle Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -116,7 +125,7 @@ export default function TutorialWalkthrough({ isOpen = true, onClose, onComplete
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onSkip, onClose]);
+  }, [isOpen, onSkip, onClose, onComplete]);
 
   const handleNext = () => {
     if (showIntro) {
@@ -126,15 +135,6 @@ export default function TutorialWalkthrough({ isOpen = true, onClose, onComplete
       setCurrentStep(currentStep + 1);
     } else {
       handleComplete();
-    }
-  };
-
-  const handleSkip = () => {
-    localStorage.setItem('walkthrough_seen_v1', 'true');
-    if (onSkip) {
-      onSkip();
-    } else if (onClose) {
-      onClose();
     }
   };
 
