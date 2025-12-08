@@ -37,7 +37,7 @@ export class AlertGenerator {
   }
   
   private generateTruePositiveAlert(config: AlertGenerationConfig, prefix: string): Alert {
-    const severity = this.selectSeverity(['Critical', 'High', 'High', 'Medium']);
+    const severity = this.selectSeverity(['Critical', 'High', 'High', 'Medium']) as 'Critical' | 'High' | 'Medium' | 'Low';
     const sla = SLA_REQUIREMENTS[severity as keyof typeof SLA_REQUIREMENTS];
     const now = new Date();
     const deadline = new Date(now.getTime() + sla.investigationTime * 60 * 1000);
@@ -111,7 +111,7 @@ export class AlertGenerator {
   }
   
   private generateFalsePositiveAlert(config: AlertGenerationConfig, prefix: string): Alert {
-    const severity = this.selectSeverity(['Medium', 'Low', 'Low', 'Informational']);
+    const severity = this.selectSeverity(['Medium', 'Low', 'Low', 'Informational']) as 'Medium' | 'Low' | 'Informational';
     const sla = SLA_REQUIREMENTS[severity as keyof typeof SLA_REQUIREMENTS];
     const now = new Date();
     const deadline = new Date(now.getTime() + sla.investigationTime * 60 * 1000);
