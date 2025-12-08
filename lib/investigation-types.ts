@@ -12,18 +12,6 @@ import type {
   ThreatIntelMatch,
 } from './soc-alert-types';
 
-// Re-export core types
-export type {
-  Alert,
-  AlertSeverity,
-  AlertSource,
-  AlertStatus,
-  SLATimer,
-  SLATimerStatus,
-  AlertNote,
-  ThreatIntelMatch,
-} from './soc-alert-types';
-
 import type {
   IOC,
   IOCType,
@@ -380,30 +368,4 @@ export type {
   SOCRole,
   CaseStatus,
 } from './soc-workflows';
-
-// Re-export all imported types for external consumers
-export type {
-  Alert,
-  AlertSeverity,
-  AlertSource,
-  AlertStatus,
-  SLATimer,
-  SLATimerStatus,
-  AlertNote,
-  ThreatIntelMatch,
-} from './soc-alert-types';
-
-export type {
-  IOC,
-  IOCType,
-  IOCTag,
-  IOCSource,
-  IOCNote,
-  IOCEnrichmentResult,
-} from './ioc-tracking';
-
-export type {
-  LogSourceType,
-  LogSource,
-} from './multi-source-log-generator';
 
