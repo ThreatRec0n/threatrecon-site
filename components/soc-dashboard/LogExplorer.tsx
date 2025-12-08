@@ -289,19 +289,32 @@ function EventDetails({ event }: { event: SimulatedEvent }) {
         </div>
       </div>
 
-      {event.process_tree && (
+      {event.process_name && (
         <div>
-          <h4 className="text-xs font-semibold text-[#8b949e] mb-1">Process Tree</h4>
-          <div className="bg-[#161b22] p-2 rounded border border-[#30363d]">
-            <p className="text-sm text-[#c9d1d9]">
-              <span className="font-mono">{event.process_tree.process_name}</span>
-              {event.process_tree.command_line && (
-                <span className="text-[#8b949e] ml-2">{event.process_tree.command_line}</span>
-              )}
-            </p>
-            <p className="text-xs text-[#8b949e] mt-1">
-              PID: {event.process_tree.process_id} | User: {event.process_tree.user} | Host: {event.process_tree.hostname}
-            </p>
+          <h4 className="text-xs font-semibold text-[#8b949e] mb-1">Process Information</h4>
+          <div className="bg-[#161b22] p-2 rounded border border-[#30363d] text-xs">
+            <div className="mb-1">
+              <span className="text-[#8b949e]">Process:</span>{' '}
+              <span className="text-[#c9d1d9] font-mono">{event.process_name}</span>
+            </div>
+            {event.command_line && (
+              <div className="mb-1">
+                <span className="text-[#8b949e]">Command:</span>{' '}
+                <span className="text-[#c9d1d9] font-mono text-[10px] break-all">
+                  {event.command_line}
+                </span>
+              </div>
+            )}
+            <div className="mb-1">
+              <span className="text-[#8b949e]">Host:</span>{' '}
+              <span className="text-[#c9d1d9]">{event.hostname}</span>
+            </div>
+            {event.username && (
+              <div>
+                <span className="text-[#8b949e]">User:</span>{' '}
+                <span className="text-[#c9d1d9]">{event.username}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
