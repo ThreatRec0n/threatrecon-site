@@ -35,6 +35,12 @@ export default function SimulationDashboard() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [simulationLoaded, setSimulationLoaded] = useState(false);
+  
+  // Timed mode state
+  const [timedMode, setTimedMode] = useState(false);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
 
   // Initialize simulation on mount
   useEffect(() => {
