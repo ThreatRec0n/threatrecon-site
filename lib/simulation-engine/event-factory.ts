@@ -1,5 +1,4 @@
 import type { SimulatedEvent } from './core-types';
-import { randomUUID } from 'crypto';
 
 export class EventFactory {
   generateEventSet(config: {
@@ -54,7 +53,7 @@ export class EventFactory {
     const proc = processes[Math.floor(Math.random() * processes.length)];
     
     return {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       session_id: sessionId,
       source: 'sysmon',
       event_type: 'ProcessCreate',
@@ -78,7 +77,7 @@ export class EventFactory {
     const domain = domains[Math.floor(Math.random() * domains.length)];
     
     return {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       session_id: sessionId,
       source: 'zeek',
       event_type: 'http',
@@ -107,7 +106,7 @@ export class EventFactory {
     ];
     
     return {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       session_id: sessionId,
       source: 'sysmon',
       event_type: 'FileCreate',

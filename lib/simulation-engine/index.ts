@@ -1,7 +1,6 @@
 import type { Alert, SimulatedEvent, InvestigationSession } from './core-types';
 import { EventFactory } from './event-factory';
 import { AlertFactory } from './alert-factory';
-import { randomUUID } from 'crypto';
 
 export class SimulationEngine {
   private eventFactory = new EventFactory();
@@ -13,7 +12,7 @@ export class SimulationEngine {
     scenario_type: 'ransomware' | 'apt' | 'insider';
   }): InvestigationSession {
     
-    const sessionId = randomUUID();
+    const sessionId = crypto.randomUUID();
     
     // Generate minimal attack events
     const attackEvents = this.generateMinimalAttackEvents(sessionId);
@@ -68,7 +67,7 @@ export class SimulationEngine {
     
     return [
       {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         session_id: sessionId,
         source: 'sysmon',
         event_type: 'ProcessCreate',
@@ -88,7 +87,7 @@ export class SimulationEngine {
         }
       },
       {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         session_id: sessionId,
         source: 'zeek',
         event_type: 'conn',

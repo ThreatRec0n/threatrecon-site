@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import LogExplorer from './LogExplorer';
 import IOCTaggingPanel from './IOCTaggingPanel';
 import TimelinePanel from './TimelinePanel';
@@ -9,14 +9,12 @@ import IOCEnrichment from './IOCEnrichment';
 import EvaluationReport from './EvaluationReport';
 import MitreNavigator from './MitreNavigator';
 import InvestigationGuide from './InvestigationGuide';
-import ProgressTracker, { markScenarioCompleted } from './ProgressTracker';
 import TutorialWalkthrough from '@/components/tutorial/TutorialWalkthrough';
 import WelcomeModal from '@/components/tutorial/WelcomeModal';
-import { HelpSidebar } from '@/components/ui/ContextualHelp';
-import { SkeletonCard, SkeletonTable, SkeletonIOCPanel } from '@/components/ui/SkeletonLoader';
 import AchievementUnlockToast from '@/components/achievements/AchievementUnlockToast';
 import AlertQueue from '@/components/AlertQueue';
-import type { Alert, SimulatedEvent, InvestigationSession } from '@/lib/simulation-engine/core-types';
+import type { InvestigationSession } from '@/lib/simulation-engine';
+import type { SimulatedEvent } from '@/lib/simulation-engine/core-types';
 import type { EvaluationResult } from '@/lib/evaluation-engine';
 import { extractIOCsFromEvents } from '@/lib/ioc-extractor';
 
@@ -40,6 +38,14 @@ export default function SimulationDashboard() {
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [lastFeedbackId, setLastFeedbackId] = useState<string | null>(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
+  const [learningMode, setLearningMode] = useState(false);
+  
+  // Simple markScenarioCompleted function
+  const markScenarioCompleted = (scenarioType: string) => {
+    const progress = JSON.parse(localStorage.getItem('threatrecon_scenario_progress') || '{}');
+    progress[scenarioType] = true;
+    localStorage.setItem('threatrecon_scenario_progress', JSON.stringify(progress));
+  };
 
   // Initialize simulation on mount
   useEffect(() => {
@@ -152,21 +158,12 @@ export default function SimulationDashboard() {
   };
 
   // Get unique stages from events
-  const stages = useMemo(() => {
-    if (!session) return [];
-    const uniqueStages = new Set(session.events.map(e => e.stage).filter(Boolean));
-    return Array.from(uniqueStages).sort();
-  }, [session]);
+  const stages = session ? Array.from(new Set(session.events.map(e => e.stage).filter(Boolean))).sort() : [];
 
   // Filter events by selected stage (removed - using all events)
 
-  // Extract IOCs from events using comprehensive extractor
-  const extractedIOCs = useMemo(() => {
-    if (!session) return { ips: [], domains: [], hashes: [], pids: [] };
-
-    // Use the comprehensive IOC extractor
-    return extractIOCsFromEvents(session.events);
-  }, [session]);
+  // Extract IOCs from events
+  const extractedIOCs = session ? extractIOCsFromEvents(session.events) : { ips: [], domains: [], hashes: [], pids: [] };
 
   // Finalize investigation
   const handleFinalizeInvestigation = async () => {
@@ -304,18 +301,11 @@ export default function SimulationDashboard() {
     }
   };
 
-  // Loading state with skeleton
+  // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0d1117] p-4">
-        <div className="max-w-7xl mx-auto space-y-4">
-          <SkeletonCard />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <SkeletonTable />
-            <SkeletonTable />
-            <SkeletonIOCPanel />
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-white text-xl">Loading...</div>
       </div>
     );
   }
@@ -323,32 +313,8 @@ export default function SimulationDashboard() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full siem-card text-center space-y-4">
-          <div className="text-red-400 text-xl">⚠️ Error Loading Simulation</div>
-          <p className="text-[#8b949e]">{error}</p>
-          <button onClick={() => initializeSimulation()} className="btn-primary">
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // No session state
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
-        <div className="text-center space-y-6 max-w-2xl">
-          <h1 className="text-4xl font-bold text-[#c9d1d9]">SOC Simulation Dashboard</h1>
-          <p className="text-lg text-[#8b949e]">
-            Advanced threat hunting and investigation training environment. Analyze multi-stage attack chains,
-            correlate events across log sources, and identify malicious IOCs using professional SOC workflows.
-          </p>
-          <button onClick={() => initializeSimulation()} className="btn-primary px-8 py-3 text-lg">
-            Start New Investigation
-          </button>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-red-400 text-xl">Error: {error}</div>
       </div>
     );
   }
@@ -414,8 +380,6 @@ export default function SimulationDashboard() {
               >
                 {timedMode ? '⏱️ Timed ON' : '⏱️ Timed OFF'}
               </button>
-              
-              <ProgressTracker />
               
               <a
                 href="/leaderboard"
@@ -530,12 +494,14 @@ export default function SimulationDashboard() {
             </div>
             
             {/* CENTER: Log Explorer */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-4">
               <LogExplorer
                 events={session.events}
                 selectedEvent={selectedEvent}
                 onSelectEvent={setSelectedEvent}
               />
+              
+              {learningMode && selectedEvent && <LearningMode event={selectedEvent} />}
               
               <IOCTaggingPanel
                 iocs={extractedIOCs}
@@ -573,36 +539,29 @@ export default function SimulationDashboard() {
       />
 
       {/* Welcome Modal */}
-      <WelcomeModal
-        isOpen={showWelcomeModal}
-        onStartTutorial={() => {
-          setShowWelcomeModal(false);
-          // Small delay to ensure modal closes before tutorial opens
-          setTimeout(() => {
+      {showWelcomeModal && (
+        <WelcomeModal
+          onClose={() => setShowWelcomeModal(false)}
+          onStartTutorial={() => {
+            setShowWelcomeModal(false);
             setShowTutorial(true);
-          }, 200);
-        }}
-        onSkip={() => {
-          setShowWelcomeModal(false);
-          localStorage.setItem('walkthrough_seen_v1', 'true');
-        }}
-      />
+          }}
+        />
+      )}
 
       {/* Tutorial Walkthrough */}
-      <TutorialWalkthrough
-        isOpen={showTutorial}
-        onClose={() => setShowTutorial(false)}
-        onComplete={() => {
-          localStorage.setItem('walkthrough_seen_v1', 'true');
-        }}
-        currentPage="simulation"
-      />
-
-      {/* Help Sidebar */}
-      <HelpSidebar
-        isOpen={helpSidebarOpen}
-        onClose={() => setHelpSidebarOpen(false)}
-      />
+      {showTutorial && (
+        <TutorialWalkthrough
+          onComplete={() => {
+            setShowTutorial(false);
+            localStorage.setItem('walkthrough_seen_v1', 'true');
+          }}
+          onSkip={() => {
+            setShowTutorial(false);
+            localStorage.setItem('walkthrough_seen_v1', 'true');
+          }}
+        />
+      )}
 
       {/* Achievement Unlock Toasts */}
       {unlockedAchievements.map((achievement, index) => (

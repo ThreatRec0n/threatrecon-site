@@ -1,6 +1,5 @@
 import type { Alert } from './core-types';
 import { SLA_REQUIREMENTS } from './core-types';
-import { randomUUID } from 'crypto';
 
 export class AlertFactory {
   private ticketCounter = 100000;
@@ -64,7 +63,7 @@ export class AlertFactory {
     const now = new Date();
     
     return {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       ticket_number: `INC-2024-${String(this.ticketCounter++).padStart(6, '0')}`,
       session_id: sessionId,
       title: template.title,
@@ -96,7 +95,7 @@ export class AlertFactory {
     const sla = SLA_REQUIREMENTS.Medium;
     
     return {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       ticket_number: `INC-2024-${String(this.ticketCounter++).padStart(6, '0')}`,
       session_id: sessionId,
       title: 'Outbound Connection to New Domain',
@@ -127,7 +126,7 @@ export class AlertFactory {
     const sla = SLA_REQUIREMENTS.Low;
     
     return {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       ticket_number: `INC-2024-${String(this.ticketCounter++).padStart(6, '0')}`,
       session_id: sessionId,
       title: 'Scheduled Task Execution',
