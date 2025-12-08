@@ -27,11 +27,13 @@ export interface Alert {
   triaged_at?: Date;
 }
 
+export type LogSource = 'sysmon' | 'zeek' | 'suricata' | 'edr' | 'cloudtrail' | 'windows-event';
+
 export interface SimulatedEvent {
   id: string;
   session_id: string;
   scenario_id: string;
-  source: 'sysmon' | 'zeek' | 'windows' | 'firewall';
+  source: LogSource;
   event_type: string;
   timestamp: string;
   hostname: string;
