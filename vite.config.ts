@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => ({
         deadCodeInjectionThreshold: 0.4,
         disableConsoleOutput: true,
         identifierNamesGenerator: 'hexadecimal',
-        selfDefending: true,
+        selfDefending: false,
         splitStrings: true,
         splitStringsChunkLength: 10,
         stringArray: true,
