@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useGame } from '../../contexts/GameContext'
+import { useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
 import {
   baselineFiles,
   baselineRoamingFiles,
@@ -40,6 +41,7 @@ const ROOT_C_ENTRIES: BaselineFile[] = [
 
 export function FileExplorer() {
   const { vfs, caseDef, recordOperativeMilestone } = useGame()
+  const { addScoringEvent } = useScoringRuntime()
   const home = caseDef ? `C:\\Users\\${caseDef.primaryUser}` : 'C:\\'
   const [path, setPath] = useState<string>(() => norm(vfs?.getCurrentPath() ?? home))
   const [navHist, setNavHist] = useState<{ stack: string[]; i: number }>(() => ({
@@ -101,6 +103,15 @@ export function FileExplorer() {
     })
     return rows
   }, [listing, showHidden, sortKey])
+
+  useEffect(() => {
+    if (!caseDef) return
+    const roaming = `${norm(home)}\\AppData\\Roaming`.toLowerCase()
+    if (norm(path).toLowerCase() !== roaming) return
+    if (listing.some((f) => f.name.toLowerCase() === 'msupdate.exe')) {
+      addScoringEvent('FILE_FOUND')
+    }
+  }, [path, listing, caseDef, home, addScoringEvent])
 
   const navigateTo = useCallback((target: string) => {
     const t = norm(target)

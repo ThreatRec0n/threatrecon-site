@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { VirtualRegistry, RegistryNode } from '../../engine/VirtualRegistry'
 import { useGame } from '../../contexts/GameContext'
+import { useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
 
 interface TreeRow {
   path: string
@@ -33,7 +34,8 @@ function valuePersistFlag(name: string, data: string, pathSelected: string): boo
 }
 
 export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
-  const { recordOperativeMilestone } = useGame()
+  const { recordOperativeMilestone, caseDef } = useGame()
+  const { addScoringEvent } = useScoringRuntime()
   const hives = useMemo(() => registry.hives(), [registry])
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(hives))
   const [selected, setSelected] = useState<string>(hives[0] ?? '')
@@ -49,9 +51,21 @@ export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
   const isPersistence = isPersistencePath(selected)
 
   useEffect(() => {
-    const norm = selected.replace(/\//g, '\\')
-    if (/\\CurrentVersion\\Run$/i.test(norm)) recordOperativeMilestone('detectionRegistryRunPersist')
-  }, [selected, recordOperativeMilestone])
+    const norm = selected.replace(/\//g, '\\').toLowerCase()
+    if (/\\currentversion\\run$/i.test(norm)) {
+      recordOperativeMilestone('detectionRegistryRunPersist')
+      addScoringEvent('PERSIST_FOUND')
+      return
+    }
+    if (caseDef?.registry) {
+      for (const k of Object.keys(caseDef.registry)) {
+        if (k.replace(/\//g, '\\').toLowerCase() === norm) {
+          addScoringEvent('PERSIST_FOUND')
+          return
+        }
+      }
+    }
+  }, [selected, recordOperativeMilestone, caseDef, addScoringEvent])
 
   const toggle = (path: string) => {
     setExpanded((prev) => {

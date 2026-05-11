@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import type { DebriefPayload } from '../../components/ReportEditor/ReportEditor'
+import type { DebriefPayload } from '../../types/debrief.types'
 
 export function VerifyScreen() {
   const { id } = useParams()

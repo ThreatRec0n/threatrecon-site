@@ -99,6 +99,7 @@ export function PRESET_DELTA04(seed: number, difficulty: Difficulty): CaseDefini
     ],
     hostname,
     primaryUser,
+    c2Ip: '203.0.113.44',
     severity: 'CRITICAL',
     initialAlert: {
       title: 'SERVICE ANOMALY',

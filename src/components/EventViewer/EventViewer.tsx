@@ -3,6 +3,7 @@ import type { CaseDefinition, EventLogEntry } from '../../types/case.types'
 import { generateEventLogs } from '../../utils/eventLogGenerator'
 import { generateBaselineEvents } from '../../data/baselineSystem'
 import { useGame } from '../../contexts/GameContext'
+import { useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
 
 const LOG_TABS = ['Security', 'System', 'Application', 'PowerShell'] as const
 type LogTab = typeof LOG_TABS[number]
@@ -30,6 +31,7 @@ function riskRow(e: EventLogEntry): string {
 
 export function EventViewer({ caseDef }: { caseDef: CaseDefinition }) {
   const { recordOperativeMilestone } = useGame()
+  const { addScoringEvent } = useScoringRuntime()
   const [filterId, setFilterId] = useState('')
   const [tab, setTab] = useState<LogTab>('Security')
   const [events, setEvents] = useState<EventLogEntry[] | null>(
@@ -133,8 +135,12 @@ export function EventViewer({ caseDef }: { caseDef: CaseDefinition }) {
                   }`}
                   onClick={() => {
                     setSelectedId(e.id)
+                    const encodedPs = e.eventId === 4104 && e.malicious
                     if ((e.eventId === 4688 || e.eventId === 4698) && e.malicious) {
                       recordOperativeMilestone('detectionMalicious4688Or4698')
+                    }
+                    if ((((e.eventId === 4688 || e.eventId === 4698) && e.malicious) || encodedPs)) {
+                      addScoringEvent('EVENT_FOUND')
                     }
                   }}
                 >

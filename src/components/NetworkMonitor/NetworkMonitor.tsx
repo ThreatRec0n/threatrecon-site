@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CaseDefinition, NetworkConnection } from '../../types/case.types'
 import { BASELINE_NETWORK } from '../../data/baselineSystem'
 import { useGame } from '../../contexts/GameContext'
+import { useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
 
 function splitEndpoint(ep: string): { ip: string; port: string } {
   if (!ep || ep === '*:*') return { ip: '*', port: '*' }
@@ -60,6 +61,7 @@ export function NetworkMonitor({
   exfilBlocked?: boolean
 }) {
   const { recordOperativeMilestone } = useGame()
+  const { addScoringEvent } = useScoringRuntime()
   const merged = useMemo<NetworkConnection[]>(() => {
     const host = '10.0.1.5'
     const base = BASELINE_NETWORK(host)
@@ -146,7 +148,10 @@ export function NetworkMonitor({
                   tabIndex={bad ? 0 : undefined}
                   className={`border-t border-white/5 ${rowClass} ${pulse ? 'animate-pulse' : ''} ${bad ? 'cursor-pointer hover:bg-white/10' : ''}`}
                   onClick={() => {
-                    if (bad) recordOperativeMilestone('detectionNetworkC2')
+                    if (bad) {
+                      recordOperativeMilestone('detectionNetworkC2')
+                      addScoringEvent('C2_IDENTIFIED')
+                    }
                   }}
                 >
                   <td className="p-2">{c.proto}</td>

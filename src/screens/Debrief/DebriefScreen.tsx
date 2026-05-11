@@ -7,7 +7,8 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from 'recharts'
-import type { DebriefPayload } from '../../components/ReportEditor/ReportEditor'
+import type { DebriefPayload } from '../../types/debrief.types'
+import type { ScoreBreakdown } from '../../utils/scoringEngine'
 import { downloadCertificatePdf } from '../../engine/CertificateGenerator'
 import { Logo } from '../../components/shared/Logo'
 
@@ -111,6 +112,12 @@ export function DebriefScreen() {
               <span className="text-[#5e9bff]">Entry:</span> {state.entryTechnique}
             </li>
             <li>
+              <span className="text-[#5e9bff]">Report quiz:</span>{' '}
+              {state.quizScore != null && state.quizTotal != null
+                ? `${state.quizScore} / ${state.quizTotal} pts`
+                : '—'}
+            </li>
+            <li>
               <span className="text-[#5e9bff]">Target:</span> {state.industryName}
             </li>
             <li>
@@ -131,6 +138,43 @@ export function DebriefScreen() {
           </div>
         </section>
       </main>
+
+      {state.scoreBreakdown ? (
+        <section className="mx-auto mt-10 max-w-6xl rounded-xl border border-white/10 bg-[#0f1824] p-6">
+          <div className="font-display text-sm tracking-[0.3em] text-[#8a9ab5]">FINAL SCORE BREAKDOWN</div>
+          <ScoreBreakdownPanel sb={state.scoreBreakdown} />
+        </section>
+      ) : null}
+
+      {state.suspiciousBurst ? (
+        <section className="mx-auto mt-6 max-w-6xl rounded-xl border border-orange-500/35 bg-orange-500/10 p-4 font-mono text-[11px] text-orange-100">
+          Integrity monitor flagged impossibly fast milestone chaining — total score reduced by 50% per training anti-cheat rules.
+        </section>
+      ) : null}
+
+      {state.achievements && state.achievements.length > 0 ? (
+        <section className="mx-auto mt-10 max-w-6xl rounded-xl border border-emerald-500/25 bg-[#0f1824] p-6">
+          <div className="font-display text-sm tracking-[0.3em] text-[#8a9ab5]">ACHIEVEMENTS UNLOCKED</div>
+          <ul className="mt-4 flex flex-wrap gap-2 font-mono text-[12px]">
+            {state.achievements.map((a) => (
+              <li key={a} className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-emerald-200">
+                {a}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {state.whatYouMissed && state.whatYouMissed.length > 0 ? (
+        <section className="mx-auto mt-10 max-w-6xl rounded-xl border border-yellow-500/25 bg-[#0f1824] p-6">
+          <div className="font-display text-sm tracking-[0.3em] text-[#8a9ab5]">WHAT YOU MISSED</div>
+          <ul className="mt-4 space-y-2 font-mono text-[12px] text-[#e8edf5]">
+            {state.whatYouMissed.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="mx-auto mt-10 max-w-6xl rounded-xl border border-white/10 bg-[#0f1824] p-6">
         <div className="font-display text-sm tracking-[0.3em] text-[#8a9ab5]">ATTACK TIMELINE</div>
@@ -237,6 +281,49 @@ export function DebriefScreen() {
             Dashboard
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function ScoreBreakdownPanel({ sb }: { sb: ScoreBreakdown }) {
+  const bar = (cur: number, max: number) => {
+    const slots = 20
+    const filled = max > 0 ? Math.round((cur / max) * slots) : 0
+    const ch = '█'
+    const dim = '░'
+    return ch.repeat(Math.min(slots, Math.max(0, filled))) + dim.repeat(Math.max(0, slots - Math.min(slots, filled)))
+  }
+
+  const Row = ({ label, cur, max }: { label: string; cur: number; max: number }) => (
+    <div className="grid gap-1 sm:grid-cols-[140px_1fr_auto] sm:items-center">
+      <span>{label}</span>
+      <span className="font-mono text-[11px] text-[#5e9bff]">{max > 0 ? bar(cur, max) : '────────────'}</span>
+      <span className="sm:text-right">
+        {cur}
+        {max > 0 ? ` / ${max}` : ''}
+      </span>
+    </div>
+  )
+
+  return (
+    <div className="mt-4 space-y-2 font-mono text-[12px] leading-relaxed text-[#e8edf5]">
+      <div className="text-[#8a9ab5]">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+      <Row label="Detection" cur={sb.detection} max={20} />
+      <Row label="Investigation" cur={sb.investigation} max={20} />
+      <Row label="Response" cur={sb.response} max={20} />
+      <Row label="Report (Quiz)" cur={sb.report} max={20} />
+      <Row label="Speed Bonus" cur={sb.speed} max={10} />
+      <Row label="Achievement Bonus" cur={sb.bonus} max={10} />
+      <div className="grid gap-1 sm:grid-cols-[140px_1fr_auto] sm:items-center">
+        <span>Penalties</span>
+        <span className="text-[#8a9ab5]">{sb.penalties === 0 ? '────────────' : bar(Math.abs(sb.penalties), 8)}</span>
+        <span className="sm:text-right">{sb.penalties}</span>
+      </div>
+      <div className="text-[#8a9ab5]">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 pt-1 font-display text-sm tracking-wide text-[#5e9bff]">
+        <span>TOTAL {sb.total} / 100</span>
+        <span>GRADE {sb.grade}</span>
       </div>
     </div>
   )

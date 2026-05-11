@@ -39,6 +39,7 @@ export function PRESET_CHARLIE03(seed: number, difficulty: Difficulty): CaseDefi
         state: 'ESTABLISHED',
         pid: 8812,
         processName: 'msedge.exe',
+        malicious: true,
       },
     ],
     processes: [
@@ -99,6 +100,7 @@ export function PRESET_CHARLIE03(seed: number, difficulty: Difficulty): CaseDefi
     ],
     hostname,
     primaryUser,
+    c2Ip: 'onedrive.live.com',
     severity: 'HIGH',
     initialAlert: {
       title: 'DATA STAGING ALERT',

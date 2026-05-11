@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useEvidence, badgeColor } from '../../contexts/EvidenceContext'
 import { useGame } from '../../contexts/GameContext'
+import { useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
 import { IconAlert } from '../shared/Icons'
 
 function mitreTechniqueUrl(id: string): string | null {
@@ -20,6 +21,7 @@ const sevColor: Record<string, string> = {
 export function EvidenceLocker() {
   const { items, tagIoc, updateNotes } = useEvidence()
   const { caseDef } = useGame()
+  const { addScoringEvent } = useScoringRuntime()
   const iocCount = items.filter((i) => i.taggedIoc).length
 
   useEffect(() => {
@@ -136,7 +138,12 @@ export function EvidenceLocker() {
                     <input
                       type="checkbox"
                       checked={ev.taggedIoc}
-                      onChange={(e) => tagIoc(ev.id, e.target.checked)}
+                      onChange={(e) => {
+                        tagIoc(ev.id, e.target.checked)
+                        if (e.target.checked && !ev.notes?.includes('Auto-captured')) {
+                          addScoringEvent('ARTIFACT_CAPTURED')
+                        }
+                      }}
                       className="accent-[#5e9bff]"
                     />
                     IOC

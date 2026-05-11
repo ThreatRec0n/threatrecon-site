@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import type { CaseDefinition, UserAccountDef } from '../../types/case.types'
 import { BASELINE_USERS } from '../../data/baselineSystem'
 import { useGame } from '../../contexts/GameContext'
+import { useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
 
 const fmtTime = (t: string) => {
   if (!t || t === 'Never') return 'Never'
@@ -10,6 +11,7 @@ const fmtTime = (t: string) => {
 
 export function UserAccounts({ caseDef }: { caseDef: CaseDefinition }) {
   const { recordOperativeMilestone } = useGame()
+  const { addScoringEvent } = useScoringRuntime()
   const users = useMemo<UserAccountDef[]>(() => {
     const seen = new Set(BASELINE_USERS.map((u) => u.name.toLowerCase()))
     const extras = (caseDef.userAccounts ?? []).filter((u) => !seen.has(u.name.toLowerCase()))
@@ -37,6 +39,7 @@ export function UserAccounts({ caseDef }: { caseDef: CaseDefinition }) {
               role="presentation"
               onClick={() => {
                 if (u.malicious) recordOperativeMilestone('investigationCompromisedUser')
+                if (u.malicious || u.name === caseDef.primaryUser) addScoringEvent('USER_IDENTIFIED')
               }}
               className={`cursor-pointer rounded-lg border p-3 font-mono transition-colors hover:bg-white/[0.03] ${
                 u.malicious

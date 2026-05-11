@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useGame } from '../../contexts/GameContext'
+import { useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
 import { IconShield } from '../shared/Icons'
 
 type Direction = 'In' | 'Out'
@@ -45,6 +46,7 @@ const threatLevel = (rules: FwRule[], c2Blocked: boolean): { label: string; colo
 export function FirewallConsole() {
   const { caseDef, hardeningDone, toggleHardening, exfilBlocked, markExfilBlocked, firewall, recordOperativeMilestone } =
     useGame()
+  const { addScoringEvent } = useScoringRuntime()
   const c2Ip = caseDef?.c2Ip ?? '185.220.101.47'
 
   const [rules, setRules] = useState<FwRule[]>(() => DEFAULT_RULES)
@@ -117,6 +119,7 @@ export function FirewallConsole() {
     ])
     markExfilBlocked()
     recordOperativeMilestone('firewallBlockedC2')
+    addScoringEvent('C2_BLOCKED')
     /* check off any matching hardening step */
     if (caseDef) {
       const block = caseDef.correctHardeningSteps.find((h) => /firewall|block|c2/i.test(h.label))
@@ -349,7 +352,11 @@ export function FirewallConsole() {
                   <input
                     type="checkbox"
                     checked={!!hardeningDone[h.id]}
-                    onChange={() => toggleHardening(h.id)}
+                    onChange={() => {
+                      const next = !hardeningDone[h.id]
+                      toggleHardening(h.id)
+                      if (next) addScoringEvent('HARDENING_COMPLETED')
+                    }}
                     className="mt-0.5 accent-[#5e9bff]"
                   />
                   <span>{h.label}</span>

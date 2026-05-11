@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import type { CaseDefinition, ScheduledTaskDef } from '../../types/case.types'
 import { baselineTasksFor } from '../../data/baselineSystem'
+import { useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
 
 const fmtTime = (t: string) => (t ? t.replace('T', ' ').replace('Z', ' UTC') : '—')
 
 export function TaskScheduler({ caseDef }: { caseDef: CaseDefinition }) {
+  const { addScoringEvent } = useScoringRuntime()
   const tasks = useMemo<ScheduledTaskDef[]>(() => {
     const base = baselineTasksFor(caseDef.primaryUser)
     const seen = new Set(base.map((t) => t.name))
@@ -39,9 +41,13 @@ export function TaskScheduler({ caseDef }: { caseDef: CaseDefinition }) {
             {tasks.map((t) => (
               <tr
                 key={t.name}
-                className={`border-t border-white/5 hover:bg-white/5 ${
+                role="presentation"
+                className={`cursor-pointer border-t border-white/5 hover:bg-white/5 ${
                   t.malicious ? 'bg-red-500/10 text-red-100' : ''
                 }`}
+                onClick={() => {
+                  if (t.malicious) addScoringEvent('PERSIST_FOUND')
+                }}
               >
                 <td className="max-w-[220px] p-2 align-top">
                   <div className="break-all font-semibold">{t.name}</div>

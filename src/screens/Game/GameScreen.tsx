@@ -64,7 +64,12 @@ import { SettingsApp } from '../../components/SettingsApp/SettingsApp'
 import { PhaseTracker } from './PhaseTracker'
 import { Timer } from './Timer'
 import type { GamePhase } from '../../contexts/GameContext'
-import { ReportEditor } from '../../components/ReportEditor/ReportEditor'
+import { ReportQuiz } from '../../components/ReportQuiz/ReportQuiz'
+import { ScoringRuntimeProvider, useScoringRuntime } from '../../contexts/ScoringRuntimeContext'
+import { calculateScore, dedupeScoringEventsByType, missedScoringMessages, type ScoringEvent } from '../../utils/scoringEngine'
+import { countableTaggedIocItems } from '../../engine/ScoringEngine'
+import type { DebriefPayload } from '../../types/debrief.types'
+import { verificationHash } from '../../utils/hashUtils'
 import { generateBaselineEvents } from '../../data/baselineSystem'
 
 function IconSettingsGear({ size = 22 }: { size?: number }) {
@@ -176,13 +181,16 @@ function GameScreenInner() {
 
   return (
     <WindowManagerProvider key={caseDef.caseId} geometryStorageKey={caseDef.caseId}>
-      <GameDesk displayName={displayName} />
+      <ScoringRuntimeProvider caseId={caseDef.caseId}>
+        <GameDesk displayName={displayName} />
+      </ScoringRuntimeProvider>
     </WindowManagerProvider>
   )
 }
 
 function GameDesk({ displayName }: { displayName: string }) {
-  const { profile } = usePlayer()
+  const navigate = useNavigate()
+  const { profile, completeCase, pushLeaderboard } = usePlayer()
   const { addEvidence, items } = useEvidence()
   const clip = useClipboardHistory()
   const { append: appendTimeline } = useTimeline()
@@ -203,7 +211,19 @@ function GameDesk({ displayName }: { displayName: string }) {
     exfilProgress,
     exfilWarned,
     exfilBlocked,
+    forensic,
+    resetCase,
   } = game
+
+  const {
+    scoringEvents,
+    addScoringEvent,
+    suspiciousBurst,
+    quizSubmitted,
+    markQuizSubmitted,
+    sessionShuffleSeed,
+    getFirstToolOpenedAt,
+  } = useScoringRuntime()
 
   const winMgr = useWindows()
   const [lockedOverlay, setLockedOverlay] = useState(false)
@@ -215,6 +235,8 @@ function GameDesk({ displayName }: { displayName: string }) {
   const [recycleHint, setRecycleHint] = useState(false)
   const [selectedDesktop, setSelectedDesktop] = useState<string | null>(null)
   const openedToolsRef = useRef<Set<string>>(new Set())
+  /** Suppress scoring for the automatic terminal opened after SIEM toast dismissal */
+  const skipScoreNextToolOpenRef = useRef(false)
   const seenEvidenceRef = useRef<Set<string>>(new Set())
   const [recentList, setRecentList] = useState<{ id: string; label: string; at: number }[]>([])
 
@@ -232,6 +254,19 @@ function GameDesk({ displayName }: { displayName: string }) {
   const [altTabOpen, setAltTabOpen] = useState(false)
   const [altTabIdx, setAltTabIdx] = useState(0)
   const altTabIdxRef = useRef(0)
+  const timedOutSentRef = useRef(false)
+
+  useEffect(() => {
+    timedOutSentRef.current = false
+  }, [caseDef?.caseId])
+
+  useEffect(() => {
+    if (!caseDef) return
+    if (timerRemaining > 0) return
+    if (timedOutSentRef.current) return
+    timedOutSentRef.current = true
+    addScoringEvent('TIMED_OUT')
+  }, [caseDef, timerRemaining, addScoringEvent])
 
   useEffect(() => {
     if (!caseDef) return
@@ -270,8 +305,8 @@ function GameDesk({ displayName }: { displayName: string }) {
   }, [caseDef, addEvidence])
 
   useEffect(() => {
-    if (timeUp) setShowReport(true)
-  }, [timeUp])
+    if (timeUp && !quizSubmitted) setShowReport(true)
+  }, [timeUp, quizSubmitted])
 
   /** Dismiss shell popovers on outside click — MUST skip taskbar + overlay roots or Start/Search never stay open. */
   useEffect(() => {
@@ -391,7 +426,15 @@ function GameDesk({ displayName }: { displayName: string }) {
 
   const openTool = useCallback(
     (id: OpenToolId) => {
-      if (!caseDef || !registry) return
+      if (!caseDef || !registry) {
+        skipScoreNextToolOpenRef.current = false
+        return
+      }
+      if (skipScoreNextToolOpenRef.current) {
+        skipScoreNextToolOpenRef.current = false
+      } else {
+        addScoringEvent('TOOL_OPENED')
+      }
       markToolsOpened()
 
       const record = (tid: string, lab: string) => recordToolOpen(tid, lab)
@@ -550,6 +593,7 @@ function GameDesk({ displayName }: { displayName: string }) {
       exfilBlocked,
       recordToolOpen,
       clip,
+      addScoringEvent,
     ],
   )
 
@@ -597,7 +641,10 @@ function GameDesk({ displayName }: { displayName: string }) {
 
   useEffect(() => {
     if (!caseDef) return
-    if (!showAlert) openTool('terminal')
+    if (!showAlert) {
+      skipScoreNextToolOpenRef.current = true
+      openTool('terminal')
+    }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [caseDef?.caseId, showAlert])
 
@@ -721,12 +768,162 @@ function GameDesk({ displayName }: { displayName: string }) {
     altTabOpen,
   ])
 
-  if (!caseDef || !difficulty) return null
+  const handleQuizComplete = useCallback(
+    (result: { quizScore: number; quizTotal: number }) => {
+      if (!caseDef || !difficulty) return
+      const completionTimestamp = new Date().toISOString()
+      const completionTs = Date.now()
+      const finalEvents = dedupeScoringEventsByType([
+        ...scoringEvents,
+        { type: 'REPORT_SUBMITTED', timestamp: completionTs },
+      ])
 
-  const hardeningPct =
-    (Object.keys(hardeningDone).filter((k) => hardeningDone[k]).length /
-      Math.max(1, caseDef.correctHardeningSteps.length)) *
-    100
+      const tagged = countableTaggedIocItems(items)
+      const totalArtifacts = Math.max(1, caseDef.artifacts.length)
+      const hardeningSteps = Object.values(hardeningDone).filter(Boolean).length
+      const totalHardeningSteps = Math.max(1, caseDef.correctHardeningSteps.length)
+
+      const firstToolAt = getFirstToolOpenedAt()
+      const timeUsedSec =
+        firstToolAt != null ? Math.max(0, (completionTs - firstToolAt) / 1000) : timerTotal
+
+      const scoreBreakdown = calculateScore(
+        finalEvents,
+        result.quizScore,
+        result.quizTotal,
+        timeUsedSec,
+        timerTotal,
+        tagged,
+        totalArtifacts,
+        hardeningSteps,
+        totalHardeningSteps,
+        suspiciousBurst,
+      )
+
+      const radar = {
+        speed: Math.round(scoreBreakdown.radarAxes.speed * 100),
+        completeness: Math.round(scoreBreakdown.radarAxes.complete * 100),
+        forensicIntegrity: Math.round(scoreBreakdown.radarAxes.forensic * 100),
+        hardening: Math.round(scoreBreakdown.radarAxes.harden * 100),
+        reportQuality: Math.round(scoreBreakdown.radarAxes.report * 100),
+      }
+
+      const achievements: string[] = []
+      const evHas = (t: ScoringEvent['type']) => finalEvents.some((e) => e.type === t)
+      if (
+        evHas('EVENT_FOUND') &&
+        evHas('C2_IDENTIFIED') &&
+        evHas('PROCESS_IDENTIFIED') &&
+        evHas('PERSIST_FOUND')
+      ) {
+        achievements.push('Full Detection')
+      }
+      if (result.quizTotal > 0 && result.quizScore >= result.quizTotal) {
+        achievements.push('Perfect Quiz')
+      }
+      if (firstToolAt != null && timeUsedSec <= timerTotal * 0.4) {
+        achievements.push('Speed Runner')
+      }
+
+      const verificationId = verificationHash([
+        caseDef.caseId,
+        profile.name,
+        String(scoreBreakdown.total),
+        completionTimestamp,
+      ])
+
+      completeCase({
+        caseId: caseDef.caseId,
+        seed: caseDef.seed,
+        difficulty,
+        score: scoreBreakdown.total,
+        grade: scoreBreakdown.grade,
+        timeSeconds: Math.floor(timerTotal - timerRemaining),
+      })
+
+      pushLeaderboard({
+        id: verificationId.slice(0, 16),
+        name: profile.name,
+        score: scoreBreakdown.total,
+        timeSeconds: Math.floor(timerTotal - timerRemaining),
+        difficulty,
+        date: completionTimestamp,
+      })
+
+      const payload: DebriefPayload = {
+        verificationId,
+        completionTimestamp,
+        caseId: caseDef.caseId,
+        caseCode: caseDef.code,
+        seed: caseDef.seed,
+        difficulty,
+        score: scoreBreakdown.total,
+        grade: scoreBreakdown.grade,
+        breakdown: radar,
+        scoreBreakdown,
+        quizScore: result.quizScore,
+        quizTotal: result.quizTotal,
+        suspiciousBurst,
+        whatYouMissed: missedScoringMessages(finalEvents).map((m) => m.message),
+        achievements,
+        scoringEvents: finalEvents,
+        timeUsedSec: Math.floor(timerTotal - timerRemaining),
+        timerTotalSec: timerTotal,
+        actorName: caseDef.threatActor.displayName,
+        industryName: caseDef.industry.companyName,
+        entryTechnique: caseDef.entryVector.name,
+        mitre: caseDef.attackChain.map((t) => t.id),
+        playerName: profile.name,
+        artifactsFound: items.map((i) => i.title),
+        artifactsTotal: totalArtifacts,
+        forensicViolations: forensic.getViolations().map((v) => ({
+          kind: v.kind,
+          target: v.target,
+          note: v.note,
+        })),
+      }
+
+      localStorage.setItem(`tr_verify_${verificationId}`, JSON.stringify(payload))
+
+      try {
+        const raw = localStorage.getItem('threatrecon_mitre_coverage')
+        const cov: Record<string, 'detected' | 'missed'> = raw ? JSON.parse(raw) : {}
+        const foundMitre = new Set<string>()
+        items.forEach((i) => i.mitre?.forEach((m) => foundMitre.add(m)))
+        caseDef.attackChain.forEach((t) => {
+          cov[t.id] = foundMitre.has(t.id) ? 'detected' : cov[t.id] === 'detected' ? 'detected' : 'missed'
+        })
+        localStorage.setItem('threatrecon_mitre_coverage', JSON.stringify(cov))
+      } catch {
+        /* ignore */
+      }
+
+      markQuizSubmitted()
+      resetCase()
+      navigate('/debrief', { state: payload })
+      setShowReport(false)
+    },
+    [
+      caseDef,
+      difficulty,
+      scoringEvents,
+      items,
+      hardeningDone,
+      getFirstToolOpenedAt,
+      timerTotal,
+      timerRemaining,
+      suspiciousBurst,
+      profile.name,
+      completeCase,
+      pushLeaderboard,
+      forensic,
+      markQuizSubmitted,
+      resetCase,
+      navigate,
+    ],
+  )
+
+  if (!caseDef || !difficulty) return null
 
   const desktopLabels: Record<string, string> = {
     thispc: 'This PC',
@@ -816,10 +1013,11 @@ function GameDesk({ displayName }: { displayName: string }) {
           <Timer seconds={timerRemaining} totalSeconds={timerTotal} />
           <button
             type="button"
-            className="rounded border border-white/10 px-3 py-1 text-[11px] hover:bg-white/5"
-            onClick={() => setShowReport(true)}
+            disabled={quizSubmitted}
+            className="rounded border border-white/10 px-3 py-1 text-[11px] hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => !quizSubmitted && setShowReport(true)}
           >
-            Incident Report
+            {quizSubmitted ? 'Report Submitted ✓' : 'Incident Report'}
           </button>
         </div>
       </div>
@@ -1053,8 +1251,17 @@ function GameDesk({ displayName }: { displayName: string }) {
         <EvidenceLocker />
       </div>
 
-      {showReport ? (
-        <ReportEditor hardeningPct={hardeningPct} onClose={() => setShowReport(false)} forceSubmit={timeUp} />
+      {showReport && !quizSubmitted ? (
+        <ReportQuiz
+          open
+          caseDef={caseDef}
+          analystName={profile.name?.trim() || displayName}
+          difficulty={difficulty}
+          timerRemaining={timerRemaining}
+          timerTotal={timerTotal}
+          sessionShuffleSeed={sessionShuffleSeed}
+          onSubmit={(r) => handleQuizComplete({ quizScore: r.quizScore, quizTotal: r.quizTotal })}
+        />
       ) : null}
     </div>
   )
