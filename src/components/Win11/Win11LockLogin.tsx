@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export type AuthShellPhase = 'lock' | 'login'
 
@@ -10,32 +10,34 @@ export function Win11LockScreen({
   onWake: () => void
 }) {
   const [hintPulse, setHintPulse] = useState(false)
+  const [tick, setTick] = useState(() => Date.now())
 
-  const { clockLine, dateLine } = useMemo(() => {
-    const d = new Date()
-    const hh = d.getHours() % 12 || 12
-    const mm = String(d.getMinutes()).padStart(2, '0')
-    const ampm = d.getHours() >= 12 ? 'PM' : 'AM'
-    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ]
-    return {
-      clockLine: `${hh}:${mm} ${ampm}`,
-      dateLine: `${weekdays[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`,
-    }
+  useEffect(() => {
+    const id = window.setInterval(() => setTick(Date.now()), 1000)
+    return () => window.clearInterval(id)
   }, [])
+
+  const d = new Date(tick)
+  const hh = d.getHours() % 12 || 12
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ampm = d.getHours() >= 12 ? 'PM' : 'AM'
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ]
+  const clockLine = `${hh}:${mm} ${ampm}`
+  const dateLine = `${weekdays[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`
 
   return (
     <button

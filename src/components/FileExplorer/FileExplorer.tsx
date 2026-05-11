@@ -6,7 +6,7 @@ import {
   baselineAppDataDirs,
   type BaselineFile,
 } from '../../data/baselineSystem'
-import { IconFolder } from '../shared/Icons'
+import { IconAlert, IconFolder } from '../shared/Icons'
 
 const fmtTime = (t: string) => t.replace('T', ' ').replace('Z', ' UTC')
 const fmtSize = (kb?: number) => {
@@ -19,6 +19,18 @@ function norm(p: string) {
   return p.replace(/\//g, '\\').replace(/\\+$/, '')
 }
 
+/** Parent folder for Windows paths (e.g. C:\\Users\\x → C:\\Users); root → null */
+function parentOf(p: string): string | null {
+  const n = norm(p)
+  const m = n.match(/^([a-zA-Z]:\\)(.*)$/i)
+  if (!m) return null
+  const tail = m[2]
+  if (!tail) return null
+  const segs = tail.split('\\').filter(Boolean)
+  segs.pop()
+  return segs.length ? `${m[1]}${segs.join('\\')}` : m[1]
+}
+
 const ROOT_C_ENTRIES: BaselineFile[] = [
   { name: 'Program Files', type: 'dir', modified: '2026-01-08T08:00:00Z' },
   { name: 'Program Files (x86)', type: 'dir', modified: '2026-01-08T08:00:00Z' },
@@ -29,7 +41,11 @@ const ROOT_C_ENTRIES: BaselineFile[] = [
 export function FileExplorer() {
   const { vfs, caseDef } = useGame()
   const home = caseDef ? `C:\\Users\\${caseDef.primaryUser}` : 'C:\\'
-  const [path, setPath] = useState<string>(() => vfs?.getCurrentPath() ?? home)
+  const [path, setPath] = useState<string>(() => norm(vfs?.getCurrentPath() ?? home))
+  const [navHist, setNavHist] = useState<{ stack: string[]; i: number }>(() => ({
+    stack: [norm(vfs?.getCurrentPath() ?? home)],
+    i: 0,
+  }))
   const [showHidden, setShowHidden] = useState(false)
   const [sortKey, setSortKey] = useState<'name' | 'modified' | 'size'>('name')
   const [ctx, setCtx] = useState<{ x: number; y: number; file?: BaselineFile } | null>(null)
@@ -82,17 +98,47 @@ export function FileExplorer() {
     return rows
   }, [listing, showHidden, sortKey])
 
-  const navClick = useCallback((target: string) => {
-    setPath(norm(target))
+  const navigateTo = useCallback((target: string) => {
+    const t = norm(target)
+    setNavHist((h) => {
+      const stack = h.stack.slice(0, h.i + 1)
+      if (stack[stack.length - 1] === t) return h
+      stack.push(t)
+      return { stack, i: stack.length - 1 }
+    })
+    setPath(t)
     setCtx(null)
   }, [])
+
+  const goBack = useCallback(() => {
+    setNavHist((h) => {
+      if (h.i <= 0) return h
+      const i = h.i - 1
+      setPath(h.stack[i])
+      return { ...h, i }
+    })
+  }, [])
+
+  const goForward = useCallback(() => {
+    setNavHist((h) => {
+      if (h.i >= h.stack.length - 1) return h
+      const i = h.i + 1
+      setPath(h.stack[i])
+      return { ...h, i }
+    })
+  }, [])
+
+  const goUp = useCallback(() => {
+    const parent = parentOf(path)
+    if (parent) navigateTo(parent)
+  }, [path, navigateTo])
 
   const openChild = useCallback(
     (f: BaselineFile) => {
       if (f.type !== 'dir') return
-      navClick(`${norm(path)}\\${f.name}`)
+      navigateTo(`${norm(path)}\\${f.name}`)
     },
-    [navClick, path],
+    [navigateTo, path],
   )
 
   const QUICK = useMemo(
@@ -124,18 +170,30 @@ export function FileExplorer() {
       onClick={() => setCtx(null)}
     >
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-black bg-[#f3f3f3] px-2 py-1 text-[#1f1f1f]">
-        <button type="button" className="rounded px-2 py-1 hover:bg-black/8" onClick={() => navClick(home)}>
-          🏠
+        <button type="button" title="Back" className="rounded px-2 py-1 hover:bg-black/8 disabled:opacity-35" disabled={navHist.i <= 0} onClick={goBack}>
+          ←
         </button>
-        <button type="button" className="rounded px-2 py-1 hover:bg-black/8" onClick={() => navClick('C:\\')}>
+        <button
+          type="button"
+          title="Forward"
+          className="rounded px-2 py-1 hover:bg-black/8 disabled:opacity-35"
+          disabled={navHist.i >= navHist.stack.length - 1}
+          onClick={goForward}
+        >
+          →
+        </button>
+        <button type="button" title="Up" className="rounded px-2 py-1 hover:bg-black/8 disabled:opacity-35" disabled={!parentOf(path)} onClick={goUp}>
           ↑
+        </button>
+        <button type="button" title="Home" className="rounded px-2 py-1 hover:bg-black/8" onClick={() => navigateTo(home)}>
+          🏠
         </button>
         <input
           className="min-w-[180px] flex-1 rounded border border-black/15 bg-white px-2 py-1 font-mono text-[11px]"
           value={path}
           onChange={(e) => setPath(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') setPath(norm(path))
+            if (e.key === 'Enter') navigateTo(norm(path))
           }}
         />
         <input placeholder="Search…" className="w-40 rounded border border-black/15 bg-white px-2 py-1 text-[11px]" disabled />
@@ -180,7 +238,7 @@ export function FileExplorer() {
             <button
               key={q.t}
               type="button"
-              onClick={() => navClick(q.t)}
+              onClick={() => navigateTo(q.t)}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.06]"
             >
               <IconFolder size={14} className="text-[#eab308]" />
@@ -188,7 +246,7 @@ export function FileExplorer() {
             </button>
           ))}
           <div className="mt-3 px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-[#666]">This PC</div>
-          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.06]" onClick={() => navClick('C:\\')}>
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.06]" onClick={() => navigateTo('C:\\')}>
             <IconFolder size={14} className="text-[#eab308]" />
             Local Disk (C:)
           </button>
@@ -220,6 +278,8 @@ export function FileExplorer() {
                     <div className="flex items-center gap-2">
                       {f.type === 'dir' ? (
                         <IconFolder size={16} className="text-[#eab308]" />
+                      ) : f.suspicious ? (
+                        <IconAlert size={16} className="text-red-600" />
                       ) : (
                         <span className="inline-block h-4 w-4 rounded-sm bg-[#a8b6ca]/60" />
                       )}

@@ -84,7 +84,15 @@ export function TaskManager({ caseDef }: { caseDef: CaseDefinition }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center gap-2 border-b border-black px-4 py-2">
           <span className="text-[14px] font-semibold">
-            {nav === 'processes' ? 'Processes' : nav === 'performance' ? 'Performance' : nav === 'startup' ? 'Startup apps' : nav}
+            {nav === 'processes'
+              ? 'Processes'
+              : nav === 'performance'
+                ? 'Performance'
+                : nav === 'startup'
+                  ? 'Startup apps'
+                  : nav === 'users'
+                    ? 'Users'
+                    : nav}
           </span>
           <button type="button" className="ml-auto rounded border border-white/15 px-3 py-1 hover:bg-white/8">
             Run new task
@@ -175,7 +183,48 @@ export function TaskManager({ caseDef }: { caseDef: CaseDefinition }) {
             </table>
           ) : null}
 
-          {nav !== 'processes' && nav !== 'performance' && nav !== 'startup' ? (
+          {nav === 'users' ? (
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 bg-[#2d2d2d] text-[11px] uppercase text-[#aaa]">
+                <tr>
+                  <th className="p-2 text-left">User</th>
+                  <th className="p-2 text-left">Status</th>
+                  <th className="p-2 text-right">Session CPU</th>
+                  <th className="p-2 text-right">Memory</th>
+                  <th className="p-2 text-left">Disk</th>
+                  <th className="p-2 text-left">Network</th>
+                  <th className="p-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['andre.boone', 'Active', '6.2%', '3.1 GB', '0.1 MB/s', 'Idle'],
+                  ['SYSTEM', 'Background', '4.8%', '128 MB', 'Burst', 'Loopback'],
+                  ['LOCAL SERVICE', 'Background', '1.1%', '64 MB', 'Idle', 'DNS client'],
+                  ['NETWORK SERVICE', 'Background', '0.9%', '48 MB', 'Idle', 'RPC'],
+                ].map(([user, status, cpu, mem, disk, net]) => (
+                  <tr key={user} className="border-t border-white/6 hover:bg-white/[0.04]">
+                    <td className="p-2">{user}</td>
+                    <td className="p-2 text-[#bbb]">{status}</td>
+                    <td className="p-2 text-right tabular-nums">{cpu}</td>
+                    <td className="p-2 text-right tabular-nums">{mem}</td>
+                    <td className="p-2 text-[#bbb]">{disk}</td>
+                    <td className="p-2 text-[#bbb]">{net}</td>
+                    <td className="p-2 text-right">
+                      <button type="button" className="rounded px-2 py-0.5 text-[11px] hover:bg-white/10">
+                        End task
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+
+          {nav !== 'processes' &&
+          nav !== 'performance' &&
+          nav !== 'startup' &&
+          nav !== 'users' ? (
             <div className="p-8 text-center text-[#888]">This simulated tab is read-only training chrome.</div>
           ) : null}
         </div>

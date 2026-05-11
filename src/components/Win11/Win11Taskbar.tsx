@@ -105,6 +105,7 @@ export function Win11Taskbar({
 
   return (
     <div
+      id="tr-taskbar"
       className="relative z-[920] flex h-12 w-full shrink-0 items-center px-1 text-[13px]"
       style={{
         background: 'rgba(15,15,15,0.75)',

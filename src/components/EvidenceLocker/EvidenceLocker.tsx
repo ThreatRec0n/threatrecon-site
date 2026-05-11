@@ -3,6 +3,13 @@ import { useEvidence, badgeColor } from '../../contexts/EvidenceContext'
 import { useGame } from '../../contexts/GameContext'
 import { IconAlert } from '../shared/Icons'
 
+function mitreTechniqueUrl(id: string): string | null {
+  const m = id.trim().toUpperCase().match(/^T(\d{4})(?:\.(\d{3}))?$/)
+  if (!m) return null
+  const base = `https://attack.mitre.org/techniques/T${m[1]}`
+  return m[2] ? `${base}/${m[2]}/` : `${base}/`
+}
+
 const sevColor: Record<string, string> = {
   CRITICAL: 'bg-red-500/20 text-red-200 border-red-500/40',
   HIGH: 'bg-orange-500/20 text-orange-200 border-orange-500/40',
@@ -76,14 +83,22 @@ export function EvidenceLocker() {
               </dl>
               {initialAlertMitre.length ? (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {initialAlertMitre.map((id) => (
-                    <span
-                      key={id}
-                      className="rounded bg-[#5e9bff]/15 px-1.5 py-0.5 font-mono text-[9px] uppercase text-[#5e9bff]"
-                    >
-                      {id}
-                    </span>
-                  ))}
+                  {initialAlertMitre.map((id) => {
+                    const url = mitreTechniqueUrl(id)
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        title={url ? 'Open MITRE ATT&CK technique' : id}
+                        className="rounded border border-[#5e9bff]/35 bg-[#5e9bff]/15 px-1.5 py-0.5 font-mono text-[9px] uppercase text-[#5e9bff] hover:bg-[#5e9bff]/25"
+                        onClick={() => {
+                          if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                        }}
+                      >
+                        {id}
+                      </button>
+                    )
+                  })}
                 </div>
               ) : null}
             </div>

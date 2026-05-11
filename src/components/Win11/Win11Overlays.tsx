@@ -44,9 +44,16 @@ export function Win11RunDialog({
 
   return (
     <>
-      <button type="button" className="fixed inset-0 z-[1600] bg-black/40 backdrop-blur-sm" aria-hidden onClick={onClose} />
+      <button
+        type="button"
+        data-win11-overlay-root
+        className="fixed inset-0 z-[1600] bg-black/40 backdrop-blur-sm"
+        aria-hidden
+        onClick={onClose}
+      />
       <div
         role="dialog"
+        data-win11-overlay-root
         className="fixed left-1/2 top-1/2 z-[1610] w-[min(420px,94vw)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/12 bg-[#2d2d2d] shadow-2xl"
         style={{ fontFamily: "'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif" }}
       >
@@ -127,8 +134,15 @@ export function Win11SearchOverlay({
 
   return (
     <>
-      <button type="button" className="fixed inset-0 z-[1500] bg-black/55 backdrop-blur-md" onClick={onClose} aria-label="Close search" />
+      <button
+        type="button"
+        data-win11-overlay-root
+        className="fixed inset-0 z-[1500] bg-black/55 backdrop-blur-md"
+        onClick={onClose}
+        aria-label="Close search"
+      />
       <div
+        data-win11-overlay-root
         className="fixed left-1/2 top-[12vh] z-[1510] w-[min(720px,96vw)] -translate-x-1/2 rounded-xl border border-white/10 bg-[#2c2c2c]/95 p-5 shadow-2xl"
         style={{ fontFamily: "'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif" }}
         onClick={(e) => e.stopPropagation()}
@@ -199,9 +213,18 @@ export function Win11TaskViewOverlay({ open, onClose }: { open: boolean; onClose
 
   return (
     <>
-      <button type="button" className="fixed inset-0 z-[1350] bg-black/70 backdrop-blur-md" onClick={onClose} aria-hidden />
-      <div className="fixed inset-x-0 bottom-[52px] top-[10vh] z-[1360] flex flex-col px-10 pt-6" style={{ pointerEvents: 'none' }}>
-        <div className="pointer-events-auto mb-4 flex gap-4 overflow-x-auto pb-2">
+      <button
+        type="button"
+        data-win11-overlay-root
+        className="fixed inset-0 z-[1350] bg-black/70 backdrop-blur-md"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        data-win11-overlay-root
+        className="fixed inset-x-0 bottom-[52px] top-[10vh] z-[1360] flex flex-col px-10 pt-6"
+      >
+        <div className="mb-4 flex gap-4 overflow-x-auto pb-2">
           {windows.map((w) => (
             <button
               key={w.id}
@@ -231,7 +254,7 @@ export function Win11TaskViewOverlay({ open, onClose }: { open: boolean; onClose
             </button>
           ))}
         </div>
-        <div className="pointer-events-auto mt-auto rounded-xl border border-white/10 bg-[#2a2a2a]/90 px-4 py-3">
+        <div className="mt-auto rounded-xl border border-white/10 bg-[#2a2a2a]/90 px-4 py-3">
           <div className="text-[12px] text-[#aaa]">Virtual desktops</div>
           <div className="mt-2 flex gap-2">
             <div className="rounded-lg border border-[#0078d4] bg-black/30 px-4 py-2 text-[12px] text-white">
@@ -256,15 +279,22 @@ export function Win11QuickSettings({
   onClose: () => void
   anchorRight?: boolean
 }) {
-  const [vol] = useState(75)
-  const [bri] = useState(85)
+  const [vol, setVol] = useState(75)
+  const [bri, setBri] = useState(85)
 
   if (!open) return null
 
   return (
     <>
-      <button type="button" className="fixed inset-0 z-[1300] bg-transparent" onClick={onClose} aria-hidden />
+      <button
+        type="button"
+        data-win11-overlay-root
+        className="fixed inset-0 z-[1300] bg-transparent"
+        onClick={onClose}
+        aria-hidden
+      />
       <div
+        data-win11-overlay-root
         className={`fixed bottom-[52px] z-[1310] w-[360px] max-w-[94vw] rounded-xl border border-white/10 bg-[#2c2c2c]/96 p-4 shadow-2xl backdrop-blur-xl ${anchorRight ? 'right-3' : 'right-[180px]'}`}
         style={{ fontFamily: "'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif" }}
       >
@@ -295,12 +325,26 @@ export function Win11QuickSettings({
         </div>
         <div className="mt-4 flex items-center gap-3">
           <span aria-hidden>🔊</span>
-          <input type="range" min={0} max={100} value={vol} readOnly className="flex-1 accent-[#0078d4]" />
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={vol}
+            onChange={(e) => setVol(Number(e.target.value))}
+            className="flex-1 accent-[#0078d4]"
+          />
           <span className="w-8 tabular-nums text-[11px]">{vol}</span>
         </div>
         <div className="mt-3 flex items-center gap-3">
           <span aria-hidden>☀</span>
-          <input type="range" min={0} max={100} value={bri} readOnly className="flex-1 accent-[#ffb74d]" />
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={bri}
+            onChange={(e) => setBri(Number(e.target.value))}
+            className="flex-1 accent-[#ffb74d]"
+          />
           <span className="w-8 tabular-nums text-[11px]">{bri}</span>
         </div>
         <div className="mt-4 flex justify-between border-t border-white/10 pt-3 text-[11px] text-[#a8d4ff]">
@@ -359,8 +403,15 @@ export function Win11ActionCenter({
 
   return (
     <>
-      <button type="button" className="fixed inset-0 z-[1250] bg-black/30" onClick={onClose} aria-hidden />
+      <button
+        type="button"
+        data-win11-overlay-root
+        className="fixed inset-0 z-[1250] bg-black/30"
+        onClick={onClose}
+        aria-hidden
+      />
       <aside
+        data-win11-overlay-root
         className="fixed right-0 top-0 z-[1260] flex h-full w-[380px] max-w-[100vw] flex-col border-l border-white/10 bg-[#2c2c2c]/98 shadow-2xl backdrop-blur-xl"
         style={{ fontFamily: "'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif" }}
       >
@@ -451,8 +502,17 @@ export function Win11WidgetsPanel({
 
   return (
     <>
-      <button type="button" className="fixed inset-0 z-[1150] bg-black/40" onClick={onClose} aria-hidden />
-      <aside className="fixed bottom-[52px] left-3 top-[8vh] z-[1160] w-[min(360px,92vw)] rounded-xl border border-white/10 bg-[#1e1e1e]/96 shadow-2xl backdrop-blur-xl">
+      <button
+        type="button"
+        data-win11-overlay-root
+        className="fixed inset-0 z-[1150] bg-black/40"
+        onClick={onClose}
+        aria-hidden
+      />
+      <aside
+        data-win11-overlay-root
+        className="fixed bottom-[52px] left-3 top-[8vh] z-[1160] w-[min(360px,92vw)] rounded-xl border border-white/10 bg-[#1e1e1e]/96 shadow-2xl backdrop-blur-xl"
+      >
         <div className="max-h-full space-y-3 overflow-y-auto p-4">
           <div className="rounded-xl bg-gradient-to-br from-[#1a5080] to-[#0d2847] p-4 text-white">
             <div className="text-[22px] font-light">72°F</div>
@@ -502,8 +562,17 @@ export function Win11ClipboardPanel({ open, onClose }: { open: boolean; onClose:
 
   return (
     <>
-      <button type="button" className="fixed inset-0 z-[1400] bg-black/25" onClick={onClose} aria-hidden />
-      <div className="fixed bottom-[56px] left-1/2 z-[1410] w-[min(380px,94vw)] -translate-x-1/2 rounded-xl border border-white/10 bg-[#2c2c2c]/98 p-4 shadow-2xl backdrop-blur-xl">
+      <button
+        type="button"
+        data-win11-overlay-root
+        className="fixed inset-0 z-[1400] bg-black/25"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        data-win11-overlay-root
+        className="fixed bottom-[56px] left-1/2 z-[1410] w-[min(380px,94vw)] -translate-x-1/2 rounded-xl border border-white/10 bg-[#2c2c2c]/98 p-4 shadow-2xl backdrop-blur-xl"
+      >
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[13px] font-semibold">Clipboard</span>
           <button type="button" className="text-[11px] text-[#a8d4ff]" onClick={() => clear()}>
@@ -536,7 +605,10 @@ export function Win11AltTabSwitcher({
   if (!open || windows.length === 0) return null
 
   return (
-    <div className="fixed left-1/2 top-[28%] z-[2000] -translate-x-1/2 rounded-xl border border-white/12 bg-[#1f1f1f]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
+    <div
+      data-win11-overlay-root
+      className="fixed left-1/2 top-[28%] z-[2000] -translate-x-1/2 rounded-xl border border-white/12 bg-[#1f1f1f]/95 px-4 py-3 shadow-2xl backdrop-blur-md"
+    >
       <div className="flex gap-2">
         {windows.map((w, i) => (
           <button
@@ -560,8 +632,17 @@ export function Win11CalendarFlyout({ open, onClose }: { open: boolean; onClose:
   if (!open) return null
   return (
     <>
-      <button type="button" className="fixed inset-0 z-[1240] bg-transparent" onClick={onClose} aria-hidden />
-      <div className="fixed bottom-[52px] right-[120px] z-[1245] w-[280px] rounded-xl border border-white/10 bg-[#2c2c2c]/98 p-4 shadow-2xl backdrop-blur-xl">
+      <button
+        type="button"
+        data-win11-overlay-root
+        className="fixed inset-0 z-[1240] bg-transparent"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        data-win11-overlay-root
+        className="fixed bottom-[52px] right-[120px] z-[1245] w-[280px] rounded-xl border border-white/10 bg-[#2c2c2c]/98 p-4 shadow-2xl backdrop-blur-xl"
+      >
         <div className="text-[13px] font-semibold">{today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
         <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] text-[#888]">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, idx) => (

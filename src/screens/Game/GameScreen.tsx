@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
   type ComponentType,
-  type MouseEvent,
+  type MouseEvent as ReactMouseEvent,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../../contexts/GameContext'
@@ -42,7 +42,7 @@ import {
   IconRecycle,
   IconDocuments,
 } from '../../components/shared/Icons'
-import { Win11WatermarkLogo } from '../../components/Win11/Win11Icons'
+import { IconEdgeLogo, Win11WatermarkLogo } from '../../components/Win11/Win11Icons'
 import { Win11LockScreen, Win11LoginScreen } from '../../components/Win11/Win11LockLogin'
 import { Win11Taskbar } from '../../components/Win11/Win11Taskbar'
 import { Win11StartMenu, type StartMenuTool } from '../../components/Win11/Win11StartMenu'
@@ -156,7 +156,7 @@ function GameScreenInner() {
     )
   }
 
-  const displayName = profile.name?.trim() || 'SOC Analyst'
+  const displayName = profile.name?.trim() || 'Andre Boone'
 
   if (authPhase === 'lock') {
     return (
@@ -273,15 +273,28 @@ function GameDesk({ displayName }: { displayName: string }) {
     if (timeUp) setShowReport(true)
   }, [timeUp])
 
+  /** Dismiss shell popovers on outside click — MUST skip taskbar + overlay roots or Start/Search never stay open. */
   useEffect(() => {
-    const close = () => {
+    const targetIsChrome = (el: HTMLElement | null) =>
+      !!(el?.closest('#tr-taskbar') || el?.closest('[data-win11-overlay-root]'))
+
+    const onMouseDown = (e: WindowEventMap['mousedown']) => {
+      const el = e.target as HTMLElement | null
+      if (targetIsChrome(el)) return
       setCtxMenu(null)
       setIconCtx(null)
-      setShowStart(false)
       setShowCalendar(false)
+      setShowStart(false)
+      setShowSearch(false)
+      setShowTaskView(false)
+      setShowQuick(false)
+      setShowActionCenter(false)
+      setShowWidgets(false)
+      setShowClipboardPanel(false)
+      setShowRun(false)
     }
-    window.addEventListener('click', close)
-    return () => window.removeEventListener('click', close)
+    window.addEventListener('mousedown', onMouseDown)
+    return () => window.removeEventListener('mousedown', onMouseDown)
   }, [])
 
   useEffect(() => {
@@ -328,7 +341,7 @@ function GameDesk({ displayName }: { displayName: string }) {
     m.set('settings-app', { id: 'settings-app', label: 'Settings', Icon: IconSettingsGear })
     m.set('notepad', { id: 'notepad', label: 'Notepad', Icon: IconNotepadDoc })
     m.set('taskmgr', { id: 'taskmgr', label: 'Task Manager', Icon: IconCpu })
-    m.set('edge-shell', { id: 'edge-shell', label: 'Microsoft Edge', Icon: IconDocuments })
+    m.set('edge-shell', { id: 'edge-shell', label: 'Microsoft Edge', Icon: IconEdgeLogo })
     m.set('documents', { id: 'documents', label: 'Documents', Icon: IconDocuments })
     return m
   }, [])
@@ -339,7 +352,7 @@ function GameDesk({ displayName }: { displayName: string }) {
     m.set('settings-app', { id: 'settings-app', label: 'Settings', Icon: IconSettingsGear })
     m.set('notepad', { id: 'notepad', label: 'Notepad', Icon: IconNotepadDoc })
     m.set('taskmgr', { id: 'taskmgr', label: 'Task Manager', Icon: IconCpu })
-    m.set('edge-shell', { id: 'edge-shell', label: 'Edge', Icon: IconDocuments })
+    m.set('edge-shell', { id: 'edge-shell', label: 'Edge', Icon: IconEdgeLogo })
     return m
   }, [])
 
@@ -434,7 +447,7 @@ function GameDesk({ displayName }: { displayName: string }) {
           winMgr.open({
             id: 'edge-shell',
             title: 'Microsoft Edge',
-            icon: <IconDocuments size={14} className="text-[#5e9bff]" />,
+            icon: <IconEdgeLogo size={14} />,
             defaultRect: { x: 90, y: 50, width: 960, height: 580 },
             render: () => (
               <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#f6f6f6] p-8 text-center text-[#222]">
@@ -548,7 +561,7 @@ function GameDesk({ displayName }: { displayName: string }) {
         regedit: 'reg',
         eventvwr: 'evt',
         taskmgr: 'taskmgr',
-        mmc: 'evt',
+        mmc: 'settings-app',
         notepad: 'notepad',
       }
       const tid = map[c]
@@ -776,7 +789,7 @@ function GameDesk({ displayName }: { displayName: string }) {
 
   return (
     <div className="tr-win11-font flex h-screen max-h-screen flex-col bg-[#060a12] text-[#e8edf5]">
-      <PhaseTracker phase={phase} completed={completed} />
+      <PhaseTracker phase={phase} completed={completed} onPhaseSelect={setPhase} />
       <div className="flex items-center justify-between border-b border-white/10 px-6 py-2 font-mono text-[11px] text-[#8a9ab5]">
         <div className="flex items-center gap-4">
           <span>{caseDef.hostname}</span>
@@ -1060,7 +1073,7 @@ function DesktopIconWin11({
   selected: boolean
   onSelect: () => void
   onOpen: () => void
-  onContextMenu: (e: MouseEvent) => void
+  onContextMenu: (e: ReactMouseEvent<HTMLButtonElement>) => void
 }) {
   return (
     <button

@@ -8,7 +8,7 @@ interface Toast {
 
 export function SiemToastHost({ enabled = true }: { enabled?: boolean }) {
   const [toast, setToast] = useState<Toast | null>(null)
-  const tid = useRef<number>(0)
+  const timersRef = useRef<{ outer?: ReturnType<typeof setTimeout>; inner?: ReturnType<typeof setTimeout> }>({})
 
   useEffect(() => {
     if (!enabled) return
@@ -40,13 +40,25 @@ export function SiemToastHost({ enabled = true }: { enabled?: boolean }) {
       },
     ]
 
+    let cancelled = false
+
+    const clearTimers = () => {
+      const { outer, inner } = timersRef.current
+      if (outer !== undefined) window.clearTimeout(outer)
+      if (inner !== undefined) window.clearTimeout(inner)
+      timersRef.current = {}
+    }
+
     const scheduleNext = () => {
+      clearTimers()
       const delay = 45_000 + Math.random() * 45_000
-      tid.current = window.setTimeout(() => {
+      timersRef.current.outer = window.setTimeout(() => {
+        if (cancelled) return
         const pick = messages[Math.floor(Math.random() * messages.length)]!
         const id = `toast-${Date.now()}`
         setToast({ id, ...pick })
-        window.setTimeout(() => {
+        timersRef.current.inner = window.setTimeout(() => {
+          if (cancelled) return
           setToast((t) => (t?.id === id ? null : t))
           scheduleNext()
         }, 8000)
@@ -54,7 +66,10 @@ export function SiemToastHost({ enabled = true }: { enabled?: boolean }) {
     }
 
     scheduleNext()
-    return () => window.clearTimeout(tid.current)
+    return () => {
+      cancelled = true
+      clearTimers()
+    }
   }, [enabled])
 
   if (!toast) return null
@@ -66,7 +81,7 @@ export function SiemToastHost({ enabled = true }: { enabled?: boolean }) {
     >
       <div className="pointer-events-auto rounded border border-white/15 bg-[#1e1e1e] shadow-2xl shadow-black/80">
         <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-          <div className="h-6 w-6 rounded bg-[#0078d4] font-mono text-[10px] font-bold leading-6 text-white text-center">
+          <div className="h-6 w-6 rounded bg-[#0078d4] text-center font-mono text-[10px] font-bold leading-6 text-white">
             SI
           </div>
           <div className="font-mono text-[11px] font-semibold text-[#e8edf5]">{toast.title}</div>

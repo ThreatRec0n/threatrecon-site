@@ -90,12 +90,14 @@ export function Win11StartMenu({
     <>
       <button
         type="button"
+        data-win11-overlay-root
         className="fixed inset-0 z-[940] cursor-default bg-transparent"
         aria-label="Close Start menu"
         onClick={onClose}
       />
       <div
         ref={panelRef}
+        data-win11-overlay-root
         role="dialog"
         aria-label="Start"
         className="fixed bottom-[52px] left-1/2 z-[950] flex max-h-[min(700px,calc(100vh-96px))] w-[min(660px,calc(100vw-24px))] -translate-x-1/2 translate-y-0 flex-col overflow-hidden rounded-xl border border-white/10 shadow-[0_16px_48px_rgba(0,0,0,0.55)] transition-opacity duration-300 ease-out"
