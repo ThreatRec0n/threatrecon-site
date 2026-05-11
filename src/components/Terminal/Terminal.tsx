@@ -41,8 +41,10 @@ interface State {
 
 export function TerminalWindow({
   createShell,
+  initialBanner,
 }: {
   createShell: () => ShellInterpreter
+  initialBanner?: string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const shellRef = useRef<ShellInterpreter | null>(null)
@@ -258,6 +260,10 @@ export function TerminalWindow({
       writePrompt()
     }
 
+    if (initialBanner) {
+      term.write(initialBanner.replace(/\n/g, '\r\n'))
+      if (!initialBanner.endsWith('\n')) term.write('\r\n')
+    }
     writePrompt()
 
     const onData = (data: string) => {

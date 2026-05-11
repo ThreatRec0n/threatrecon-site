@@ -7,6 +7,16 @@ interface TreeRow {
   expandable: boolean
 }
 
+const PERSISTENCE_PATTERNS = [
+  /\\Run$/i,
+  /\\RunOnce$/i,
+  /\\Image File Execution Options\\/i,
+  /\\AppInit_DLLs/i,
+  /\\Winlogon$/i,
+]
+
+const isPersistencePath = (p: string) => PERSISTENCE_PATTERNS.some((re) => re.test(p))
+
 export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
   const hives = useMemo(() => registry.hives(), [registry])
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(hives))
@@ -20,6 +30,7 @@ export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
   const rows = useMemo(() => buildRows(registry, expanded), [registry, expanded])
   const node: RegistryNode | null = registry.getNode(selected)
   const values = node ? [...node.values.values()] : []
+  const isPersistence = isPersistencePath(selected)
 
   const toggle = (path: string) => {
     setExpanded((prev) => {
@@ -37,40 +48,55 @@ export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
           Computer
         </div>
         <ul className="font-mono text-[11px]">
-          {rows.map((r) => (
-            <li
-              key={r.path}
-              className={`flex cursor-pointer items-center gap-1 px-2 py-0.5 hover:bg-white/5 ${
-                r.path === selected ? 'bg-[#5e9bff]/15 text-white' : 'text-[#c8d6e8]'
-              }`}
-              style={{ paddingLeft: 8 + r.depth * 14 }}
-              onClick={() => setSelected(r.path)}
-              onDoubleClick={() => toggle(r.path)}
-            >
-              {r.expandable ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggle(r.path)
-                  }}
-                  className="text-[#5e9bff]"
-                >
-                  {expanded.has(r.path) ? '▼' : '▶'}
-                </button>
-              ) : (
-                <span className="w-3" />
-              )}
-              <span className="truncate">{r.path.split('\\').pop()}</span>
-            </li>
-          ))}
+          {rows.map((r) => {
+            const persistence = isPersistencePath(r.path)
+            return (
+              <li
+                key={r.path}
+                className={`flex cursor-pointer items-center gap-1 px-2 py-0.5 hover:bg-white/5 ${
+                  r.path === selected ? 'bg-[#5e9bff]/15 text-white' : 'text-[#c8d6e8]'
+                } ${persistence ? 'text-yellow-200' : ''}`}
+                style={{ paddingLeft: 8 + r.depth * 14 }}
+                onClick={() => setSelected(r.path)}
+                onDoubleClick={() => toggle(r.path)}
+              >
+                {r.expandable ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggle(r.path)
+                    }}
+                    className="text-[#5e9bff]"
+                  >
+                    {expanded.has(r.path) ? '▼' : '▶'}
+                  </button>
+                ) : (
+                  <span className="w-3" />
+                )}
+                <span className="truncate">{r.path.split('\\').pop()}</span>
+                {persistence ? (
+                  <span className="ml-auto pr-1 text-[9px] uppercase tracking-wider text-yellow-300/70">
+                    persist
+                  </span>
+                ) : null}
+              </li>
+            )
+          })}
         </ul>
       </div>
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="border-b border-white/10 px-3 py-2 font-mono text-[11px] text-[#8a9ab5]">{selected}</div>
+        <div className="flex items-center justify-between border-b border-white/10 px-3 py-2 font-mono text-[11px]">
+          <span className="text-[#8a9ab5]">{selected}</span>
+          {isPersistence ? (
+            <span className="rounded bg-yellow-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-yellow-200">
+              persistence key
+            </span>
+          ) : null}
+        </div>
         <div className="flex-1 overflow-auto p-2 font-mono">
           <table className="w-full border-collapse">
-            <thead className="text-[11px] uppercase text-[#8a9ab5]">
+            <thead className="sticky top-0 bg-[#0f1824] text-[11px] uppercase text-[#8a9ab5]">
               <tr>
                 <th className="p-2 text-left">Name</th>
                 <th className="p-2 text-left">Type</th>
@@ -85,13 +111,25 @@ export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
                   </td>
                 </tr>
               ) : (
-                values.map((v) => (
-                  <tr key={v.name} className="border-t border-white/5">
-                    <td className="p-2">{v.name === '' ? '(Default)' : v.name}</td>
-                    <td className="p-2 text-[#8a9ab5]">{v.type}</td>
-                    <td className="p-2 break-all">{v.data}</td>
-                  </tr>
-                ))
+                values.map((v) => {
+                  const looksSus =
+                    isPersistence &&
+                    /\\AppData\\|\\Temp\\|\\ProgramData\\|powershell\.exe.*-(enc|nop|w hidden)/i.test(
+                      v.data,
+                    )
+                  return (
+                    <tr
+                      key={v.name}
+                      className={`border-t border-white/5 ${
+                        looksSus ? 'bg-red-500/10 text-red-200' : ''
+                      }`}
+                    >
+                      <td className="p-2">{v.name === '' ? '(Default)' : v.name}</td>
+                      <td className="p-2 text-[#8a9ab5]">{v.type}</td>
+                      <td className="p-2 break-all">{v.data}</td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
