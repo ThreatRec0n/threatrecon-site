@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useEvidence, badgeColor } from '../../contexts/EvidenceContext'
 import { useGame } from '../../contexts/GameContext'
 import { IconAlert } from '../shared/Icons'
@@ -14,6 +14,16 @@ export function EvidenceLocker() {
   const { items, tagIoc, updateNotes } = useEvidence()
   const { caseDef } = useGame()
   const iocCount = items.filter((i) => i.taggedIoc).length
+
+  useEffect(() => {
+    const focusNotes = () => {
+      const el = document.getElementById('tr-investigation-notes')
+      el?.focus()
+      el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+    window.addEventListener('tr-focus-notes', focusNotes)
+    return () => window.removeEventListener('tr-focus-notes', focusNotes)
+  }, [])
 
   const initialAlertMitre = useMemo(() => {
     if (!caseDef) return []
@@ -147,10 +157,57 @@ export function EvidenceLocker() {
           </ul>
         )}
       </div>
+      {caseDef ? (
+        <InvestigationScratchpad caseId={caseDef.caseId} />
+      ) : null}
       <footer className="flex items-center justify-between border-t border-white/10 px-4 py-2 font-mono text-[10px] text-[#8a9ab5]">
         <span>Chain of custody preserved</span>
         <span className="text-[#5e9bff]">{iocCount} IOCs</span>
       </footer>
     </aside>
+  )
+}
+
+function InvestigationScratchpad({ caseId }: { caseId: string }) {
+  const key = `tr_scratch_${caseId}`
+  const [text, setText] = useState(() => {
+    try {
+      return localStorage.getItem(key) ?? ''
+    } catch {
+      return ''
+    }
+  })
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(key) ?? ''
+      setText(v)
+    } catch {
+      setText('')
+    }
+  }, [key])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, text)
+    } catch {
+      /* ignore */
+    }
+  }, [key, text])
+
+  return (
+    <div className="border-t border-white/10 px-3 py-3">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-[#8a9ab5]">
+        Investigation notes
+      </div>
+      <textarea
+        id="tr-investigation-notes"
+        className="mt-2 max-h-36 min-h-[72px] w-full resize-y rounded border border-white/10 bg-black/30 px-2 py-2 font-mono text-[11px] text-[#e8edf5]"
+        placeholder="Scratchpad — hypotheses, analyst annotations, handoff notes…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <div className="mt-1 font-mono text-[9px] text-[#4a566b]">Saved locally for this case.</div>
+    </div>
   )
 }

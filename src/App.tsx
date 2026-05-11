@@ -27,7 +27,11 @@ function DesktopGate({ children }: { children: ReactNode }) {
 
 export default function App() {
   useEffect(() => {
-    const blockContextMenu = (e: MouseEvent) => e.preventDefault()
+    const blockContextMenu = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null
+      if (el?.closest('[data-allow-context-menu]')) return
+      e.preventDefault()
+    }
 
     const blockKeys = (e: KeyboardEvent) => {
       if (e.key === 'F12') {

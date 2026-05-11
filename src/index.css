@@ -66,6 +66,28 @@ body {
   mix-blend-mode: screen;
 }
 
+/* Simulated Windows 10 dark wallpaper — noise + vignette */
+.win10-desktop-bg {
+  background-color: #0c1628;
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% 20%, rgba(30, 58, 110, 0.35), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 80% 90%, rgba(8, 18, 38, 0.9), transparent 45%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.018) 2px,
+      rgba(255, 255, 255, 0.018) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.04) 2px,
+      rgba(0, 0, 0, 0.04) 3px
+    );
+}
+
 @keyframes scan {
   0% {
     transform: translateX(-100%);

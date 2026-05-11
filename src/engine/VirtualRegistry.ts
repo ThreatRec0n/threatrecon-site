@@ -282,6 +282,12 @@ export function defaultBaselineRegistry(reg: VirtualRegistry, ctx: { primaryUser
     'REG_SZ',
     '"C:\\Program Files\\Intel\\Graphics\\IGCC.exe" /background',
   )
+  reg.setValue(
+    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+    'MSUpdate',
+    'REG_SZ',
+    'C:\\Users\\cleared.user\\AppData\\Roaming\\msupdate.exe',
+  )
 
   /* HKCU Run keys */
   reg.setSubkey('HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run')
@@ -392,6 +398,11 @@ export function defaultBaselineRegistry(reg: VirtualRegistry, ctx: { primaryUser
     reg.setValue(path, 'Start', 'REG_DWORD', String(2))
     reg.setValue(path, 'Type', 'REG_DWORD', String(0x10))
   }
+
+  reg.setSubkey('HKLM\\SYSTEM\\CurrentControlSet')
+  reg.setValue('HKLM\\SYSTEM\\CurrentControlSet', 'FirmwareBootDevice', 'REG_SZ', '\\Device\\HarddiskVolume3')
+  reg.setValue('HKLM\\SYSTEM\\CurrentControlSet', 'SystemStartOptions', 'REG_SZ', 'NOEXECUTE=OPTIN')
+  reg.setValue('HKLM\\SYSTEM\\CurrentControlSet', 'CloneTag', 'REG_SZ', '1C747864-8D48-4F29-BBAE-AFEF35CE85E7')
 
   /* Installed software (10+ entries) */
   const installed = [

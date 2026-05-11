@@ -21,6 +21,12 @@ const levelClass = (l: EventLogEntry['level']) => {
   }
 }
 
+function riskRow(e: EventLogEntry): string {
+  if (e.riskTier === 'critical' || e.malicious) return 'bg-red-500/10 ring-1 ring-red-500/25'
+  if (e.riskTier === 'warn') return 'bg-yellow-500/8 ring-1 ring-yellow-500/20'
+  return ''
+}
+
 export function EventViewer({ caseDef }: { caseDef: CaseDefinition }) {
   const [filterId, setFilterId] = useState('')
   const [tab, setTab] = useState<LogTab>('Security')
@@ -110,6 +116,7 @@ export function EventViewer({ caseDef }: { caseDef: CaseDefinition }) {
               <tr>
                 <th className="p-2 text-left">Level</th>
                 <th className="p-2 text-left">Time</th>
+                <th className="p-2 text-left">Summary</th>
                 <th className="p-2 text-left">Source</th>
                 <th className="p-2 text-left">ID</th>
                 <th className="p-2 text-left">Task</th>
@@ -119,13 +126,16 @@ export function EventViewer({ caseDef }: { caseDef: CaseDefinition }) {
               {filtered.slice(0, 500).map((e) => (
                 <tr
                   key={e.id}
-                  className={`cursor-pointer border-t border-white/5 hover:bg-white/5 ${
-                    e.malicious ? 'bg-purple-500/10' : ''
-                  } ${selected?.id === e.id ? 'ring-1 ring-[#5e9bff]/40' : ''}`}
+                  className={`cursor-pointer border-t border-white/5 hover:bg-white/5 ${riskRow(e)} ${
+                    selected?.id === e.id ? 'ring-1 ring-[#5e9bff]/40' : ''
+                  }`}
                   onClick={() => setSelectedId(e.id)}
                 >
                   <td className={`p-2 ${levelClass(e.level)}`}>{e.level}</td>
                   <td className="p-2 text-[#a8b6ca]">{e.time.replace('T', ' ').replace('Z', '')}</td>
+                  <td className="max-w-[280px] p-2 text-[10px] leading-snug text-[#e8edf5]">
+                    {e.summary ?? e.task}
+                  </td>
                   <td className="p-2 text-[#c8d6e8]">{e.source.replace('Microsoft-Windows-', '')}</td>
                   <td className="p-2 tabular-nums">{e.eventId}</td>
                   <td className="p-2 text-[10px] text-[#8a9ab5]">{e.task}</td>

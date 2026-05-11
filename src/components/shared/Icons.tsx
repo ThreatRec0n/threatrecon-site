@@ -145,3 +145,76 @@ export function IconSquare(p: IconProps) {
     </Base>
   )
 }
+
+export function IconComputer(p: IconProps) {
+  return (
+    <Base {...p}>
+      <rect x="4" y="4" width="16" height="12" rx="1" />
+      <path d="M8 16h8M10 18h4" />
+    </Base>
+  )
+}
+
+export function IconRecycle(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M9 4h6l1 3H8l1-3z" />
+      <path d="M7 7h10v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7z" />
+      <path d="M10 11v6M12 11v6M14 11v6" />
+    </Base>
+  )
+}
+
+export function IconDocuments(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 6h8l2 2h6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" />
+      <path d="M12 6v4h5" />
+    </Base>
+  )
+}
+
+export function IconTimeline(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M12 3v18" />
+      <circle cx="12" cy="7" r="2" fill="currentColor" />
+      <circle cx="12" cy="13" r="2" />
+      <circle cx="12" cy="19" r="2" />
+    </Base>
+  )
+}
+
+export function IconWifi(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M5 12c4-4 10-4 14 0" />
+      <path d="M8 15c3-2 7-2 10 0" />
+      <path d="M11 18h2" />
+    </Base>
+  )
+}
+
+export function IconVolume(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M9 9v6l4 3V6l-4 3z" />
+      <path d="M15 10c1 1 1 3 0 4M17 8c2 2 2 6 0 8" />
+    </Base>
+  )
+}
+
+export function IconWindowsLogo({ size = 18, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      className={className}
+    >
+      <path d="M3 5.5l7-1v6.5H3V5.5zm7 7.2l-7-1.1V18l7 1V12.7zm1.2-8.4L21 3v7h-9.8V4.3zM21 12.3l-9.8-1.5V21l9.8-1.4v-7.3z" />
+    </svg>
+  )
+}

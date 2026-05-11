@@ -116,6 +116,10 @@ export interface EventLogEntry {
   xml: string
   keywords?: string[]
   malicious?: boolean
+  /** Short unique summary for the table (distinct per row). */
+  summary?: string
+  /** Row highlight tier beyond generic level coloring. */
+  riskTier?: 'critical' | 'warn' | 'info'
 }
 
 export interface ArtifactDef {

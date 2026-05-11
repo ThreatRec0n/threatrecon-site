@@ -17,6 +17,20 @@ const PERSISTENCE_PATTERNS = [
 
 const isPersistencePath = (p: string) => PERSISTENCE_PATTERNS.some((re) => re.test(p))
 
+function valuePersistFlag(name: string, data: string, pathSelected: string): boolean {
+  const p = pathSelected.toLowerCase()
+  const lowName = name.toLowerCase()
+  const lowData = data.toLowerCase()
+  if (lowName === 'msupdate' || lowData.includes('msupdate.exe')) return true
+  if (
+    /\\run|\\runonce/i.test(p) &&
+    /\.exe/i.test(lowData) &&
+    /appdata\\roaming|appdata\\local\\temp|\\temp\\|programdata/i.test(lowData)
+  )
+    return true
+  return false
+}
+
 export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
   const hives = useMemo(() => registry.hives(), [registry])
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(hives))
@@ -101,32 +115,42 @@ export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
                 <th className="p-2 text-left">Name</th>
                 <th className="p-2 text-left">Type</th>
                 <th className="p-2 text-left">Data</th>
+                <th className="p-2 text-center">PERSIST</th>
               </tr>
             </thead>
             <tbody>
               {values.length === 0 ? (
                 <tr>
-                  <td className="p-2 text-[#4a566b]" colSpan={3}>
+                  <td className="p-2 text-[#4a566b]" colSpan={4}>
                     (No values in this key)
                   </td>
                 </tr>
               ) : (
                 values.map((v) => {
+                  const persist = valuePersistFlag(v.name, v.data, selected)
                   const looksSus =
-                    isPersistence &&
-                    /\\AppData\\|\\Temp\\|\\ProgramData\\|powershell\.exe.*-(enc|nop|w hidden)/i.test(
-                      v.data,
-                    )
+                    persist ||
+                    (isPersistence &&
+                      /\\AppData\\|\\Temp\\|\\ProgramData\\|powershell\.exe.*-(enc|nop|w hidden)/i.test(
+                        v.data,
+                      ))
                   return (
                     <tr
                       key={v.name}
-                      className={`border-t border-white/5 ${
-                        looksSus ? 'bg-red-500/10 text-red-200' : ''
-                      }`}
+                      className={`border-t border-white/5 ${looksSus ? 'bg-red-500/10 text-red-200' : ''}`}
                     >
                       <td className="p-2">{v.name === '' ? '(Default)' : v.name}</td>
                       <td className="p-2 text-[#8a9ab5]">{v.type}</td>
                       <td className="p-2 break-all">{v.data}</td>
+                      <td className="p-2 text-center">
+                        {persist ? (
+                          <span className="rounded bg-red-500/25 px-2 py-0.5 text-[9px] font-bold uppercase text-red-200">
+                            Yes
+                          </span>
+                        ) : (
+                          <span className="text-[#4a566b]">—</span>
+                        )}
+                      </td>
                     </tr>
                   )
                 })
