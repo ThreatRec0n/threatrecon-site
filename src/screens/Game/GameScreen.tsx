@@ -664,12 +664,9 @@ function WindowsTaskbar({
 
 function formatTrayClock(): string {
   const d = new Date()
-  const h = d.getHours()
-  const m = d.getMinutes()
-  const hh = String(h % 12 === 0 ? 12 : h % 12).padStart(2, '0')
-  const mm = String(m).padStart(2, '0')
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  return `${hh}:${mm} ${ampm}`
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
 }
 
 function buildInitialBanner(hostname: string, user: string): string {
