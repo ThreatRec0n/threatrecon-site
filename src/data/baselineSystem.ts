@@ -541,6 +541,30 @@ export function baselineRunKeysFor(user: string): BaselineRegRow[] {
   }))
 }
 
+/** Files shown under %USERPROFILE%\\AppData\\Roaming (persistence story). */
+export function baselineRoamingFiles(): BaselineFile[] {
+  return [
+    { name: 'Microsoft', type: 'dir', modified: '2026-04-02T09:12:00Z' },
+    { name: 'Adobe', type: 'dir', modified: '2026-01-19T14:40:00Z' },
+    {
+      name: 'msupdate.exe',
+      type: 'file',
+      sizeKb: 847,
+      modified: '2026-05-08T02:58:22Z',
+      suspicious: true,
+      hint: 'Publisher: UNVERIFIED — digital signature missing.',
+    },
+  ]
+}
+
+export function baselineAppDataDirs(): BaselineFile[] {
+  return [
+    { name: 'Local', type: 'dir', modified: '2026-05-08T07:01:00Z' },
+    { name: 'LocalLow', type: 'dir', modified: '2026-03-30T11:22:00Z' },
+    { name: 'Roaming', type: 'dir', modified: '2026-05-08T03:00:00Z' },
+  ]
+}
+
 export function baselineFiles(user: string, suspiciousArchive?: string): BaselineFile[] {
   const baseDate = '2026-05-07T11:14:00Z'
   return [

@@ -6,6 +6,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+# Vite pre-bundle cache (local)
+.vite
 lint.txt
 
 node_modules

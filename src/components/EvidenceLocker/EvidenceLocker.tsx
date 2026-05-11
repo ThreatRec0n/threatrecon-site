@@ -195,6 +195,15 @@ function InvestigationScratchpad({ caseId }: { caseId: string }) {
     }
   }, [key, text])
 
+  useEffect(() => {
+    const onSync = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail
+      if (typeof detail === 'string') setText(detail)
+    }
+    window.addEventListener('tr-scratchpad-sync', onSync)
+    return () => window.removeEventListener('tr-scratchpad-sync', onSync)
+  }, [])
+
   return (
     <div className="border-t border-white/10 px-3 py-3">
       <div className="font-mono text-[10px] uppercase tracking-wider text-[#8a9ab5]">

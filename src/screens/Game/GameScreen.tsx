@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type MouseEvent,
+} from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../../contexts/GameContext'
 import { useEvidence } from '../../contexts/EvidenceContext'
 import { usePlayer } from '../../contexts/PlayerContext'
+import { ClipboardHistoryProvider, useClipboardHistory } from '../../contexts/ClipboardHistoryContext'
 import { TimelineProvider, useTimeline } from '../../contexts/TimelineContext'
 import { EvidenceLocker } from '../../components/EvidenceLocker/EvidenceLocker'
 import { TerminalWindow } from '../../components/Terminal/Terminal'
@@ -32,64 +41,150 @@ import {
   IconComputer,
   IconRecycle,
   IconDocuments,
-  IconWindowsLogo,
-  IconWifi,
-  IconVolume,
-  IconSearch,
 } from '../../components/shared/Icons'
+import { Win11WatermarkLogo } from '../../components/Win11/Win11Icons'
+import { Win11LockScreen, Win11LoginScreen } from '../../components/Win11/Win11LockLogin'
+import { Win11Taskbar } from '../../components/Win11/Win11Taskbar'
+import { Win11StartMenu, type StartMenuTool } from '../../components/Win11/Win11StartMenu'
+import {
+  Win11RunDialog,
+  Win11SearchOverlay,
+  Win11TaskViewOverlay,
+  Win11QuickSettings,
+  Win11ActionCenter,
+  Win11WidgetsPanel,
+  Win11ClipboardPanel,
+  Win11AltTabSwitcher,
+  Win11CalendarFlyout,
+  Win11ScreenshotToast,
+} from '../../components/Win11/Win11Overlays'
+import { Notepad } from '../../components/Notepad/Notepad'
+import { TaskManager } from '../../components/TaskManager/TaskManager'
+import { SettingsApp } from '../../components/SettingsApp/SettingsApp'
 import { PhaseTracker } from './PhaseTracker'
 import { Timer } from './Timer'
 import type { GamePhase } from '../../contexts/GameContext'
 import { ReportEditor } from '../../components/ReportEditor/ReportEditor'
+import { generateBaselineEvents } from '../../data/baselineSystem'
+
+function IconSettingsGear({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden className="text-[#c8e8ff]">
+      <path
+        fill="currentColor"
+        d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+      />
+    </svg>
+  )
+}
+
+function IconNotepadDoc({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden className="text-[#c8e8ff]">
+      <path fill="currentColor" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
+    </svg>
+  )
+}
 
 interface ToolDef {
   id: string
   label: string
   Icon: ComponentType<{ size?: number; className?: string }>
-  pinned?: boolean
 }
 
 const TOOLS: ToolDef[] = [
-  { id: 'terminal', label: 'Terminal', Icon: IconTerminal, pinned: true },
-  { id: 'proc', label: 'Processes', Icon: IconCpu, pinned: true },
-  { id: 'evt', label: 'Event Viewer', Icon: IconList, pinned: true },
-  { id: 'reg', label: 'Registry', Icon: IconDatabase, pinned: true },
+  { id: 'terminal', label: 'Terminal', Icon: IconTerminal },
+  { id: 'proc', label: 'Processes', Icon: IconCpu },
+  { id: 'evt', label: 'Event Viewer', Icon: IconList },
+  { id: 'reg', label: 'Registry Editor', Icon: IconDatabase },
   { id: 'net', label: 'Network Monitor', Icon: IconNetwork },
-  { id: 'tasks', label: 'Tasks', Icon: IconClock },
-  { id: 'users', label: 'Users', Icon: IconUsers },
-  { id: 'files', label: 'Explorer', Icon: IconFolder },
-  { id: 'fw', label: 'Firewall', Icon: IconShield },
-  { id: 'timeline', label: 'Timeline', Icon: IconTimeline },
-] as const
-
-type ToolId = (typeof TOOLS)[number]['id']
-
-const SYSTEM_ICONS: {
-  id: string
-  label: string
-  Icon: ComponentType<{ size?: number; className?: string }>
-  action: 'computer' | 'documents' | 'network' | 'recycle'
-}[] = [
-  { id: 'sys-computer', label: 'Computer', Icon: IconComputer, action: 'computer' },
-  { id: 'sys-bin', label: 'Recycle Bin', Icon: IconRecycle, action: 'recycle' },
-  { id: 'sys-net', label: 'Network', Icon: IconNetwork, action: 'network' },
-  { id: 'sys-docs', label: 'Documents', Icon: IconDocuments, action: 'documents' },
+  { id: 'tasks', label: 'Task Scheduler', Icon: IconClock },
+  { id: 'users', label: 'Local Users', Icon: IconUsers },
+  { id: 'files', label: 'File Explorer', Icon: IconFolder },
+  { id: 'fw', label: 'Firewall Manager', Icon: IconShield },
+  { id: 'timeline', label: 'Incident Timeline', Icon: IconTimeline },
 ]
+
+type CoreToolId = (typeof TOOLS)[number]['id']
+
+type OpenToolId =
+  | CoreToolId
+  | 'settings-app'
+  | 'notepad'
+  | 'taskmgr'
+  | 'edge-shell'
+  | 'documents'
 
 export function GameScreen() {
   return (
-    <WindowManagerProvider>
-      <TimelineProvider>
+    <TimelineProvider>
+      <ClipboardHistoryProvider>
         <GameScreenInner />
-      </TimelineProvider>
-    </WindowManagerProvider>
+      </ClipboardHistoryProvider>
+    </TimelineProvider>
   )
 }
 
 function GameScreenInner() {
   const navigate = useNavigate()
   const { profile } = usePlayer()
-  const { addEvidence, reset: resetEvidence, items } = useEvidence()
+  const { reset: resetEvidence } = useEvidence()
+  const game = useGame()
+  const { caseDef, difficulty } = game
+
+  const [authPhase, setAuthPhase] = useState<'lock' | 'login' | 'session'>('lock')
+
+  useEffect(() => {
+    resetEvidence()
+  }, [caseDef?.caseId, resetEvidence])
+
+  useEffect(() => {
+    if (authPhase !== 'lock') return
+    const wake = () => setAuthPhase('login')
+    window.addEventListener('keydown', wake)
+    return () => window.removeEventListener('keydown', wake)
+  }, [authPhase])
+
+  if (!caseDef || !difficulty) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#060a12] text-[#e8edf5]">
+        No active case.{' '}
+        <button type="button" className="ml-3 underline" onClick={() => navigate('/')}>
+          Return
+        </button>
+      </div>
+    )
+  }
+
+  const displayName = profile.name?.trim() || 'SOC Analyst'
+
+  if (authPhase === 'lock') {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden">
+        <Win11LockScreen displayName={displayName} onWake={() => setAuthPhase('login')} />
+      </div>
+    )
+  }
+
+  if (authPhase === 'login') {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden">
+        <Win11LoginScreen displayName={displayName} onSignedIn={() => setAuthPhase('session')} />
+      </div>
+    )
+  }
+
+  return (
+    <WindowManagerProvider key={caseDef.caseId} geometryStorageKey={caseDef.caseId}>
+      <GameDesk displayName={displayName} />
+    </WindowManagerProvider>
+  )
+}
+
+function GameDesk({ displayName }: { displayName: string }) {
+  const { profile } = usePlayer()
+  const { addEvidence, items } = useEvidence()
+  const clip = useClipboardHistory()
   const { append: appendTimeline } = useTimeline()
   const game = useGame()
   const {
@@ -111,19 +206,32 @@ function GameScreenInner() {
   } = game
 
   const winMgr = useWindows()
+  const [lockedOverlay, setLockedOverlay] = useState(false)
   const [showAlert, setShowAlert] = useState(true)
   const [showReport, setShowReport] = useState(false)
   const [showStart, setShowStart] = useState(false)
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; desktop?: boolean } | null>(null)
+  const [iconCtx, setIconCtx] = useState<{ x: number; y: number; label: string; toolId?: OpenToolId } | null>(null)
   const [recycleHint, setRecycleHint] = useState(false)
+  const [selectedDesktop, setSelectedDesktop] = useState<string | null>(null)
   const openedToolsRef = useRef<Set<string>>(new Set())
   const seenEvidenceRef = useRef<Set<string>>(new Set())
+  const [recentList, setRecentList] = useState<{ id: string; label: string; at: number }[]>([])
 
-  useEffect(() => {
-    resetEvidence()
-    openedToolsRef.current = new Set()
-    seenEvidenceRef.current = new Set()
-  }, [caseDef?.caseId, resetEvidence])
+  const [showRun, setShowRun] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showTaskView, setShowTaskView] = useState(false)
+  const [showQuick, setShowQuick] = useState(false)
+  const [showActionCenter, setShowActionCenter] = useState(false)
+  const [showWidgets, setShowWidgets] = useState(false)
+  const [showClipboardPanel, setShowClipboardPanel] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [shotToast, setShotToast] = useState(false)
+
+  const [altTabOpen, setAltTabOpen] = useState(false)
+  const [altTabIdx, setAltTabIdx] = useState(0)
+  const altTabIdxRef = useRef(0)
 
   useEffect(() => {
     if (!caseDef) return
@@ -143,8 +251,10 @@ function GameScreenInner() {
         description: ev.title + (ev.path ? ` — ${ev.path}` : ''),
         severity: ev.taggedIoc ? 'red' : 'yellow',
       })
+      if (ev.path && ev.taggedIoc) clip.push(ev.path)
+      if (ev.title) clip.push(`Evidence: ${ev.title}`)
     })
-  }, [items, appendTimeline])
+  }, [items, appendTimeline, clip])
 
   useEffect(() => {
     if (!caseDef) return
@@ -166,11 +276,25 @@ function GameScreenInner() {
   useEffect(() => {
     const close = () => {
       setCtxMenu(null)
+      setIconCtx(null)
       setShowStart(false)
+      setShowCalendar(false)
     }
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [])
+
+  useEffect(() => {
+    const onSnapSecond = () => {
+      appendTimeline({
+        eventType: 'Tool',
+        description: 'Snap layout applied — pick a second window to fill remaining space.',
+        severity: 'yellow',
+      })
+    }
+    window.addEventListener('tr-snap-second-window', onSnapSecond)
+    return () => window.removeEventListener('tr-snap-second-window', onSnapSecond)
+  }, [appendTimeline])
 
   const completed = useMemo(() => {
     const map: Record<GamePhase, boolean> = {
@@ -193,17 +317,143 @@ function GameScreenInner() {
           severity: 'green',
         })
       }
+      setRecentList((prev) => [{ id, label, at: Date.now() }, ...prev.filter((r) => r.id !== id)].slice(0, 6))
     },
     [appendTimeline],
   )
 
+  const toolsById = useMemo(() => {
+    const m = new Map<string, StartMenuTool>()
+    for (const t of TOOLS) m.set(t.id, { id: t.id, label: t.label, Icon: t.Icon })
+    m.set('settings-app', { id: 'settings-app', label: 'Settings', Icon: IconSettingsGear })
+    m.set('notepad', { id: 'notepad', label: 'Notepad', Icon: IconNotepadDoc })
+    m.set('taskmgr', { id: 'taskmgr', label: 'Task Manager', Icon: IconCpu })
+    m.set('edge-shell', { id: 'edge-shell', label: 'Microsoft Edge', Icon: IconDocuments })
+    m.set('documents', { id: 'documents', label: 'Documents', Icon: IconDocuments })
+    return m
+  }, [])
+
+  const allToolsById = useMemo(() => {
+    const m = new Map<string, ToolDef>()
+    TOOLS.forEach((t) => m.set(t.id, t))
+    m.set('settings-app', { id: 'settings-app', label: 'Settings', Icon: IconSettingsGear })
+    m.set('notepad', { id: 'notepad', label: 'Notepad', Icon: IconNotepadDoc })
+    m.set('taskmgr', { id: 'taskmgr', label: 'Task Manager', Icon: IconCpu })
+    m.set('edge-shell', { id: 'edge-shell', label: 'Edge', Icon: IconDocuments })
+    return m
+  }, [])
+
+  const pinnedTaskbar: ToolDef[] = useMemo(
+    () => [
+      { id: 'files', label: 'File Explorer', Icon: IconFolder },
+      { id: 'terminal', label: 'Terminal', Icon: IconTerminal },
+      { id: 'settings-app', label: 'Settings', Icon: IconSettingsGear },
+    ],
+    [],
+  )
+
+  const recommended = useMemo(() => {
+    const now = Date.now()
+    return recentList.slice(0, 4).map((r) => {
+      const mins = Math.max(1, Math.round((now - r.at) / 60000))
+      return { id: r.id, label: r.label, ago: `Opened ${mins} min${mins === 1 ? '' : 's'} ago` }
+    })
+  }, [recentList])
+
+  const eventSnippets = useMemo(() => {
+    if (!caseDef) return []
+    return generateBaselineEvents(caseDef.hostname, caseDef.primaryUser).slice(0, 24).map((e) => ({
+      eventId: e.eventId,
+      title: (e.summary ?? '').slice(0, 96),
+    }))
+  }, [caseDef])
+
+  const topSearchApps = useMemo(() => {
+    const xs = [...TOOLS.map((t) => ({ id: t.id, label: t.label, Icon: t.Icon }))]
+    xs.push({ id: 'settings-app', label: 'Settings', Icon: IconSettingsGear })
+    xs.push({ id: 'notepad', label: 'Notepad', Icon: IconNotepadDoc })
+    xs.push({ id: 'taskmgr', label: 'Task Manager', Icon: IconCpu })
+    return xs
+  }, [])
+
   const openTool = useCallback(
-    (id: ToolId) => {
+    (id: OpenToolId) => {
       if (!caseDef || !registry) return
       markToolsOpened()
+
+      const record = (tid: string, lab: string) => recordToolOpen(tid, lab)
+
+      const coreIcon = (tid: string) => {
+        const t = TOOLS.find((x) => x.id === tid)
+        return t ? <t.Icon size={14} className="text-[#5e9bff]" /> : null
+      }
+
+      switch (id) {
+        case 'documents':
+          record('files', 'File Explorer')
+          winMgr.open({
+            id: 'files',
+            title: 'File Explorer',
+            icon: coreIcon('files'),
+            render: () => <FileExplorer />,
+            defaultRect: { x: 100, y: 70, width: 960, height: 580 },
+          })
+          return
+        case 'settings-app':
+          record('settings-app', 'Settings')
+          winMgr.open({
+            id: 'settings-app',
+            title: 'Settings',
+            icon: <IconSettingsGear size={14} />,
+            defaultRect: { x: 140, y: 60, width: 920, height: 560 },
+            render: () => <SettingsApp caseDef={caseDef} />,
+          })
+          return
+        case 'notepad':
+          record('notepad', 'Notepad')
+          winMgr.open({
+            id: 'notepad',
+            title: 'Notepad',
+            icon: <IconNotepadDoc size={14} />,
+            defaultRect: { x: 180, y: 100, width: 720, height: 520 },
+            render: () => <Notepad caseId={caseDef.caseId} onAppendClipboard={(s) => clip.push(s)} />,
+          })
+          return
+        case 'taskmgr':
+          record('taskmgr', 'Task Manager')
+          winMgr.open({
+            id: 'taskmgr',
+            title: 'Task Manager',
+            icon: <IconCpu size={14} className="text-[#5e9bff]" />,
+            defaultRect: { x: 120, y: 80, width: 980, height: 600 },
+            render: () => <TaskManager caseDef={caseDef} />,
+          })
+          return
+        case 'edge-shell':
+          record('edge-shell', 'Microsoft Edge')
+          winMgr.open({
+            id: 'edge-shell',
+            title: 'Microsoft Edge',
+            icon: <IconDocuments size={14} className="text-[#5e9bff]" />,
+            defaultRect: { x: 90, y: 50, width: 960, height: 580 },
+            render: () => (
+              <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#f6f6f6] p-8 text-center text-[#222]">
+                <div className="text-[18px] font-semibold">Microsoft Edge (simulated)</div>
+                <p className="max-w-md text-[13px] leading-relaxed text-[#555]">
+                  External browsing is disabled in ThreatRecon training shells. Use File Explorer, Terminal, and SOC tools to continue the investigation.
+                </p>
+              </div>
+            ),
+          })
+          return
+        default:
+          break
+      }
+
       const tool = TOOLS.find((t) => t.id === id)
-      if (tool) recordToolOpen(id, tool.label)
+      if (tool) record(id, tool.label)
       const icon = tool ? <tool.Icon size={14} className="text-[#5e9bff]" /> : null
+
       const desc = (() => {
         switch (id) {
           case 'terminal':
@@ -245,7 +495,13 @@ function GameScreenInner() {
           case 'users':
             return { id, title: 'Local Users', icon, render: () => <UserAccounts caseDef={caseDef} /> }
           case 'files':
-            return { id, title: 'File Explorer', icon, render: () => <FileExplorer /> }
+            return {
+              id,
+              title: 'File Explorer',
+              icon,
+              defaultRect: { x: 100, y: 70, width: 960, height: 580 },
+              render: () => <FileExplorer />,
+            }
           case 'fw':
             setPhase('harden')
             return {
@@ -267,6 +523,7 @@ function GameScreenInner() {
             return null
         }
       })()
+
       if (desc) winMgr.open(desc)
     },
     [
@@ -279,64 +536,246 @@ function GameScreenInner() {
       exfilWarned,
       exfilBlocked,
       recordToolOpen,
+      clip,
     ],
   )
 
-  const handleSystemShortcut = useCallback(
-    (action: (typeof SYSTEM_ICONS)[number]['action']) => {
-      switch (action) {
-        case 'computer':
-        case 'documents':
-          openTool('files')
-          break
-        case 'network':
-          openTool('net')
-          break
+  const handleRunCommand = useCallback(
+    (cmd: string) => {
+      const c = cmd.toLowerCase().replace(/\.exe$/, '')
+      const map: Record<string, OpenToolId> = {
+        cmd: 'terminal',
+        regedit: 'reg',
+        eventvwr: 'evt',
+        taskmgr: 'taskmgr',
+        mmc: 'evt',
+        notepad: 'notepad',
+      }
+      const tid = map[c]
+      if (tid) openTool(tid)
+    },
+    [openTool],
+  )
+
+  const handleDesktopShortcut = useCallback(
+    (kind: string) => {
+      switch (kind) {
+        case 'thispc':
+        case 'controlpanel':
+          openTool('settings-app')
+          return
         case 'recycle':
           setRecycleHint(true)
           window.setTimeout(() => setRecycleHint(false), 3200)
-          break
+          return
+        case 'network':
+          openTool('net')
+          return
+        case 'documents':
+        case 'downloads':
+          openTool('files')
+          return
         default:
-          break
+          return
       }
     },
     [openTool],
   )
 
   useEffect(() => {
-    if (caseDef) openTool('terminal')
+    if (!caseDef) return
+    if (!showAlert) openTool('terminal')
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [caseDef?.caseId])
+  }, [caseDef?.caseId, showAlert])
 
-  if (!caseDef || !difficulty) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#060a12] text-[#e8edf5]">
-        No active case.{' '}
-        <button type="button" className="ml-3 underline" onClick={() => navigate('/')}>
-          Return
-        </button>
-      </div>
-    )
-  }
+  useEffect(() => {
+    const desk = document.getElementById('tr-desktop')
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement
+      if (t.closest('input, textarea, [contenteditable=true]')) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') return
+        if (e.altKey && e.key === 'Tab') return
+      }
+
+      const meta = e.metaKey
+
+      if ((meta || e.key === 'Meta') && !e.ctrlKey && !e.altKey && e.code === 'KeyL') {
+        e.preventDefault()
+        appendTimeline({ eventType: 'Mission', description: 'Workstation locked (simulated Win+L)', severity: 'yellow' })
+        setLockedOverlay(true)
+        return
+      }
+
+      if ((meta || e.ctrlKey) && e.code === 'KeyD') {
+        e.preventDefault()
+        winMgr.toggleDesktop()
+        return
+      }
+      if ((meta || e.ctrlKey) && e.code === 'KeyE') {
+        e.preventDefault()
+        openTool('files')
+        return
+      }
+      if ((meta || e.ctrlKey) && e.code === 'KeyR') {
+        e.preventDefault()
+        setShowRun(true)
+        return
+      }
+      if (meta && e.code === 'Tab') {
+        e.preventDefault()
+        setShowTaskView((v) => !v)
+        return
+      }
+      if ((meta || e.ctrlKey) && e.code === 'KeyW') {
+        e.preventDefault()
+        setShowWidgets((w) => !w)
+        setShowQuick(false)
+        return
+      }
+      if ((meta || e.ctrlKey) && e.code === 'KeyV') {
+        e.preventDefault()
+        setShowClipboardPanel(true)
+        return
+      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'Escape') {
+        e.preventDefault()
+        openTool('taskmgr')
+        return
+      }
+
+      if (e.altKey && e.key === 'Tab') {
+        e.preventDefault()
+        const vis = winMgr.windows.filter((w) => !w.minimized)
+        if (vis.length === 0) return
+        setAltTabOpen(true)
+        if (!e.repeat) {
+          const next = (altTabIdxRef.current + 1) % vis.length
+          altTabIdxRef.current = next
+          setAltTabIdx(next)
+        }
+        return
+      }
+
+      if ((meta || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyS') {
+        e.preventDefault()
+        setShowStart((s) => !s)
+        setShowSearch(false)
+        return
+      }
+
+      if (e.key === 'F5' && desk?.contains(t)) {
+        e.preventDefault()
+        appendTimeline({ eventType: 'Mission', description: 'Desktop refreshed (F5)', severity: 'green' })
+        return
+      }
+
+      if (e.key === 'PrintScreen') {
+        e.preventDefault()
+        setShotToast(true)
+        window.setTimeout(() => setShotToast(false), 2200)
+        clip.push('Screenshot PNG (simulated)')
+      }
+
+      if (e.altKey && e.code === 'F4') {
+        e.preventDefault()
+        const top = [...winMgr.windows].sort((a, b) => b.zIndex - a.zIndex)[0]
+        if (top) winMgr.close(top.id)
+      }
+    }
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!e.altKey && altTabOpen) {
+        const vis = winMgr.windows.filter((w) => !w.minimized)
+        const pick = vis[altTabIdxRef.current]
+        if (pick) winMgr.bringToFront(pick.id)
+        setAltTabOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('keyup', onKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+    }
+  }, [
+    appendTimeline,
+    openTool,
+    winMgr,
+    showAlert,
+    caseDef,
+    clip,
+    altTabOpen,
+  ])
+
+  if (!caseDef || !difficulty) return null
 
   const hardeningPct =
     (Object.keys(hardeningDone).filter((k) => hardeningDone[k]).length /
       Math.max(1, caseDef.correctHardeningSteps.length)) *
     100
 
-  const desktopToolLabels: Partial<Record<ToolId, string>> = {
-    proc: 'Processes',
+  const desktopLabels: Record<string, string> = {
+    thispc: 'This PC',
+    recycle: 'Recycle Bin',
+    network: 'Network',
+    controlpanel: 'Control Panel',
+    documents: 'Documents',
+    downloads: 'Downloads',
+    terminal: 'Terminal',
     evt: 'Event Viewer',
+    reg: 'Registry Editor',
     net: 'Network Monitor',
-    tasks: 'Tasks',
-    users: 'Users',
-    files: 'Explorer',
-    fw: 'Firewall',
-    timeline: 'Timeline',
+    proc: 'Process Monitor',
+    tasks: 'Task Scheduler',
+    fw: 'Firewall Manager',
+    files: 'File Explorer',
+    users: 'Local Users',
+    timeline: 'Incident Timeline',
+    settings: 'Settings',
+    notepad: 'Notepad',
   }
 
+  const desktopRows: { key: string; Icon: ComponentType<{ size?: number; className?: string }>; tool?: OpenToolId; sys?: string }[][] = [
+    [
+      { key: 'thispc', Icon: IconComputer, sys: 'thispc' },
+      { key: 'recycle', Icon: IconRecycle, sys: 'recycle' },
+      { key: 'network', Icon: IconNetwork, sys: 'network' },
+      { key: 'controlpanel', Icon: IconSettingsGear, sys: 'controlpanel' },
+      { key: 'documents', Icon: IconDocuments, sys: 'documents' },
+      { key: 'downloads', Icon: IconFolder, sys: 'downloads' },
+    ],
+    [
+      { key: 'terminal', Icon: IconTerminal, tool: 'terminal' },
+      { key: 'evt', Icon: IconList, tool: 'evt' },
+      { key: 'reg', Icon: IconDatabase, tool: 'reg' },
+      { key: 'net', Icon: IconNetwork, tool: 'net' },
+      { key: 'proc', Icon: IconCpu, tool: 'proc' },
+      { key: 'tasks', Icon: IconClock, tool: 'tasks' },
+    ],
+    [
+      { key: 'fw', Icon: IconShield, tool: 'fw' },
+      { key: 'files', Icon: IconFolder, tool: 'files' },
+      { key: 'users', Icon: IconUsers, tool: 'users' },
+      { key: 'timeline', Icon: IconTimeline, tool: 'timeline' },
+      { key: 'settings', Icon: IconSettingsGear, tool: 'settings-app' },
+      { key: 'notepad', Icon: IconNotepadDoc, tool: 'notepad' },
+    ],
+  ]
+
+  const initials =
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((s) => s[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || 'OP'
+
+  const avatarInitials = `${initials}`
+
   return (
-    <div className="flex h-screen max-h-screen flex-col bg-[#060a12] text-[#e8edf5]">
+    <div className="tr-win11-font flex h-screen max-h-screen flex-col bg-[#060a12] text-[#e8edf5]">
       <PhaseTracker phase={phase} completed={completed} />
       <div className="flex items-center justify-between border-b border-white/10 px-6 py-2 font-mono text-[11px] text-[#8a9ab5]">
         <div className="flex items-center gap-4">
@@ -351,10 +790,7 @@ function GameScreenInner() {
             <div className="flex items-center gap-2 rounded border border-red-500/40 bg-red-500/10 px-3 py-1 text-[10px] text-red-200">
               EXFIL
               <div className="h-1 w-24 overflow-hidden rounded-full bg-black/40">
-                <div
-                  className="h-full bg-red-400 transition-all"
-                  style={{ width: `${Math.round(exfilProgress * 100)}%` }}
-                />
+                <div className="h-full bg-red-400 transition-all" style={{ width: `${Math.round(exfilProgress * 100)}%` }} />
               </div>
               <span>{Math.round(exfilProgress * 100)}%</span>
             </div>
@@ -376,108 +812,148 @@ function GameScreenInner() {
       </div>
 
       <div className="relative flex min-h-0 flex-1">
-        <QuickLaunchRail tools={TOOLS} onOpenTool={openTool} />
-
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <section
             id="tr-desktop"
             data-desktop-root
             data-allow-context-menu
-            className="relative min-h-0 flex-1 overflow-hidden tr-win10-workspace"
+            className="relative min-h-0 flex-1 overflow-hidden tr-win11-bloom"
+            onMouseDown={() => setSelectedDesktop(null)}
             onContextMenu={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              setCtxMenu({ x: e.clientX, y: e.clientY })
+              setCtxMenu({ x: e.clientX, y: e.clientY, desktop: true })
             }}
           >
-            <div
-              className="pointer-events-none absolute inset-0 opacity-[0.06]"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E")`,
-              }}
-              aria-hidden
-            />
+            <div className="absolute bottom-3 right-3 z-[12]" aria-hidden>
+              <Win11WatermarkLogo />
+            </div>
+
+            {lockedOverlay ? (
+              <div className="absolute inset-0 z-[5000]">
+                <Win11LockScreen displayName={displayName} onWake={() => setLockedOverlay(false)} />
+              </div>
+            ) : null}
 
             <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 flex items-center justify-center overflow-hidden">
               <div
-                className="select-none font-display text-[clamp(3rem,12vw,8rem)] font-bold uppercase tracking-tighter text-white/[0.045]"
+                className="select-none font-display text-[clamp(3rem,12vw,8rem)] font-bold uppercase tracking-tighter text-white/[0.035]"
                 aria-hidden
               >
                 {caseDef.industry.companyName}
               </div>
             </div>
 
-            <div className="absolute left-4 top-5 z-[15] max-h-[calc(100%-16px)] overflow-y-auto overflow-x-visible pr-4">
-              <div className="grid w-max max-w-[min(96vw,920px)] grid-cols-[repeat(auto-fill,96px)] gap-x-10 gap-y-10">
-                {SYSTEM_ICONS.map((s) => (
-                  <DesktopWorkspaceIcon
-                    key={s.id}
-                    label={s.label}
-                    Icon={s.Icon}
-                    onOpen={() => handleSystemShortcut(s.action)}
-                  />
-                ))}
-                {TOOLS.map((t) => (
-                  <DesktopWorkspaceIcon
-                    key={t.id}
-                    label={desktopToolLabels[t.id] ?? t.label}
-                    Icon={t.Icon}
-                    onOpen={() => openTool(t.id)}
-                  />
-                ))}
-              </div>
+            <div className="absolute left-5 top-5 z-[15] flex flex-col gap-2">
+              {desktopRows.map((row, ri) => (
+                <div key={ri} className="flex flex-row gap-2">
+                  {row.map((cell) => (
+                    <DesktopIconWin11
+                      key={cell.key}
+                      label={desktopLabels[cell.key] ?? cell.key}
+                      Icon={cell.Icon}
+                      selected={selectedDesktop === cell.key}
+                      onSelect={() => setSelectedDesktop(cell.key)}
+                      onOpen={() => {
+                        if (cell.tool) openTool(cell.tool)
+                        else if (cell.sys) handleDesktopShortcut(cell.sys)
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIconCtx({
+                          x: e.clientX,
+                          y: e.clientY,
+                          label: desktopLabels[cell.key] ?? cell.key,
+                          toolId: cell.tool,
+                        })
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
             </div>
 
             <WindowSurface />
 
+            <Win11RunDialog open={showRun} onClose={() => setShowRun(false)} onSubmitCommand={handleRunCommand} />
+            <Win11SearchOverlay
+              open={showSearch}
+              onClose={() => setShowSearch(false)}
+              query={searchQuery}
+              setQuery={setSearchQuery}
+              topApps={topSearchApps}
+              onPickTool={(id) => openTool(id as OpenToolId)}
+              eventSnippets={eventSnippets}
+            />
+            <Win11TaskViewOverlay open={showTaskView} onClose={() => setShowTaskView(false)} />
+            <Win11QuickSettings open={showQuick} onClose={() => setShowQuick(false)} anchorRight />
+            <Win11ActionCenter open={showActionCenter} onClose={() => setShowActionCenter(false)} caseTitle={caseDef.threatActor.displayName} />
+            <Win11WidgetsPanel open={showWidgets} onClose={() => setShowWidgets(false)} threatActor={caseDef.threatActor.displayName} />
+            <Win11ClipboardPanel open={showClipboardPanel} onClose={() => setShowClipboardPanel(false)} />
+            <Win11CalendarFlyout open={showCalendar} onClose={() => setShowCalendar(false)} />
+            <Win11ScreenshotToast visible={shotToast} />
+
+            <Win11AltTabSwitcher
+              open={altTabOpen}
+              index={altTabIdx}
+              windows={winMgr.windows.filter((w) => !w.minimized).map((w) => ({ id: w.id, title: w.title }))}
+              onSelect={(wid) => {
+                winMgr.bringToFront(wid)
+                setAltTabOpen(false)
+              }}
+            />
+
+            <Win11StartMenu
+              open={showStart}
+              onClose={() => setShowStart(false)}
+              toolsById={toolsById}
+              recommended={recommended}
+              displayName={displayName}
+              avatarInitials={avatarInitials}
+              onOpenTool={(tid) => openTool(tid as OpenToolId)}
+              onOpenDocuments={() => openTool('documents')}
+              onPowerSleep={() =>
+                appendTimeline({
+                  eventType: 'Mission',
+                  description: 'Sleep requested from Start — simulation only.',
+                  severity: 'green',
+                })
+              }
+            />
+
             <SiemToastHost enabled={!showAlert} />
 
             {ctxMenu ? (
-              <div
-                className="fixed z-[1200] min-w-[200px] rounded border border-white/15 bg-[#2d2d2d] py-1 font-mono text-[11px] text-[#e8edf5] shadow-xl"
-                style={{ left: ctxMenu.x, top: ctxMenu.y }}
-                onClick={(e) => e.stopPropagation()}
-                role="menu"
-              >
-                <button
-                  type="button"
-                  className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
-                  onClick={() => {
-                    openTool('terminal')
-                    setCtxMenu(null)
-                  }}
-                >
-                  Open Terminal here
-                </button>
-                <button
-                  type="button"
-                  className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
-                  onClick={() => {
-                    openTool('files')
-                    setCtxMenu(null)
-                  }}
-                >
-                  Open Explorer
-                </button>
-                <button
-                  type="button"
-                  className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent('tr-focus-notes'))
-                    setCtxMenu(null)
-                  }}
-                >
-                  Investigation notes…
-                </button>
-                <div className="my-1 h-px bg-white/10" />
-                <button type="button" className="block w-full px-4 py-2 text-left text-[#8a9ab5]" disabled>
-                  Paste (N/A)
-                </button>
-              </div>
+              <DesktopContextMenuWin11
+                position={{ x: ctxMenu.x, y: ctxMenu.y }}
+                onDismiss={() => setCtxMenu(null)}
+                onTerminal={() => {
+                  openTool('terminal')
+                  setCtxMenu(null)
+                }}
+                onNotes={() => {
+                  window.dispatchEvent(new CustomEvent('tr-focus-notes'))
+                  setCtxMenu(null)
+                }}
+                onPersonalize={() => setCtxMenu(null)}
+              />
+            ) : null}
+
+            {iconCtx ? (
+              <IconContextMenu
+                position={{ x: iconCtx.x, y: iconCtx.y }}
+                label={iconCtx.label}
+                onOpen={() => {
+                  if (iconCtx.toolId) openTool(iconCtx.toolId)
+                  setIconCtx(null)
+                }}
+                onDismiss={() => setIconCtx(null)}
+              />
             ) : null}
 
             {recycleHint ? (
-              <div className="pointer-events-none absolute bottom-[56px] left-1/2 z-[950] -translate-x-1/2 rounded border border-white/10 bg-black/80 px-4 py-2 font-mono text-[11px] text-[#e8edf5] shadow-lg">
+              <div className="pointer-events-none absolute bottom-[56px] left-1/2 z-[950] -translate-x-1/2 rounded border border-white/10 bg-black/80 px-4 py-2 text-[11px] text-[#e8edf5] shadow-lg">
                 Recycle Bin is empty.
               </div>
             ) : null}
@@ -522,7 +998,43 @@ function GameScreenInner() {
             ) : null}
           </section>
 
-          <WindowsTaskbar allTools={TOOLS} onOpenTool={openTool} showStart={showStart} setShowStart={setShowStart} />
+          <Win11Taskbar
+            pinnedTools={pinnedTaskbar}
+            onOpenTool={(id) => openTool(id as OpenToolId)}
+            allToolsById={allToolsById}
+            showStart={showStart}
+            setShowStart={(v) => {
+              setShowStart(typeof v === 'function' ? v(showStart) : v)
+              setShowQuick(false)
+              setShowWidgets(false)
+            }}
+            openEdgeShell={() => openTool('edge-shell')}
+            openSearchOverlay={showSearch}
+            setSearchOverlay={(v) => {
+              setShowSearch(v)
+              setShowStart(false)
+            }}
+            openTaskView={showTaskView}
+            setTaskView={(v) => setShowTaskView(v)}
+            openQuickSettings={showQuick}
+            setQuickSettings={(v) => {
+              setShowQuick(v)
+              setShowWidgets(false)
+            }}
+            openActionCenter={showActionCenter}
+            setActionCenter={(v) => setShowActionCenter(v)}
+            openWidgets={showWidgets}
+            setWidgets={(v) => {
+              setShowWidgets(v)
+              setShowQuick(false)
+            }}
+            onOpenSettingsApp={() => openTool('settings-app')}
+            onClockClick={() => {
+              setShowCalendar((c) => !c)
+              setShowActionCenter(false)
+            }}
+            onShowDesktop={() => winMgr.toggleDesktop()}
+          />
         </div>
 
         <EvidenceLocker />
@@ -535,182 +1047,148 @@ function GameScreenInner() {
   )
 }
 
-function QuickLaunchRail({
-  tools,
-  onOpenTool,
-}: {
-  tools: ToolDef[]
-  onOpenTool: (id: ToolId) => void
-}) {
-  return (
-    <aside
-      className="flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-black bg-[#1a1a1a] py-2"
-      aria-label="Quick launch"
-    >
-      {tools.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          title={t.label}
-          className="flex h-10 w-10 items-center justify-center rounded-md text-[#dce9ff] hover:bg-white/10"
-          onClick={() => onOpenTool(t.id)}
-        >
-          <t.Icon size={20} />
-        </button>
-      ))}
-    </aside>
-  )
-}
-
-function DesktopWorkspaceIcon({
+function DesktopIconWin11({
   label,
   Icon,
+  selected,
+  onSelect,
   onOpen,
+  onContextMenu,
 }: {
   label: string
   Icon: ComponentType<{ size?: number; className?: string }>
+  selected: boolean
+  onSelect: () => void
   onOpen: () => void
+  onContextMenu: (e: MouseEvent) => void
 }) {
   return (
     <button
       type="button"
+      title={label}
+      onClick={onSelect}
       onDoubleClick={onOpen}
-      title={`Double-click: ${label}`}
-      className="group flex flex-col items-center gap-1 rounded-md border border-transparent bg-transparent p-0 outline-none hover:border-white/10 hover:bg-black/35 focus-visible:border-[#5e9bff]/50 focus-visible:bg-black/40"
+      onContextMenu={onContextMenu}
+      className={`group flex w-[80px] flex-col items-center gap-0.5 rounded border bg-transparent p-1 outline-none transition-shadow duration-200 ease-out hover:shadow-[0_0_12px_rgba(255,255,255,0.18)] ${
+        selected ? 'border-[#0078d4]/80 bg-[#0078d4]/20' : 'border-transparent'
+      }`}
+      style={{ gap: '4px' }}
     >
-      <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/25 shadow-inner shadow-black/40 transition-colors group-hover:border-white/15 group-hover:bg-black/40">
-        <Icon size={38} className="text-[#b8d9ff]" />
+      <div className="flex h-[52px] w-[52px] items-center justify-center">
+        <Icon size={44} className="text-[#dce9ff] drop-shadow-md" />
       </div>
-      <span className="max-w-[92px] text-center font-mono text-[11px] leading-snug text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]">
+      <span
+        className="max-w-[80px] text-center text-[13px] leading-tight text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.92)]"
+        style={{ fontFamily: "'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif" }}
+      >
         {label}
       </span>
     </button>
   )
 }
 
-function WindowsTaskbar({
-  allTools,
-  onOpenTool,
-  showStart,
-  setShowStart,
+function IconContextMenu({
+  position,
+  label,
+  onOpen,
+  onDismiss,
 }: {
-  allTools: ToolDef[]
-  onOpenTool: (id: ToolId) => void
-  showStart: boolean
-  setShowStart: (v: boolean | ((b: boolean) => boolean)) => void
+  position: { x: number; y: number }
+  label: string
+  onOpen: () => void
+  onDismiss: () => void
 }) {
-  const { windows, toggleMinimize, bringToFront } = useWindows()
-  const [clockStr, setClockStr] = useState(() => formatTrayClock())
-
-  useEffect(() => {
-    const tick = () => setClockStr(formatTrayClock())
-    tick()
-    const id = window.setInterval(tick, 60_000)
-    return () => window.clearInterval(id)
-  }, [])
-
   return (
-    <div className="relative z-[920] shrink-0 border-t border-black bg-[#1a1a1a]">
-      <div className="flex h-12 w-full items-center gap-2 px-2">
-        <button
-          type="button"
-          title="Start"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded hover:bg-white/10"
-          onClick={(e) => {
-            e.stopPropagation()
-            setShowStart((s) => !s)
-          }}
-        >
-          <IconWindowsLogo size={22} className="text-[#00a2ed]" />
-        </button>
-
-        <div className="flex max-w-[min(520px,40vw)] flex-1 items-center gap-2 rounded-sm border border-[#3c3c3c] bg-[#3c3c3c] px-3 py-1.5 shadow-inner">
-          <IconSearch size={16} className="shrink-0 text-[#a8a8a8]" aria-hidden />
-          <span className="truncate font-mono text-[12px] text-[#b4b4b4]">Search tools and evidence…</span>
-        </div>
-
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto px-1">
-          {windows.map((w) => {
-            const tool = allTools.find((t) => t.id === w.id)
-            return (
-              <button
-                key={w.id}
-                type="button"
-                className={`flex max-w-[160px] shrink-0 items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-[11px] ${
-                  w.minimized
-                    ? 'border-transparent bg-transparent text-[#9ca3af] hover:bg-white/10'
-                    : 'border-[#4a4a4a] bg-[#2d2d2d] text-[#f3f4f6]'
-                }`}
-                onClick={() => {
-                  if (w.minimized) bringToFront(w.id)
-                  else toggleMinimize(w.id)
-                }}
-                title={w.title}
-              >
-                {tool ? <tool.Icon size={14} /> : null}
-                <span className="truncate">{w.title}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="ml-auto flex shrink-0 items-center gap-4 border-l border-white/10 pl-4 pr-1">
-          <IconWifi size={17} className="text-[#d1d5db]" aria-hidden />
-          <IconVolume size={17} className="text-[#d1d5db]" aria-hidden />
-          <time
-            className="min-w-[44px] text-center font-mono text-[12px] tabular-nums text-[#f3f4f6]"
-            dateTime={clockStr}
-          >
-            {clockStr}
-          </time>
-        </div>
-      </div>
-
-      {showStart ? (
-        <div
-          className="pointer-events-auto absolute bottom-full left-0 z-[950] mb-1 ml-1 w-56 rounded border border-white/10 bg-[#1e1e1e] py-2 shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="border-b border-white/10 px-3 py-2 font-display text-[11px] uppercase tracking-wide text-[#8a9ab5]">
-            ThreatRecon
-          </div>
-          <div className="max-h-64 overflow-y-auto py-1">
-            {allTools.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-left font-mono text-[11px] hover:bg-[#5e9bff]/20"
-                onClick={() => {
-                  onOpenTool(t.id)
-                  setShowStart(false)
-                }}
-              >
-                <t.Icon size={16} />
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="mt-1 w-full border-t border-white/10 px-3 py-2 text-left font-mono text-[11px] text-[#8a9ab5] hover:bg-white/5"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('tr-focus-notes'))
-              setShowStart(false)
-            }}
-          >
-            Investigation notes
-          </button>
-        </div>
-      ) : null}
+    <div
+      role="menu"
+      className="fixed z-[1250] min-w-[200px] rounded-xl border border-white/12 bg-[#2d2d2d]/98 py-1 text-[12px] text-[#f3f3f3] shadow-2xl backdrop-blur-lg"
+      style={{ left: position.x, top: position.y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button type="button" className="block w-full px-4 py-2 text-left hover:bg-white/10" onClick={onOpen}>
+        Open
+      </button>
+      <button type="button" className="block w-full px-4 py-2 text-left text-[#888]" disabled>
+        Pin to taskbar (simulated)
+      </button>
+      <button type="button" className="block w-full px-4 py-2 text-left text-[#888]" disabled>
+        Pin to Start (simulated)
+      </button>
+      <button type="button" className="block w-full px-4 py-2 text-left hover:bg-white/10" onClick={onDismiss}>
+        Properties — {label}
+      </button>
+      <button type="button" className="block w-full px-4 py-2 text-left text-[#888]" disabled>
+        Delete shortcut (simulated)
+      </button>
     </div>
   )
 }
 
-function formatTrayClock(): string {
-  const d = new Date()
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  return `${hh}:${mm}`
+function DesktopContextMenuWin11({
+  position,
+  onDismiss,
+  onTerminal,
+  onNotes,
+  onPersonalize,
+}: {
+  position: { x: number; y: number }
+  onDismiss: () => void
+  onTerminal: () => void
+  onNotes: () => void
+  onPersonalize: () => void
+}) {
+  const tipBtn = 'rounded p-1.5 hover:bg-white/15'
+  return (
+    <div
+      role="menu"
+      className="fixed z-[1200] w-[240px] rounded-xl border border-white/12 bg-[#2d2d2d]/98 py-2 text-[12px] text-[#f3f3f3] shadow-2xl backdrop-blur-lg"
+      style={{ left: position.x, top: position.y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex justify-around border-b border-white/10 px-2 pb-2">
+        <button type="button" title="Cut" className={tipBtn}>
+          ✂
+        </button>
+        <button type="button" title="Copy" className={tipBtn}>
+          📋
+        </button>
+        <button type="button" title="Paste" className={tipBtn}>
+          📄
+        </button>
+        <button type="button" title="Rename" className={tipBtn}>
+          ✎
+        </button>
+        <button type="button" title="Share" className={tipBtn}>
+          🔗
+        </button>
+        <button type="button" title="Delete" className={tipBtn}>
+          🗑
+        </button>
+      </div>
+      <button type="button" className="flex w-full items-center justify-between px-4 py-2 hover:bg-white/10">
+        View <span className="text-[#888]">›</span>
+      </button>
+      <button type="button" className="flex w-full items-center justify-between px-4 py-2 hover:bg-white/10">
+        Sort by <span className="text-[#888]">›</span>
+      </button>
+      <button type="button" className="block w-full px-4 py-2 text-left hover:bg-white/10">
+        Show more options (legacy)
+      </button>
+      <div className="my-1 h-px bg-white/10" />
+      <button type="button" className="block w-full px-4 py-2 text-left hover:bg-white/10" onClick={onTerminal}>
+        Open Terminal
+      </button>
+      <button type="button" className="block w-full px-4 py-2 text-left hover:bg-white/10" onClick={onNotes}>
+        Open Investigation Notes
+      </button>
+      <button type="button" className="block w-full px-4 py-2 text-left hover:bg-white/10" onClick={onPersonalize}>
+        Personalize
+      </button>
+      <button type="button" className="mt-1 block w-full px-4 py-2 text-left text-[11px] text-[#888]" onClick={onDismiss}>
+        Dismiss
+      </button>
+    </div>
+  )
 }
 
 function buildInitialBanner(hostname: string, user: string): string {
