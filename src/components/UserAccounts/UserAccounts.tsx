@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { CaseDefinition, UserAccountDef } from '../../types/case.types'
 import { BASELINE_USERS } from '../../data/baselineSystem'
+import { useGame } from '../../contexts/GameContext'
 
 const fmtTime = (t: string) => {
   if (!t || t === 'Never') return 'Never'
@@ -8,6 +9,7 @@ const fmtTime = (t: string) => {
 }
 
 export function UserAccounts({ caseDef }: { caseDef: CaseDefinition }) {
+  const { recordOperativeMilestone } = useGame()
   const users = useMemo<UserAccountDef[]>(() => {
     const seen = new Set(BASELINE_USERS.map((u) => u.name.toLowerCase()))
     const extras = (caseDef.userAccounts ?? []).filter((u) => !seen.has(u.name.toLowerCase()))
@@ -32,7 +34,11 @@ export function UserAccounts({ caseDef }: { caseDef: CaseDefinition }) {
           {users.map((u) => (
             <article
               key={u.name + u.sid}
-              className={`rounded-lg border p-3 font-mono ${
+              role="presentation"
+              onClick={() => {
+                if (u.malicious) recordOperativeMilestone('investigationCompromisedUser')
+              }}
+              className={`cursor-pointer rounded-lg border p-3 font-mono transition-colors hover:bg-white/[0.03] ${
                 u.malicious
                   ? 'border-red-500/40 bg-red-500/5'
                   : u.enabled

@@ -117,7 +117,7 @@ export function Win11Taskbar({
       <div className="absolute inset-x-0 top-0 h-px bg-white/[0.06]" />
 
       {/* Widgets + Start */}
-      <div className="absolute left-2 flex items-center gap-1">
+      <div className="absolute left-2 z-[930] flex items-center gap-1">
         <TooltipWrap label="Widgets">
           <button
             type="button"
@@ -148,7 +148,7 @@ export function Win11Taskbar({
       </div>
 
       {/* Center cluster */}
-      <div className="flex flex-1 items-center justify-center gap-1 px-[140px]">
+      <div className="relative z-[910] flex flex-1 items-center justify-center gap-1 pl-[100px] pr-4">
         <TooltipWrap label="Search">
           <button
             type="button"

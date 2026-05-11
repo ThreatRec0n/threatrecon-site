@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CaseDefinition, EventLogEntry } from '../../types/case.types'
 import { generateEventLogs } from '../../utils/eventLogGenerator'
 import { generateBaselineEvents } from '../../data/baselineSystem'
+import { useGame } from '../../contexts/GameContext'
 
 const LOG_TABS = ['Security', 'System', 'Application', 'PowerShell'] as const
 type LogTab = typeof LOG_TABS[number]
@@ -28,6 +29,7 @@ function riskRow(e: EventLogEntry): string {
 }
 
 export function EventViewer({ caseDef }: { caseDef: CaseDefinition }) {
+  const { recordOperativeMilestone } = useGame()
   const [filterId, setFilterId] = useState('')
   const [tab, setTab] = useState<LogTab>('Security')
   const [events, setEvents] = useState<EventLogEntry[] | null>(
@@ -129,7 +131,12 @@ export function EventViewer({ caseDef }: { caseDef: CaseDefinition }) {
                   className={`cursor-pointer border-t border-white/5 hover:bg-white/5 ${riskRow(e)} ${
                     selected?.id === e.id ? 'ring-1 ring-[#5e9bff]/40' : ''
                   }`}
-                  onClick={() => setSelectedId(e.id)}
+                  onClick={() => {
+                    setSelectedId(e.id)
+                    if ((e.eventId === 4688 || e.eventId === 4698) && e.malicious) {
+                      recordOperativeMilestone('detectionMalicious4688Or4698')
+                    }
+                  }}
                 >
                   <td className={`p-2 ${levelClass(e.level)}`}>{e.level}</td>
                   <td className="p-2 text-[#a8b6ca]">{e.time.replace('T', ' ').replace('Z', '')}</td>

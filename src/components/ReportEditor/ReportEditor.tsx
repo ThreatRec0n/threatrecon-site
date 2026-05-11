@@ -12,7 +12,7 @@ import { useGame } from '../../contexts/GameContext'
 import { useEvidence } from '../../contexts/EvidenceContext'
 import { usePlayer } from '../../contexts/PlayerContext'
 import type { IncidentReport, TimelineRow } from '../../types/report.types'
-import { computeFinalScore, scoreReportSections } from '../../engine/ScoringEngine'
+import { computeOperativeScore, countableTaggedIocItems } from '../../engine/ScoringEngine'
 import type { Difficulty } from '../../types/player.types'
 import { verificationHash } from '../../utils/hashUtils'
 
@@ -67,6 +67,18 @@ const emptyReport = (): IncidentReport => ({
   recommendations: { short: '', medium: '', long: '' },
 })
 
+function computeReportErrors(report: IncidentReport): Record<string, string> {
+  const errs: Record<string, string> = {}
+  if (!report.executiveSummary.trim()) errs.executiveSummary = 'Executive summary required.'
+  if (!report.attackVectorCategory) errs.attackVectorCategory = 'Select an attack vector.'
+  if (report.timeline.length === 0) errs.timeline = 'Add at least one timeline entry.'
+  if (!report.iocs.paths.trim() && !report.iocs.hashes.trim()) errs.iocs = 'List file paths or hashes from evidence.'
+  if (!report.blastRadius.dataTypes.trim()) errs.blast = 'Describe data types accessed.'
+  if (!report.actions.eradication.trim()) errs.actions = 'Document eradication steps performed.'
+  if (!report.recommendations.short.trim()) errs.recs = 'Provide at least short-term recommendations.'
+  return errs
+}
+
 export function ReportEditor({
   onClose,
   hardeningPct,
@@ -77,7 +89,8 @@ export function ReportEditor({
   forceSubmit?: boolean
 }) {
   const navigate = useNavigate()
-  const { caseDef, forensic, timerTotal, timerRemaining, difficulty, resetCase } = useGame()
+  const { caseDef, forensic, timerTotal, timerRemaining, difficulty, resetCase, hardeningDone, getOperativeJournalSnapshot } =
+    useGame()
   const { items } = useEvidence()
   const { profile, completeCase, pushLeaderboard } = usePlayer()
   const [report, setReport] = useState<IncidentReport>(() => buildInitialReport(caseDef, items))
@@ -117,33 +130,31 @@ export function ReportEditor({
 
   if (!caseDef || !difficulty) return null
 
-  const validate = (): boolean => {
-    const errs: Record<string, string> = {}
-    if (!report.executiveSummary.trim()) errs.executiveSummary = 'Executive summary required.'
-    if (!report.attackVectorCategory) errs.attackVectorCategory = 'Select an attack vector.'
-    if (report.timeline.length === 0) errs.timeline = 'Add at least one timeline entry.'
-    if (!report.iocs.paths.trim() && !report.iocs.hashes.trim()) errs.iocs = 'List file paths or hashes from evidence.'
-    if (!report.blastRadius.dataTypes.trim()) errs.blast = 'Describe data types accessed.'
-    if (!report.actions.eradication.trim()) errs.actions = 'Document eradication steps performed.'
-    if (!report.recommendations.short.trim()) errs.recs = 'Provide at least short-term recommendations.'
-    setErrors(errs)
-    return Object.keys(errs).length === 0
-  }
-
   const submit = (forced = false) => {
-    if (!forced && !validate()) return
-    const { average } = scoreReportSections(report, caseDef)
-    const artifactsFound = items.length
-    const artifactsTotal = Math.max(1, caseDef.artifacts.length)
-    const { total, grade, breakdown } = computeFinalScore({
+    const fieldErrors = computeReportErrors(report)
+    const validationPassed = Object.keys(fieldErrors).length === 0
+
+    if (!forced && !validationPassed) {
+      setErrors(fieldErrors)
+      return
+    }
+    if (forced && !validationPassed) setErrors(fieldErrors)
+
+    const journal = getOperativeJournalSnapshot()
+    const taggedIocCount = countableTaggedIocItems(items)
+    const hardeningDoneCount = Object.values(hardeningDone).filter(Boolean).length
+
+    const { total, grade, breakdown } = computeOperativeScore({
+      journal,
+      taggedIocCount,
+      hardeningDoneCount,
+      reportComplete: validationPassed,
+      forcedIncompleteSubmit: forced && !validationPassed,
       timeUsedSec,
       timerTotalSec: timerTotal,
-      artifactsFound,
-      artifactsTotal,
-      forensicIntegrity: forensic.snapshot(),
-      hardeningPct,
-      reportAvg: average,
     })
+
+    const artifactsTotal = Math.max(1, caseDef.artifacts.length)
 
     const completionTimestamp = new Date().toISOString()
     const verificationId = verificationHash([
@@ -454,9 +465,11 @@ export function ReportEditor({
 
         <footer className="flex items-center justify-between border-t border-white/10 px-6 py-4">
           <div className="text-[11px] text-[#8a9ab5]">
-            Forensic Integrity: <span className="text-[#5e9bff]">{forensic.snapshot()}</span>/100 ·
-            Hardening: <span className="text-[#5e9bff]">{Math.round(hardeningPct)}%</span> ·
-            Evidence: <span className="text-[#5e9bff]">{items.length}</span> items
+            Scorable IOC tags (SIEM auto-capture excluded):{' '}
+            <span className="text-[#5e9bff]">{countableTaggedIocItems(items)}</span> · Forensic integrity{' '}
+            <span className="text-[#5e9bff]">{forensic.snapshot()}</span>/100 · Hardening{' '}
+            <span className="text-[#5e9bff]">{Math.round(hardeningPct)}%</span> · Evidence items captured{' '}
+            <span className="text-[#5e9bff]">{items.length}</span>
           </div>
           <div className="flex gap-3">
             <button type="button" className="rounded border border-white/10 px-4 py-2 text-[12px]" onClick={onClose}>

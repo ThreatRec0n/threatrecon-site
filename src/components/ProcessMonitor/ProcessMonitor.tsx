@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { CaseDefinition, ProcessEntry } from '../../types/case.types'
 import { baselineProcessesFor } from '../../data/baselineSystem'
+import { useGame } from '../../contexts/GameContext'
 
 const fmtMem = (kb: number) =>
   kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb.toLocaleString()} K`
 
 export function ProcessMonitor({ caseDef }: { caseDef: CaseDefinition }) {
+  const { recordOperativeMilestone } = useGame()
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState<'pid' | 'name' | 'mem' | 'cpu'>('mem')
 
@@ -93,9 +95,13 @@ export function ProcessMonitor({ caseDef }: { caseDef: CaseDefinition }) {
               return (
                 <tr
                   key={`${p.pid}-${p.name}`}
-                  className={`border-t border-white/5 hover:bg-white/5 ${
+                  className={`cursor-pointer border-t border-white/5 hover:bg-white/5 ${
                     danger ? 'bg-red-500/10 text-red-200' : ''
                   }`}
+                  onClick={() => {
+                    if (p.malicious || /\b(msupdate|7z)\b/i.test(p.name))
+                      recordOperativeMilestone('detectionMaliciousProcess')
+                  }}
                 >
                   <td className="p-2 tabular-nums">{p.pid}</td>
                   <td className="p-2">

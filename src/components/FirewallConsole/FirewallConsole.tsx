@@ -43,7 +43,8 @@ const threatLevel = (rules: FwRule[], c2Blocked: boolean): { label: string; colo
 }
 
 export function FirewallConsole() {
-  const { caseDef, hardeningDone, toggleHardening, exfilBlocked, markExfilBlocked, firewall } = useGame()
+  const { caseDef, hardeningDone, toggleHardening, exfilBlocked, markExfilBlocked, firewall, recordOperativeMilestone } =
+    useGame()
   const c2Ip = caseDef?.c2Ip ?? '185.220.101.47'
 
   const [rules, setRules] = useState<FwRule[]>(() => DEFAULT_RULES)
@@ -115,6 +116,7 @@ export function FirewallConsole() {
       ...rs,
     ])
     markExfilBlocked()
+    recordOperativeMilestone('firewallBlockedC2')
     /* check off any matching hardening step */
     if (caseDef) {
       const block = caseDef.correctHardeningSteps.find((h) => /firewall|block|c2/i.test(h.label))

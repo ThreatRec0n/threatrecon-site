@@ -18,6 +18,11 @@ import { VirtualFirewall } from '../engine/VirtualFirewall'
 import { ShellInterpreter } from '../engine/ShellInterpreter'
 import { AttackerStateMachine, adaptationMsForDifficulty } from '../engine/AttackerStateMachine'
 import { ForensicIntegrityEngine } from '../engine/ForensicIntegrityEngine'
+import {
+  EMPTY_OPERATIVE_JOURNAL,
+  type OperativeJournalSnapshot,
+  type OperativeMilestoneKey,
+} from '../engine/OperativeJournal.types'
 
 export type GamePhase = 'detect' | 'hunt' | 'eradicate' | 'harden' | 'report'
 
@@ -47,6 +52,9 @@ export interface GameContextValue {
   markExfilBlocked: () => void
   /** Player actions issued during the run, used by debrief timeline. */
   playerEvents: { at: number; offsetSec: number; kind: string; detail: string }[]
+  /** Rubric milestones — terminal noise alone does not change this journal. */
+  recordOperativeMilestone: (key: OperativeMilestoneKey) => void
+  getOperativeJournalSnapshot: () => OperativeJournalSnapshot
 }
 
 const GameContext = createContext<GameContextValue | null>(null)
@@ -71,6 +79,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [exfilBlocked, setExfilBlocked] = useState(false)
   const playerEventsRef = useRef<{ at: number; offsetSec: number; kind: string; detail: string }[]>([])
   const startedAtRef = useRef<number>(Date.now())
+  const operativeJournalRef = useRef<OperativeJournalSnapshot>({ ...EMPTY_OPERATIVE_JOURNAL })
+
+  const recordOperativeMilestone = useCallback((key: OperativeMilestoneKey) => {
+    operativeJournalRef.current = { ...operativeJournalRef.current, [key]: true }
+  }, [])
+
+  const getOperativeJournalSnapshot = useCallback((): OperativeJournalSnapshot => {
+    return { ...operativeJournalRef.current }
+  }, [])
 
   useEffect(() => {
     if (!attacker) return
@@ -128,6 +145,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setHardeningDone({})
     forensicRef.current = new ForensicIntegrityEngine()
     playerEventsRef.current = []
+    operativeJournalRef.current = { ...EMPTY_OPERATIVE_JOURNAL }
     startedAtRef.current = Date.now()
     const sm = new AttackerStateMachine(result.case, adaptationMsForDifficulty(input.difficulty))
     attackerRef.current = sm
@@ -150,6 +168,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setExfilBlocked(false)
     setExfilProgress(0)
     playerEventsRef.current = []
+    operativeJournalRef.current = { ...EMPTY_OPERATIVE_JOURNAL }
   }, [])
 
   const markToolsOpened = useCallback(() => {
@@ -210,6 +229,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       exfilBlocked,
       markExfilBlocked,
       playerEvents: playerEventsRef.current,
+      recordOperativeMilestone,
+      getOperativeJournalSnapshot,
     }),
     [
       caseDef,
@@ -233,6 +254,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       exfilWarned,
       exfilBlocked,
       markExfilBlocked,
+      recordOperativeMilestone,
+      getOperativeJournalSnapshot,
     ],
   )
 

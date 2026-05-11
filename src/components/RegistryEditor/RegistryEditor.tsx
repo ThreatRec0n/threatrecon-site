@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { VirtualRegistry, RegistryNode } from '../../engine/VirtualRegistry'
+import { useGame } from '../../contexts/GameContext'
 
 interface TreeRow {
   path: string
@@ -32,6 +33,7 @@ function valuePersistFlag(name: string, data: string, pathSelected: string): boo
 }
 
 export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
+  const { recordOperativeMilestone } = useGame()
   const hives = useMemo(() => registry.hives(), [registry])
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(hives))
   const [selected, setSelected] = useState<string>(hives[0] ?? '')
@@ -45,6 +47,11 @@ export function RegistryEditor({ registry }: { registry: VirtualRegistry }) {
   const node: RegistryNode | null = registry.getNode(selected)
   const values = node ? [...node.values.values()] : []
   const isPersistence = isPersistencePath(selected)
+
+  useEffect(() => {
+    const norm = selected.replace(/\//g, '\\')
+    if (/\\CurrentVersion\\Run$/i.test(norm)) recordOperativeMilestone('detectionRegistryRunPersist')
+  }, [selected, recordOperativeMilestone])
 
   const toggle = (path: string) => {
     setExpanded((prev) => {

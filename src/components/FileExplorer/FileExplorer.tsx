@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useGame } from '../../contexts/GameContext'
 import {
   baselineFiles,
@@ -39,7 +39,7 @@ const ROOT_C_ENTRIES: BaselineFile[] = [
 ]
 
 export function FileExplorer() {
-  const { vfs, caseDef } = useGame()
+  const { vfs, caseDef, recordOperativeMilestone } = useGame()
   const home = caseDef ? `C:\\Users\\${caseDef.primaryUser}` : 'C:\\'
   const [path, setPath] = useState<string>(() => norm(vfs?.getCurrentPath() ?? home))
   const [navHist, setNavHist] = useState<{ stack: string[]; i: number }>(() => ({
@@ -50,6 +50,10 @@ export function FileExplorer() {
   const [sortKey, setSortKey] = useState<'name' | 'modified' | 'size'>('name')
   const [ctx, setCtx] = useState<{ x: number; y: number; file?: BaselineFile } | null>(null)
   const [propsFor, setPropsFor] = useState<BaselineFile | null>(null)
+
+  useEffect(() => {
+    if (propsFor?.name?.toLowerCase() === 'msupdate.exe') recordOperativeMilestone('investigationMsupdateExplorer')
+  }, [propsFor, recordOperativeMilestone])
 
   const baselineForHome = useMemo<BaselineFile[]>(() => {
     if (!caseDef) return []
