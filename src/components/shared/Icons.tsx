@@ -218,3 +218,12 @@ export function IconWindowsLogo({ size = 18, className }: { size?: number; class
     </svg>
   )
 }
+
+export function IconSearch(p: IconProps) {
+  return (
+    <Base {...p}>
+      <circle cx="11" cy="11" r="6" />
+      <path d="M15 15l5 5" />
+    </Base>
+  )
+}

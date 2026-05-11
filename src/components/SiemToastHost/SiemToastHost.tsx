@@ -61,7 +61,7 @@ export function SiemToastHost({ enabled = true }: { enabled?: boolean }) {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-14 right-4 z-[1100] w-[320px] animate-[slideIn_0.35s_ease-out]"
+      className="pointer-events-none fixed bottom-[56px] right-4 z-[1100] w-[320px] animate-[slideIn_0.35s_ease-out]"
       role="status"
     >
       <div className="pointer-events-auto rounded border border-white/15 bg-[#1e1e1e] shadow-2xl shadow-black/80">

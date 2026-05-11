@@ -9,9 +9,13 @@ export function WindowSurface({ children }: { children?: ReactNode }) {
   return (
     <>
       {children}
-      {windows.filter((w) => !w.minimized).map((w) => (
-        <FloatingWindow key={w.id} state={w} />
-      ))}
+      <div className="pointer-events-none absolute inset-0 z-[40]">
+        {windows
+          .filter((w) => !w.minimized)
+          .map((w) => (
+            <FloatingWindow key={w.id} state={w} />
+          ))}
+      </div>
     </>
   )
 }
@@ -66,7 +70,7 @@ function FloatingWindow({ state }: { state: WindowState }) {
           height: ref.offsetHeight,
         })
       }}
-      style={{ zIndex: state.zIndex }}
+      style={{ zIndex: state.zIndex, pointerEvents: 'auto' }}
       enableResizing={!state.maximized}
       disableDragging={state.maximized}
     >

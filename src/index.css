@@ -66,25 +66,20 @@ body {
   mix-blend-mode: screen;
 }
 
-/* Simulated Windows 10 dark wallpaper — noise + vignette */
-.win10-desktop-bg {
-  background-color: #0c1628;
+/* Windows 10–style hero wallpaper: deep navy + lighter bloom center-right + subtle grain */
+.tr-win10-workspace {
+  background-color: #0a1628;
   background-image:
-    radial-gradient(ellipse 120% 80% at 50% 20%, rgba(30, 58, 110, 0.35), transparent 55%),
-    radial-gradient(ellipse 90% 60% at 80% 90%, rgba(8, 18, 38, 0.9), transparent 45%),
+    radial-gradient(ellipse 90% 75% at 68% 42%, rgba(36, 92, 168, 0.45), transparent 55%),
+    radial-gradient(ellipse 50% 42% at 78% 28%, rgba(90, 160, 230, 0.28), transparent 50%),
+    radial-gradient(ellipse 120% 90% at 50% 110%, rgba(4, 12, 28, 0.95), transparent 48%),
+    linear-gradient(165deg, #070f1d 0%, #0a1628 38%, #081426 100%),
     repeating-linear-gradient(
-      0deg,
+      -8deg,
       transparent,
-      transparent 2px,
-      rgba(255, 255, 255, 0.018) 2px,
-      rgba(255, 255, 255, 0.018) 3px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 0, 0, 0.04) 2px,
-      rgba(0, 0, 0, 0.04) 3px
+      transparent 3px,
+      rgba(255, 255, 255, 0.015) 3px,
+      rgba(255, 255, 255, 0.015) 4px
     );
 }
 

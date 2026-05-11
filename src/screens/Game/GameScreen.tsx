@@ -35,6 +35,7 @@ import {
   IconWindowsLogo,
   IconWifi,
   IconVolume,
+  IconSearch,
 } from '../../components/shared/Icons'
 import { PhaseTracker } from './PhaseTracker'
 import { Timer } from './Timer'
@@ -53,7 +54,7 @@ const TOOLS: ToolDef[] = [
   { id: 'proc', label: 'Processes', Icon: IconCpu, pinned: true },
   { id: 'evt', label: 'Event Viewer', Icon: IconList, pinned: true },
   { id: 'reg', label: 'Registry', Icon: IconDatabase, pinned: true },
-  { id: 'net', label: 'Network', Icon: IconNetwork },
+  { id: 'net', label: 'Network Monitor', Icon: IconNetwork },
   { id: 'tasks', label: 'Tasks', Icon: IconClock },
   { id: 'users', label: 'Users', Icon: IconUsers },
   { id: 'files', label: 'Explorer', Icon: IconFolder },
@@ -323,7 +324,16 @@ function GameScreenInner() {
       Math.max(1, caseDef.correctHardeningSteps.length)) *
     100
 
-  const pinnedTools = TOOLS.filter((t) => t.pinned)
+  const desktopToolLabels: Partial<Record<ToolId, string>> = {
+    proc: 'Processes',
+    evt: 'Event Viewer',
+    net: 'Network Monitor',
+    tasks: 'Tasks',
+    users: 'Users',
+    files: 'Explorer',
+    fw: 'Firewall',
+    timeline: 'Timeline',
+  }
 
   return (
     <div className="flex h-screen max-h-screen flex-col bg-[#060a12] text-[#e8edf5]">
@@ -366,139 +376,154 @@ function GameScreenInner() {
       </div>
 
       <div className="relative flex min-h-0 flex-1">
-        <section
-          id="tr-desktop"
-          data-desktop-root
-          data-allow-context-menu
-          className="relative min-w-0 flex-1 overflow-hidden win10-desktop-bg"
-          onContextMenu={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            setCtxMenu({ x: e.clientX, y: e.clientY })
-          }}
-        >
-          <div className="pointer-events-none absolute inset-0 opacity-[0.07] grid-bg" />
+        <QuickLaunchRail tools={TOOLS} onOpenTool={openTool} />
 
-          <div className="pointer-events-none absolute bottom-[52px] left-10 select-none font-display text-5xl font-bold uppercase text-white/[0.04]">
-            {caseDef.industry.companyName}
-          </div>
-
-          <div className="absolute left-5 top-4 flex max-h-[calc(100%-72px)] flex-col gap-2 overflow-y-auto pr-2 pb-2">
-            {SYSTEM_ICONS.map((s) => (
-              <DesktopIcon
-                key={s.id}
-                label={s.label}
-                Icon={s.Icon}
-                onOpen={() => handleSystemShortcut(s.action)}
-              />
-            ))}
-            <div className="pointer-events-none my-1 h-px w-[88px] bg-white/15" aria-hidden />
-            {TOOLS.map((t) => (
-              <DesktopIcon key={t.id} label={t.label} Icon={t.Icon} onOpen={() => openTool(t.id)} />
-            ))}
-          </div>
-
-          <WindowSurface />
-
-          <WindowsTaskbar
-            pinnedTools={pinnedTools}
-            allTools={TOOLS}
-            onOpenTool={openTool}
-            showStart={showStart}
-            setShowStart={setShowStart}
-          />
-
-          <SiemToastHost enabled={!showAlert} />
-
-          {ctxMenu ? (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <section
+            id="tr-desktop"
+            data-desktop-root
+            data-allow-context-menu
+            className="relative min-h-0 flex-1 overflow-hidden tr-win10-workspace"
+            onContextMenu={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setCtxMenu({ x: e.clientX, y: e.clientY })
+            }}
+          >
             <div
-              className="fixed z-[1200] min-w-[200px] rounded border border-white/15 bg-[#2d2d2d] py-1 font-mono text-[11px] text-[#e8edf5] shadow-xl"
-              style={{ left: ctxMenu.x, top: ctxMenu.y }}
-              onClick={(e) => e.stopPropagation()}
-              role="menu"
-            >
-              <button
-                type="button"
-                className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
-                onClick={() => {
-                  openTool('terminal')
-                  setCtxMenu(null)
-                }}
-              >
-                Open Terminal here
-              </button>
-              <button
-                type="button"
-                className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
-                onClick={() => {
-                  openTool('files')
-                  setCtxMenu(null)
-                }}
-              >
-                Open Explorer
-              </button>
-              <button
-                type="button"
-                className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('tr-focus-notes'))
-                  setCtxMenu(null)
-                }}
-              >
-                Investigation notes…
-              </button>
-              <div className="my-1 h-px bg-white/10" />
-              <button type="button" className="block w-full px-4 py-2 text-left text-[#8a9ab5]" disabled>
-                Paste (N/A)
-              </button>
-            </div>
-          ) : null}
+              className="pointer-events-none absolute inset-0 opacity-[0.06]"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E")`,
+              }}
+              aria-hidden
+            />
 
-          {recycleHint ? (
-            <div className="pointer-events-none absolute bottom-20 left-1/2 z-[950] -translate-x-1/2 rounded border border-white/10 bg-black/80 px-4 py-2 font-mono text-[11px] text-[#e8edf5] shadow-lg">
-              Recycle Bin is empty.
-            </div>
-          ) : null}
-
-          {showAlert ? (
-            <div className="pointer-events-auto absolute inset-0 z-[1000] flex items-start justify-center bg-black/60 p-10">
-              <div className="max-w-xl rounded-lg border border-yellow-500/40 bg-[#0f1824] p-6 shadow-2xl">
-                <div className="flex items-center justify-between">
-                  <div className="font-display text-lg text-yellow-200">SIEM ALERT</div>
-                  <span
-                    className={`rounded border px-2 py-0.5 font-mono text-[10px] ${
-                      caseDef.severity === 'CRITICAL' || caseDef.severity === 'HIGH'
-                        ? 'border-red-500/40 bg-red-500/15 text-red-200'
-                        : 'border-yellow-500/40 bg-yellow-500/15 text-yellow-200'
-                    }`}
-                  >
-                    {caseDef.severity}
-                  </span>
-                </div>
-                <pre className="mt-4 whitespace-pre-wrap font-mono text-[12px] text-[#e8edf5]">
-                  {`Time:   ${caseDef.initialAlert.time}\nHost:   ${caseDef.initialAlert.host}\nUser:   ${caseDef.initialAlert.user}\nActor:  ${caseDef.threatActor.displayName}\n\n${caseDef.initialAlert.title}\n${caseDef.initialAlert.detail}`}
-                </pre>
-                {caseDef.entryVector ? (
-                  <div className="mt-4 flex flex-wrap gap-1">
-                    <span className="rounded bg-[#5e9bff]/15 px-2 py-0.5 font-mono text-[10px] uppercase text-[#5e9bff]">
-                      {caseDef.entryVector.id}
-                    </span>
-                    <span className="rounded bg-[#5e9bff]/10 px-2 py-0.5 font-mono text-[10px] text-[#a8b6ca]">
-                      {caseDef.entryVector.name}
-                    </span>
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  className="mt-6 w-full rounded bg-[#5e9bff] px-4 py-2 font-mono text-sm text-[#060a12]"
-                  onClick={() => setShowAlert(false)}
-                >
-                  ACKNOWLEDGE
-                </button>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 flex items-center justify-center overflow-hidden">
+              <div
+                className="select-none font-display text-[clamp(3rem,12vw,8rem)] font-bold uppercase tracking-tighter text-white/[0.045]"
+                aria-hidden
+              >
+                {caseDef.industry.companyName}
               </div>
             </div>
-          ) : null}
-        </section>
+
+            <div className="absolute left-4 top-5 z-[15] max-h-[calc(100%-16px)] overflow-y-auto overflow-x-visible pr-4">
+              <div className="grid w-max max-w-[min(96vw,920px)] grid-cols-[repeat(auto-fill,96px)] gap-x-10 gap-y-10">
+                {SYSTEM_ICONS.map((s) => (
+                  <DesktopWorkspaceIcon
+                    key={s.id}
+                    label={s.label}
+                    Icon={s.Icon}
+                    onOpen={() => handleSystemShortcut(s.action)}
+                  />
+                ))}
+                {TOOLS.map((t) => (
+                  <DesktopWorkspaceIcon
+                    key={t.id}
+                    label={desktopToolLabels[t.id] ?? t.label}
+                    Icon={t.Icon}
+                    onOpen={() => openTool(t.id)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <WindowSurface />
+
+            <SiemToastHost enabled={!showAlert} />
+
+            {ctxMenu ? (
+              <div
+                className="fixed z-[1200] min-w-[200px] rounded border border-white/15 bg-[#2d2d2d] py-1 font-mono text-[11px] text-[#e8edf5] shadow-xl"
+                style={{ left: ctxMenu.x, top: ctxMenu.y }}
+                onClick={(e) => e.stopPropagation()}
+                role="menu"
+              >
+                <button
+                  type="button"
+                  className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
+                  onClick={() => {
+                    openTool('terminal')
+                    setCtxMenu(null)
+                  }}
+                >
+                  Open Terminal here
+                </button>
+                <button
+                  type="button"
+                  className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
+                  onClick={() => {
+                    openTool('files')
+                    setCtxMenu(null)
+                  }}
+                >
+                  Open Explorer
+                </button>
+                <button
+                  type="button"
+                  className="block w-full px-4 py-2 text-left hover:bg-[#5e9bff]/25"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('tr-focus-notes'))
+                    setCtxMenu(null)
+                  }}
+                >
+                  Investigation notes…
+                </button>
+                <div className="my-1 h-px bg-white/10" />
+                <button type="button" className="block w-full px-4 py-2 text-left text-[#8a9ab5]" disabled>
+                  Paste (N/A)
+                </button>
+              </div>
+            ) : null}
+
+            {recycleHint ? (
+              <div className="pointer-events-none absolute bottom-[56px] left-1/2 z-[950] -translate-x-1/2 rounded border border-white/10 bg-black/80 px-4 py-2 font-mono text-[11px] text-[#e8edf5] shadow-lg">
+                Recycle Bin is empty.
+              </div>
+            ) : null}
+
+            {showAlert ? (
+              <div className="pointer-events-auto absolute inset-0 z-[1000] flex items-start justify-center bg-black/60 p-10">
+                <div className="max-w-xl rounded-lg border border-yellow-500/40 bg-[#0f1824] p-6 shadow-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="font-display text-lg text-yellow-200">SIEM ALERT</div>
+                    <span
+                      className={`rounded border px-2 py-0.5 font-mono text-[10px] ${
+                        caseDef.severity === 'CRITICAL' || caseDef.severity === 'HIGH'
+                          ? 'border-red-500/40 bg-red-500/15 text-red-200'
+                          : 'border-yellow-500/40 bg-yellow-500/15 text-yellow-200'
+                      }`}
+                    >
+                      {caseDef.severity}
+                    </span>
+                  </div>
+                  <pre className="mt-4 whitespace-pre-wrap font-mono text-[12px] text-[#e8edf5]">
+                    {`Time:   ${caseDef.initialAlert.time}\nHost:   ${caseDef.initialAlert.host}\nUser:   ${caseDef.initialAlert.user}\nActor:  ${caseDef.threatActor.displayName}\n\n${caseDef.initialAlert.title}\n${caseDef.initialAlert.detail}`}
+                  </pre>
+                  {caseDef.entryVector ? (
+                    <div className="mt-4 flex flex-wrap gap-1">
+                      <span className="rounded bg-[#5e9bff]/15 px-2 py-0.5 font-mono text-[10px] uppercase text-[#5e9bff]">
+                        {caseDef.entryVector.id}
+                      </span>
+                      <span className="rounded bg-[#5e9bff]/10 px-2 py-0.5 font-mono text-[10px] text-[#a8b6ca]">
+                        {caseDef.entryVector.name}
+                      </span>
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="mt-6 w-full rounded bg-[#5e9bff] px-4 py-2 font-mono text-sm text-[#060a12]"
+                    onClick={() => setShowAlert(false)}
+                  >
+                    ACKNOWLEDGE
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <WindowsTaskbar allTools={TOOLS} onOpenTool={openTool} showStart={showStart} setShowStart={setShowStart} />
+        </div>
 
         <EvidenceLocker />
       </div>
@@ -510,7 +535,34 @@ function GameScreenInner() {
   )
 }
 
-function DesktopIcon({
+function QuickLaunchRail({
+  tools,
+  onOpenTool,
+}: {
+  tools: ToolDef[]
+  onOpenTool: (id: ToolId) => void
+}) {
+  return (
+    <aside
+      className="flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-black bg-[#1a1a1a] py-2"
+      aria-label="Quick launch"
+    >
+      {tools.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          title={t.label}
+          className="flex h-10 w-10 items-center justify-center rounded-md text-[#dce9ff] hover:bg-white/10"
+          onClick={() => onOpenTool(t.id)}
+        >
+          <t.Icon size={20} />
+        </button>
+      ))}
+    </aside>
+  )
+}
+
+function DesktopWorkspaceIcon({
   label,
   Icon,
   onOpen,
@@ -523,13 +575,13 @@ function DesktopIcon({
     <button
       type="button"
       onDoubleClick={onOpen}
-      title={`Double-click to open ${label}`}
-      className="group pointer-events-auto flex w-[92px] flex-col items-center gap-1 rounded-md border border-transparent px-1.5 py-2 text-left hover:border-white/15 hover:bg-white/5 focus:border-[#5e9bff]/60 focus:bg-[#5e9bff]/10 focus:outline-none"
+      title={`Double-click: ${label}`}
+      className="group flex flex-col items-center gap-1 rounded-md border border-transparent bg-transparent p-0 outline-none hover:border-white/10 hover:bg-black/35 focus-visible:border-[#5e9bff]/50 focus-visible:bg-black/40"
     >
-      <div className="flex h-11 w-11 items-center justify-center rounded-md border border-white/10 bg-gradient-to-br from-[#1e2838] to-[#121820] shadow-inner shadow-black/60 group-hover:border-[#5e9bff]/40">
-        <Icon size={22} className="text-[#7eb8ff]" />
+      <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/25 shadow-inner shadow-black/40 transition-colors group-hover:border-white/15 group-hover:bg-black/40">
+        <Icon size={38} className="text-[#b8d9ff]" />
       </div>
-      <span className="max-w-[92px] text-center font-mono text-[10px] leading-tight text-[#f0f4fc] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
+      <span className="max-w-[92px] text-center font-mono text-[11px] leading-snug text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]">
         {label}
       </span>
     </button>
@@ -537,13 +589,11 @@ function DesktopIcon({
 }
 
 function WindowsTaskbar({
-  pinnedTools,
   allTools,
   onOpenTool,
   showStart,
   setShowStart,
 }: {
-  pinnedTools: ToolDef[]
   allTools: ToolDef[]
   onOpenTool: (id: ToolId) => void
   showStart: boolean
@@ -560,8 +610,8 @@ function WindowsTaskbar({
   }, [])
 
   return (
-    <>
-      <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-[900] flex h-11 items-center gap-1 border-t border-black bg-[#101010] px-1 shadow-[0_-2px_12px_rgba(0,0,0,0.65)]">
+    <div className="relative z-[920] shrink-0 border-t border-black bg-[#1a1a1a]">
+      <div className="flex h-12 w-full items-center gap-2 px-2">
         <button
           type="button"
           title="Start"
@@ -574,31 +624,22 @@ function WindowsTaskbar({
           <IconWindowsLogo size={22} className="text-[#00a2ed]" />
         </button>
 
-        <div className="flex shrink-0 items-center gap-0.5 border-l border-white/10 pl-1">
-          {pinnedTools.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              title={t.label}
-              className="flex h-10 w-10 items-center justify-center rounded hover:bg-white/10"
-              onClick={() => onOpenTool(t.id)}
-            >
-              <t.Icon size={18} className="text-[#dce9ff]" />
-            </button>
-          ))}
+        <div className="flex max-w-[min(520px,40vw)] flex-1 items-center gap-2 rounded-sm border border-[#3c3c3c] bg-[#3c3c3c] px-3 py-1.5 shadow-inner">
+          <IconSearch size={16} className="shrink-0 text-[#a8a8a8]" aria-hidden />
+          <span className="truncate font-mono text-[12px] text-[#b4b4b4]">Search tools and evidence…</span>
         </div>
 
-        <div className="mx-1 hidden h-7 w-px bg-white/10 sm:block" />
-
-        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto px-1">
           {windows.map((w) => {
             const tool = allTools.find((t) => t.id === w.id)
             return (
               <button
                 key={w.id}
                 type="button"
-                className={`flex shrink-0 items-center gap-1 rounded px-2 py-1 font-mono text-[10px] ${
-                  w.minimized ? 'text-[#8a9ab5] hover:bg-white/5' : 'bg-white/10 text-[#e8edf5]'
+                className={`flex max-w-[160px] shrink-0 items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-[11px] ${
+                  w.minimized
+                    ? 'border-transparent bg-transparent text-[#9ca3af] hover:bg-white/10'
+                    : 'border-[#4a4a4a] bg-[#2d2d2d] text-[#f3f4f6]'
                 }`}
                 onClick={() => {
                   if (w.minimized) bringToFront(w.id)
@@ -606,17 +647,20 @@ function WindowsTaskbar({
                 }}
                 title={w.title}
               >
-                {tool ? <tool.Icon size={12} /> : null}
-                <span className="max-w-[120px] truncate">{w.title}</span>
+                {tool ? <tool.Icon size={14} /> : null}
+                <span className="truncate">{w.title}</span>
               </button>
             )
           })}
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-3 border-l border-white/10 px-3">
-          <IconWifi size={16} className="text-[#c8d6e8]" aria-hidden />
-          <IconVolume size={16} className="text-[#c8d6e8]" aria-hidden />
-          <time className="min-w-[52px] text-center font-mono text-[11px] tabular-nums text-[#e8edf5]" dateTime={clockStr}>
+        <div className="ml-auto flex shrink-0 items-center gap-4 border-l border-white/10 pl-4 pr-1">
+          <IconWifi size={17} className="text-[#d1d5db]" aria-hidden />
+          <IconVolume size={17} className="text-[#d1d5db]" aria-hidden />
+          <time
+            className="min-w-[44px] text-center font-mono text-[12px] tabular-nums text-[#f3f4f6]"
+            dateTime={clockStr}
+          >
             {clockStr}
           </time>
         </div>
@@ -624,7 +668,7 @@ function WindowsTaskbar({
 
       {showStart ? (
         <div
-          className="pointer-events-auto absolute bottom-12 left-2 z-[950] w-56 rounded border border-white/10 bg-[#1e1e1e] py-2 shadow-2xl"
+          className="pointer-events-auto absolute bottom-full left-0 z-[950] mb-1 ml-1 w-56 rounded border border-white/10 bg-[#1e1e1e] py-2 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="border-b border-white/10 px-3 py-2 font-display text-[11px] uppercase tracking-wide text-[#8a9ab5]">
@@ -658,7 +702,7 @@ function WindowsTaskbar({
           </button>
         </div>
       ) : null}
-    </>
+    </div>
   )
 }
 
