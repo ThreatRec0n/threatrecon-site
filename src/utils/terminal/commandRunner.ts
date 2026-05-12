@@ -1,6 +1,5 @@
 import type { Difficulty } from '@/types/case.types';
 import type { CaseContent } from '@/data/cases/caseData.types';
-import type { FileTreeNode } from '@/data/cases/caseData.types';
 import { difficultyBlocks } from '@/data/cases/caseData.types';
 
 export type TerminalContext = {
@@ -10,61 +9,6 @@ export type TerminalContext = {
   cwd: string;
   setCwd: (s: string) => void;
 };
-
-function normalizePath(p: string): string {
-  const trimmed = p.replace(/\\/g, '/').replace(/^\.?\/*/, '');
-  return trimmed.replace(/\/+$/, '');
-}
-
-function resolveNode(
-  root: FileTreeNode,
-  cwd: string,
-  target: string,
-): { node: FileTreeNode | null; path: string } {
-  const parts = normalizePath(
-    target.startsWith('\\') || target.startsWith('/')
-      ? target.slice(1)
-      : `${cwd}/${target}`,
-  )
-    .split('/')
-    .filter(Boolean);
-
-  let node: FileTreeNode | null = root;
-  let pathAcc = '';
-  for (const part of parts) {
-    if (!node || node.type !== 'dir' || !node.children) {
-      return { node: null, path: pathAcc };
-    }
-    const bucket: Record<string, FileTreeNode> = node.children ?? {};
-    const hit: FileTreeNode | undefined = bucket[part] ?? bucket[part.toLowerCase()];
-    if (!hit) return { node: null, path: pathAcc };
-    pathAcc = pathAcc ? `${pathAcc}\\${part}` : part;
-    node = hit;
-  }
-  return { node, path: pathAcc };
-}
-
-function listChildren(
-  root: FileTreeNode,
-  cwd: string,
-  flags: { all: boolean; hiddenOnly: boolean },
-): string {
-  const { node } = resolveNode(root, cwd, '.');
-  if (!node || node.type !== 'dir' || !node.children)
-    return ' Directory not found.';
-  const rows: string[] = [];
-  for (const name of Object.keys(node.children).sort()) {
-    const child = node.children[name];
-    const isHidden = Boolean(child.hidden || name.startsWith('.'));
-    if (!flags.all && isHidden) continue;
-    if (flags.hiddenOnly && !isHidden) continue;
-    const label = child.type === 'dir' ? `[DIR] ${name}` : `[FILE] ${name}`;
-    let attr = '';
-    if (child.hidden) attr += 'H';
-    rows.push(`${label}${attr ? `  (${attr})` : ''}`);
-  }
-  return rows.length ? rows.join('\n') : ' (empty)';
-}
 
 export function runTerminalLine(ctx: TerminalContext, raw: string): string {
   const line = raw.trim();
@@ -76,7 +20,7 @@ export function runTerminalLine(ctx: TerminalContext, raw: string): string {
   if (!root)
     return `Workstation ${ctx.workstationId} image not mounted in sandbox.`;
 
-  const prefix = `[${ctx.workstationId}]`;
+  void ctx.cwd;
 
   // ----- Forensic / hybrid commands (case-wide) -----
   if (lower.startsWith('query email_forwarding-rules')) {
@@ -155,9 +99,6 @@ export function runTerminalLine(ctx: TerminalContext, raw: string): string {
         .join('\n') ?? '(no recoverable objects)'
     );
   }
-  if (lower.startsWith('strings ')) {
-    return 'Embedded strings:\n researchrelay.edu\n recruiter.helixlabs.example\n dns_chunk_encoder';
-  }
   if (lower.startsWith('prefetch')) {
     if (lower.includes('detail'))
       return 'SECUREWIPE.EXE last run 2026-05-07 23:18 (case-dependent artefact)';
@@ -169,74 +110,11 @@ export function runTerminalLine(ctx: TerminalContext, raw: string): string {
       'No notable events in sampled window.'
     );
   }
-  if (lower.startsWith('certutil') || lower.startsWith('get-filehash')) {
-    return 'SHA256: E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855 (simulated)';
-  }
   if (lower.startsWith('netstat')) {
     return ctx.caseContent.networkLog.slice(0, 5).join('\n');
   }
   if (lower.startsWith('net user')) {
     return 'User accounts mirror Active Directory export — see Access Logs panel.';
-  }
-
-  // ----- Windows file ops -----
-  const dirMatch = /^dir(?:\s+(.*))?$/i.exec(line);
-  if (dirMatch) {
-    const rest = (dirMatch[1] ?? '').trim();
-    let flags = { all: false, hiddenOnly: false };
-    let target = '';
-    const tokens = rest.split(/\s+/).filter(Boolean);
-    for (const t of tokens) {
-      const tl = t.toLowerCase();
-      if (tl === '/a') flags.all = true;
-      else if (tl === '/ah') {
-        flags.hiddenOnly = true;
-        flags.all = true;
-      } else if (!t.startsWith('/')) target = t;
-    }
-    if (!target) target = '.';
-    const { node, path } = resolveNode(root, ctx.cwd, target);
-    if (!node) return `Could not find ${target}`;
-    if (node.type !== 'dir')
-      return `${prefix} ${path} is a file — use type command.`;
-    const listPath = path || ctx.cwd;
-    return `${prefix} Directory of \\${listPath || '(root)'}\n${listChildren(root, listPath || '', flags)}`;
-  }
-
-  const cdMatch = /^cd\s+(.*)$/i.exec(line);
-  if (cdMatch) {
-    const target = cdMatch[1].trim();
-    const { node, path } = resolveNode(root, ctx.cwd, target);
-    if (!node || node.type !== 'dir') return `Path not found — ${target}`;
-    ctx.setCwd(path || '');
-    return `${prefix} cd → \\${ctx.cwd}`;
-  }
-
-  const typeMatch = /^type\s+(.*)$/i.exec(line);
-  if (typeMatch) {
-    const target = typeMatch[1].trim();
-    const { node, path } = resolveNode(root, ctx.cwd, target);
-    if (!node || node.type !== 'file')
-      return `Cannot type — ${target} not a readable file.`;
-    return `${prefix} ${path}\n${node.content ?? '(binary)'}`;
-  }
-
-  const delMatch = /^del\s+(.*)$/i.exec(line);
-  if (delMatch) {
-    return 'FORENSIC WARNING: Deleting evidence violates chain of custody. Action logged.';
-  }
-
-  const copyMatch = /^copy\s+(\S+)\s+(\S+)$/i.exec(line);
-  if (copyMatch) {
-    return `${prefix} simulated copy OK (sandbox)`;
-  }
-
-  const attribMatch = /^attrib\s+(.*)$/i.exec(line);
-  if (attribMatch) {
-    const target = attribMatch[1].trim();
-    const { node } = resolveNode(root, ctx.cwd, target);
-    if (!node) return 'Not found';
-    return `Attributes: ${node.hidden ? 'H ' : ''}${node.type === 'dir' ? 'DIR' : 'ARCHIVE'}`;
   }
 
   const findMatch = /^find\s+(.*)\/name\s+(.*)$/i.exec(line);

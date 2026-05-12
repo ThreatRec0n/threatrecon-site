@@ -331,6 +331,10 @@ export function InvestigationScreen() {
           caseContent={content}
           difficulty={difficulty}
           workstationId={wsId}
+          shellUsername={
+            (selectedEmp && content.employees[selectedEmp]?.email.split('@')[0]) ??
+            'user'
+          }
           className="border border-border bg-black"
         />
       </div>
