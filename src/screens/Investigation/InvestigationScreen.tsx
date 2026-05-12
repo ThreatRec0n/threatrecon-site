@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ThreatReconLogo } from '@/components/shared/Logo';
 import { Button } from '@/components/shared/Button';
 import { Modal } from '@/components/shared/Modal';
 import { Avatar } from '@/components/Avatar/Avatar';
 import { InvestigationTerminal } from '@/components/Terminal/InvestigationTerminal';
 import { InvestigationNotebook } from '@/components/Notebook/InvestigationNotebook';
+import { FileTreeView } from '@/components/shared/FileTreeView';
+import { EvidenceLockerGrid } from '@/components/ForensicDesktop/EvidenceLockerGrid';
+import { MountingSequence } from '@/components/ForensicDesktop/MountingSequence';
+import { ForensicLockScreen } from '@/components/ForensicDesktop/ForensicLockScreen';
+import { ForensicDesktopRoot } from '@/components/ForensicDesktop/ForensicDesktopRoot';
+import { MachinePickerOverlay } from '@/components/ForensicDesktop/MachinePickerOverlay';
+import { SnippingOverlay } from '@/components/ForensicDesktop/SnippingOverlay';
 import { useGame } from '@/contexts/GameContext';
 import { useEvidence } from '@/contexts/EvidenceContext';
 import { usePlayer } from '@/contexts/PlayerContext';
@@ -13,12 +19,19 @@ import { evidenceMap } from '@/data/cases/registry';
 import { formatElapsed } from '@/utils/timer';
 import { loadCaseProgress } from '@/utils/storage';
 import { accuseThresholdMet } from '@/utils/accuseGate';
-import { captureElement } from '@/utils/screenshot';
 import type { EvidenceUIPanelCategory } from '@/types/evidence.types';
 import { buildVerdict } from '@/utils/scoring';
 import type { AccusationSubmission } from '@/types/verdict.types';
 import { difficultyBlocks } from '@/data/cases/caseData.types';
+import {
+  formatTrCaseNumber,
+  getSuspectOs,
+  getWallpaperKey,
+  windowsOsLabel,
+} from '@/investigation/suspectWorkstation';
 import clsx from 'clsx';
+
+type Phase = 'locker' | 'mounting' | 'lock' | 'desktop';
 
 type Panel =
   | 'brief'
@@ -60,7 +73,22 @@ export function InvestigationScreen() {
 
   const [accuseOpen, setAccuseOpen] = useState(false);
 
+  const [phase, setPhase] = useState<Phase>('locker');
+  const [mountEmpId, setMountEmpId] = useState<string | null>(null);
+  const [abbrevMount, setAbbrevMount] = useState(false);
+  const [machinePickOpen, setMachinePickOpen] = useState(false);
+  const [snipOpen, setSnipOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const mainRef = useRef<HTMLDivElement>(null);
+
+  const startMount = (empId: string, abbreviated: boolean) => {
+    setSelectedEmp(empId);
+    setMountEmpId(empId);
+    setAbbrevMount(abbreviated);
+    setPhase('mounting');
+    setMachinePickOpen(false);
+  };
 
   useEffect(() => {
     if (!caseId || !content) return;
@@ -111,6 +139,39 @@ export function InvestigationScreen() {
     return m;
   }, [ev.tagged]);
 
+  const taggedSummaries = useMemo(() => {
+    if (!content) return [];
+    return ev.tagged.map((t) => ({
+      evidenceId: t.evidenceId,
+      title: ev.evidenceCatalog.get(t.evidenceId)?.title ?? t.evidenceId,
+      suspectName: content.employees[t.suspectId]?.fullName ?? t.suspectId,
+    }));
+  }, [content, ev.tagged, ev.evidenceCatalog]);
+
+  const taggedCountByEmp = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const t of ev.tagged) {
+      m[t.suspectId] = (m[t.suspectId] ?? 0) + 1;
+    }
+    return m;
+  }, [ev.tagged]);
+
+  useEffect(() => {
+    if (phase !== 'desktop') return;
+    const fn = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMachinePickOpen(true);
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        setSnipOpen(true);
+      }
+    };
+    window.addEventListener('keydown', fn);
+    return () => window.removeEventListener('keydown', fn);
+  }, [phase]);
+
   if (!caseId || !content || !difficulty || ctxCase !== caseId) {
     return (
       <div className="p-8 font-mono text-amber">
@@ -128,12 +189,6 @@ export function InvestigationScreen() {
     Object.keys(content.workstations)[0];
 
   const blocks = difficultyBlocks(difficulty);
-
-  const openCapture = async () => {
-    const dataUrl = await captureElement(mainRef.current);
-    setShotPreview(dataUrl);
-    setShotOpen(true);
-  };
 
   const saveCapture = () => {
     if (!shotLabel.trim() || !shotPreview || !shotSuspect) return;
@@ -482,36 +537,122 @@ export function InvestigationScreen() {
     );
   }
 
-  return (
-    <div className="flex h-screen flex-col bg-bg-primary text-ink-primary">
-      <header className="flex items-center justify-between border-b border-border-active px-6 py-3">
-        <div className="flex items-center gap-4">
-          <ThreatReconLogo className="scale-90" />
-          <div className="font-mono text-[11px] text-ink-secondary">
-            <span className="text-amber">{content.definition.numberLabel}</span>{' '}
-            · {content.definition.companyName}
-          </div>
+  const mountEmp = mountEmpId ? content.employees[mountEmpId] : null;
+
+  const toolkitTaggingDeck =
+    panel !== 'gallery' &&
+    panel !== 'employees' &&
+    panel !== 'brief' &&
+    panel !== 'notebook' ? (
+      <div className="mb-6 rounded border border-border-active bg-bg-secondary/40 p-3">
+        <p className="mb-2 font-mono text-[10px] uppercase text-amber">
+          Forensic tagging deck
+        </p>
+        <div className="max-h-56 overflow-y-auto">
+          {content.evidenceItems
+            .filter((item) => mapPanelToSource(panel).includes(item.source))
+            .map((item) => renderTaggedRow(item.id, item.title))}
         </div>
-        <div className="flex items-center gap-4 font-mono text-[11px]">
-          <span>
-            INVESTIGATION TIME:{' '}
-            <span className="text-amber-bright">{formatElapsed(elapsed)}</span>
-          </span>
-          <span>
-            EVIDENCE:{' '}
-            <span className="text-amber-bright">{ev.tagged.length}</span> items
-          </span>
-          <button
-            type="button"
-            className="rounded border border-border px-2 py-1 text-lg text-amber hover:border-border-active"
-            title="Capture evidence panel"
-            onClick={openCapture}
-          >
-            📷
-          </button>
+      </div>
+    ) : null;
+
+  const screenshotModal = (
+    <Modal
+      open={shotOpen}
+      title="SCREENSHOT EVIDENCE"
+      onClose={() => setShotOpen(false)}
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => setShotOpen(false)}>
+            DISCARD
+          </Button>
+          <Button disabled={!shotLabel.trim()} onClick={saveCapture}>
+            ADD TO CASE FILE
+          </Button>
+        </>
+      }
+    >
+      {shotPreview ? (
+        <img src={shotPreview} alt="preview" className="mb-4 border border-border" />
+      ) : null}
+      <label className="block font-mono text-[11px] text-amber">
+        EVIDENCE LABEL *
+        <input
+          value={shotLabel}
+          onChange={(e) => setShotLabel(e.target.value)}
+          className="mt-1 w-full border border-border bg-bg-tertiary px-2 py-1 text-sm"
+        />
+      </label>
+      <label className="mt-3 block font-mono text-[11px] text-amber">
+        RELEVANT SUSPECT
+        <select
+          value={shotSuspect}
+          onChange={(e) => setShotSuspect(e.target.value)}
+          className="mt-1 w-full border border-border bg-bg-tertiary px-2 py-1 text-sm"
+        >
+          <option value="">Select…</option>
+          {employeesList.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.fullName}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="mt-3 block font-mono text-[11px] text-amber">
+        CATEGORY
+        <select
+          value={shotCategory}
+          onChange={(e) =>
+            setShotCategory(e.target.value as EvidenceUIPanelCategory)
+          }
+          className="mt-1 w-full border border-border bg-bg-tertiary px-2 py-1 text-sm"
+        >
+          {(
+            [
+              'File Evidence',
+              'Network Evidence',
+              'Communication Evidence',
+              'Access Evidence',
+              'Physical Evidence',
+            ] as const
+          ).map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="mt-3 block font-mono text-[11px] text-amber">
+        NOTES
+        <textarea
+          value={shotNotes}
+          onChange={(e) => setShotNotes(e.target.value)}
+          className="mt-1 min-h-[80px] w-full border border-border bg-bg-tertiary px-2 py-1 text-sm"
+        />
+      </label>
+    </Modal>
+  );
+
+  const accuseModalEl = (
+    <AccuseModal
+      open={accuseOpen}
+      employees={employeesList}
+      taggedIds={Array.from(new Set(ev.tagged.map((t) => t.evidenceId)))}
+      evidenceCatalog={ev.evidenceCatalog}
+      onCancel={() => setAccuseOpen(false)}
+      onSubmit={(payload) => {
+        setAccuseOpen(false);
+        submitAccusation(payload);
+      }}
+    />
+  );
+
+  if (phase === 'locker') {
+    return (
+      <>
+        <div className="fixed right-4 top-4 z-[20000] flex gap-2">
           <Button
             variant="ghost"
-            className="text-[10px]"
             onClick={() => {
               exitCase();
               nav('/cases');
@@ -520,168 +661,163 @@ export function InvestigationScreen() {
             EXIT CASE
           </Button>
         </div>
-      </header>
+        <EvidenceLockerGrid
+          caseId={caseId}
+          caseLabel={content.definition.numberLabel}
+          employees={employeesList}
+          onMount={(id) => startMount(id, false)}
+        />
+        {screenshotModal}
+        {accuseModalEl}
+      </>
+    );
+  }
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="w-64 shrink-0 overflow-y-auto border-r border-border-active bg-bg-secondary p-3 font-mono text-[11px] uppercase tracking-wide">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setPanel(item.id)}
-              className={clsx(
-                'mb-1 w-full rounded-sm px-2 py-2 text-left',
-                panel === item.id
-                  ? 'bg-amber/15 text-amber-bright'
-                  : 'text-ink-muted hover:bg-bg-tertiary hover:text-ink-primary',
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
-          <div className="mt-6 border-t border-border pt-4">
-            <Button
-              className={clsx(
-                'w-full text-[11px]',
-                gate.ok && 'animate-pulse shadow-[0_0_25px_rgba(212,160,23,0.35)]',
-              )}
-              variant={gate.ok ? 'primary' : 'ghost'}
-              disabled={!gate.ok}
-              onClick={() => gate.ok && setAccuseOpen(true)}
-            >
-              ACCUSE
+  if (phase === 'mounting') {
+    if (!mountEmp) {
+      return (
+        <>
+          <div className="p-8 font-mono text-amber">
+            Mount target missing.
+            <Button className="mt-4" onClick={() => setPhase('locker')}>
+              BACK TO LOCKER
             </Button>
-            {!gate.ok ? (
-              <ul className="mt-2 space-y-1 text-[9px] normal-case text-ink-muted">
-                {gate.reasons.map((r) => (
-                  <li key={r}>• {r}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-[9px] normal-case text-threat-green">
-                CASE FILE THRESHOLD MET — You may now file your accusation.
-              </p>
-            )}
           </div>
-        </aside>
-        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto p-6">
-          <section className="mb-4 border-b border-border pb-3">
-            <h2 className="font-display text-xl text-amber">
-              {navItems.find((n) => n.id === panel)?.label}
-            </h2>
-          </section>
-          {panel !== 'gallery' &&
-          panel !== 'employees' &&
-          panel !== 'brief' &&
-          panel !== 'notebook' ? (
-            <div className="mb-6 rounded border border-border-active bg-bg-secondary/40 p-3">
-              <p className="mb-2 font-mono text-[10px] uppercase text-amber">
-                Forensic tagging deck
-              </p>
-              <div className="max-h-56 overflow-y-auto">
-                {content.evidenceItems
-                  .filter((item) => mapPanelToSource(panel).includes(item.source))
-                  .map((item) => renderTaggedRow(item.id, item.title))}
-              </div>
-            </div>
-          ) : null}
-          {mainBody}
-        </main>
-      </div>
+          {screenshotModal}
+          {accuseModalEl}
+        </>
+      );
+    }
+    return (
+      <>
+        <MountingSequence
+          os={getSuspectOs(caseId, mountEmp.id)}
+          targetLogin={mountEmp.email.split('@')[0] ?? 'user'}
+          workstationId={mountEmp.workstationId}
+          caseTr={formatTrCaseNumber(caseId)}
+          examinerName={profile?.name ?? ''}
+          examinerBadge={profile?.badge ?? ''}
+          abbreviated={abbrevMount}
+          onComplete={() => setPhase('lock')}
+        />
+        {screenshotModal}
+        {accuseModalEl}
+      </>
+    );
+  }
 
+  if (phase === 'lock') {
+    if (!mountEmp) {
+      return (
+        <>
+          <Button className="m-8" onClick={() => setPhase('locker')}>
+            BACK TO LOCKER
+          </Button>
+          {screenshotModal}
+          {accuseModalEl}
+        </>
+      );
+    }
+    return (
+      <>
+        <ForensicLockScreen
+          os={getSuspectOs(caseId, mountEmp.id)}
+          employee={mountEmp}
+          onComplete={() => setPhase('desktop')}
+        />
+        {screenshotModal}
+        {accuseModalEl}
+      </>
+    );
+  }
+
+  const deskEmp = selectedEmp ? content.employees[selectedEmp] : employeesList[0];
+  if (!deskEmp) {
+    return (
+      <>
+        <p className="p-8 font-mono text-amber">No workstation profile.</p>
+        {screenshotModal}
+        {accuseModalEl}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <ForensicDesktopRoot
+        wallpaperKey={getWallpaperKey(caseId, deskEmp.id)}
+        os={getSuspectOs(caseId, deskEmp.id)}
+        employee={deskEmp}
+        caseContent={content}
+        difficulty={difficulty}
+        caseTr={formatTrCaseNumber(caseId)}
+        examinerName={profile?.name ?? ''}
+        examinerBadge={profile?.badge ?? ''}
+        elapsedSeconds={elapsed}
+        taggedCount={ev.tagged.length}
+        caseLabel={content.definition.numberLabel}
+        screenshots={ev.screenshots}
+        gateOk={gate.ok}
+        gateReasons={gate.reasons}
+        onAccuse={() => setAccuseOpen(true)}
+        onExit={() => {
+          exitCase();
+          nav('/cases');
+        }}
+        onRequestMountMachine={(id) => startMount(id, true)}
+        employeesList={employeesList}
+        suspectOsLabel={(id) => windowsOsLabel(getSuspectOs(caseId, id))}
+        taggedSummaries={taggedSummaries}
+        navItems={navItems}
+        toolkitPanel={panel}
+        setToolkitPanel={(id) => setPanel(id as Panel)}
+        toolkitTaggingDeck={toolkitTaggingDeck}
+        toolkitMain={
+          <div ref={mainRef} className="min-h-0 text-ink-primary">
+            <section className="mb-4 border-b border-border pb-3">
+              <h2 className="font-display text-xl text-amber">
+                {navItems.find((n) => n.id === panel)?.label}
+              </h2>
+            </section>
+            {mainBody}
+          </div>
+        }
+        openNotebook={() => setNotebookCollapsed(false)}
+        snippingOpen={snipOpen}
+        onSnippingOpen={() => setSnipOpen(true)}
+        drawerOpen={drawerOpen}
+        setDrawerOpen={setDrawerOpen}
+      />
+      {machinePickOpen ? (
+        <MachinePickerOverlay
+          employees={employeesList}
+          activeEmpId={deskEmp.id}
+          taggedCountByEmp={taggedCountByEmp}
+          suspectOsLabel={(id) => windowsOsLabel(getSuspectOs(caseId, id))}
+          onCancel={() => setMachinePickOpen(false)}
+          onMount={(id) => startMount(id, true)}
+        />
+      ) : null}
+      {snipOpen ? (
+        <SnippingOverlay
+          desktopSelector="#forensic-desktop-capture-root"
+          onCancel={() => setSnipOpen(false)}
+          onCaptured={(url) => {
+            setSnipOpen(false);
+            setShotPreview(url);
+            if (selectedEmp) setShotSuspect(selectedEmp);
+            setShotOpen(true);
+          }}
+        />
+      ) : null}
       <InvestigationNotebook
         employees={employeesList}
         collapsed={notebookCollapsed}
         onToggle={() => setNotebookCollapsed((c) => !c)}
       />
-
-      <Modal
-        open={shotOpen}
-        title="SCREENSHOT EVIDENCE"
-        onClose={() => setShotOpen(false)}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setShotOpen(false)}>
-              DISCARD
-            </Button>
-            <Button disabled={!shotLabel.trim()} onClick={saveCapture}>
-              ADD TO CASE FILE
-            </Button>
-          </>
-        }
-      >
-        {shotPreview ? (
-          <img src={shotPreview} alt="preview" className="mb-4 border border-border" />
-        ) : null}
-        <label className="block font-mono text-[11px] text-amber">
-          EVIDENCE LABEL *
-          <input
-            value={shotLabel}
-            onChange={(e) => setShotLabel(e.target.value)}
-            className="mt-1 w-full border border-border bg-bg-tertiary px-2 py-1 text-sm"
-          />
-        </label>
-        <label className="mt-3 block font-mono text-[11px] text-amber">
-          RELEVANT SUSPECT
-          <select
-            value={shotSuspect}
-            onChange={(e) => setShotSuspect(e.target.value)}
-            className="mt-1 w-full border border-border bg-bg-tertiary px-2 py-1 text-sm"
-          >
-            <option value="">Select…</option>
-            {employeesList.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.fullName}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="mt-3 block font-mono text-[11px] text-amber">
-          CATEGORY
-          <select
-            value={shotCategory}
-            onChange={(e) =>
-              setShotCategory(e.target.value as EvidenceUIPanelCategory)
-            }
-            className="mt-1 w-full border border-border bg-bg-tertiary px-2 py-1 text-sm"
-          >
-            {(
-              [
-                'File Evidence',
-                'Network Evidence',
-                'Communication Evidence',
-                'Access Evidence',
-                'Physical Evidence',
-              ] as const
-            ).map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="mt-3 block font-mono text-[11px] text-amber">
-          NOTES
-          <textarea
-            value={shotNotes}
-            onChange={(e) => setShotNotes(e.target.value)}
-            className="mt-1 min-h-[80px] w-full border border-border bg-bg-tertiary px-2 py-1 text-sm"
-          />
-        </label>
-      </Modal>
-
-      <AccuseModal
-        open={accuseOpen}
-        employees={employeesList}
-        taggedIds={Array.from(new Set(ev.tagged.map((t) => t.evidenceId)))}
-        evidenceCatalog={ev.evidenceCatalog}
-        onCancel={() => setAccuseOpen(false)}
-        onSubmit={(payload) => {
-          setAccuseOpen(false);
-          submitAccusation(payload);
-        }}
-      />
-    </div>
+      {screenshotModal}
+      {accuseModalEl}
+    </>
   );
 }
 
@@ -711,42 +847,6 @@ function mapPanelToSource(panel: Panel): string[] {
     default:
       return [];
   }
-}
-
-function FileTreeView({
-  root,
-}: {
-  root?: import('@/data/cases/caseData.types').FileTreeNode;
-}) {
-  if (!root) return <p className="text-xs text-ink-muted">No image.</p>;
-  return <TreeNode node={root} name="\\" />;
-}
-
-function TreeNode({
-  node,
-  name,
-}: {
-  node: import('@/data/cases/caseData.types').FileTreeNode;
-  name: string;
-}) {
-  if (node.type === 'file') {
-    return (
-      <div className="pl-3 font-mono text-[11px] text-ink-secondary">
-        {name}
-        {node.hidden ? ' (HIDDEN)' : ''}
-      </div>
-    );
-  }
-  return (
-    <div className="pl-2">
-      <div className="font-mono text-[11px] text-amber">{name}\\</div>
-      {node.children
-        ? Object.keys(node.children).map((child) => (
-            <TreeNode key={child} name={child} node={node.children![child]} />
-          ))
-        : null}
-    </div>
-  );
 }
 
 function AccuseModal({

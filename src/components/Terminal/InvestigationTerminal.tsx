@@ -15,14 +15,33 @@ import {
   type ShellSessionState,
 } from '@/shell/shellInterpreter';
 
+export type InvestigationTerminalVariant =
+  | 'investigation'
+  | 'cmd'
+  | 'powershell'
+  | 'ubuntu';
+
 type Props = {
   caseContent: CaseContent;
   difficulty: Difficulty;
   workstationId: string;
-  /** Local login segment used for `C:\\Users\\<segment>` prompts */
   shellUsername: string;
   className?: string;
+  variant?: InvestigationTerminalVariant;
+  ubuntuHost?: string;
 };
+
+function promptFor(
+  variant: InvestigationTerminalVariant,
+  shell: ShellSessionState,
+  shellUsername: string,
+  ubuntuHost: string,
+): string {
+  if (variant === 'ubuntu') {
+    return `${shellUsername}@${ubuntuHost || 'workstation'}:~$ `;
+  }
+  return getShellPrompt(shell);
+}
 
 export function InvestigationTerminal({
   caseContent,
@@ -30,6 +49,8 @@ export function InvestigationTerminal({
   workstationId,
   shellUsername,
   className,
+  variant = 'investigation',
+  ubuntuHost = 'nexus-ws',
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<ShellSessionState>(
@@ -42,43 +63,63 @@ export function InvestigationTerminal({
   );
 
   useEffect(() => {
-    shellRef.current = createShellSession({
+    const s = createShellSession({
       username: shellUsername,
       workstationId,
       caseContent,
       difficulty,
     });
-  }, [shellUsername, workstationId, caseContent, difficulty]);
+    if (variant === 'powershell') s.mode = 'powershell';
+    else s.mode = 'cmd';
+    shellRef.current = s;
+  }, [shellUsername, workstationId, caseContent, difficulty, variant]);
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    const themes: Record<
+      InvestigationTerminalVariant,
+      { bg: string; fg: string; fontSize: number; fontFamily: string }
+    > = {
+      investigation: {
+        bg: '#0d0d0d',
+        fg: '#e8e4dc',
+        fontSize: 13,
+        fontFamily: "'Geist Mono', 'Cascadia Code', 'Fira Code', monospace",
+      },
+      cmd: {
+        bg: '#0c0c0c',
+        fg: '#cccccc',
+        fontSize: 14,
+        fontFamily: "'Cascadia Mono', Consolas, monospace",
+      },
+      powershell: {
+        bg: '#012456',
+        fg: '#ffffff',
+        fontSize: 14,
+        fontFamily: "'Cascadia Mono', Consolas, monospace",
+      },
+      ubuntu: {
+        bg: '#300a24',
+        fg: '#ffffff',
+        fontSize: 13,
+        fontFamily: "'Ubuntu Mono', 'Geist Mono', monospace",
+      },
+    };
+
+    const th = themes[variant];
+
     const term = new XTerm({
       theme: {
-        background: '#0d0d0d',
-        foreground: '#e8e4dc',
-        cursor: '#d4a017',
-        cursorAccent: '#0d0d0d',
-        selectionBackground: 'rgba(212,160,23,0.3)',
-        black: '#1a1612',
-        red: '#cc2200',
-        green: '#1a6b3a',
-        yellow: '#d4a017',
-        blue: '#5e9bff',
-        magenta: '#b48eff',
-        cyan: '#00b4cc',
-        white: '#e8e4dc',
-        brightBlack: '#5a5248',
-        brightRed: '#ff4422',
-        brightGreen: '#2d8f52',
-        brightYellow: '#f0b429',
-        brightBlue: '#7bb2ff',
-        brightMagenta: '#c8a8ff',
-        brightCyan: '#4de8ff',
-        brightWhite: '#f5f0e8',
+        background: th.bg,
+        foreground: th.fg,
+        cursor: variant === 'powershell' ? '#ffffff' : '#d4a017',
+        cursorAccent: th.bg,
+        selectionBackground: 'rgba(212,160,23,0.25)',
       },
-      fontFamily: "'Geist Mono', 'Cascadia Code', 'Fira Code', monospace",
-      fontSize: 13,
-      lineHeight: 1.4,
+      fontFamily: th.fontFamily,
+      fontSize: th.fontSize,
+      lineHeight: 1.35,
       cursorBlink: true,
       cursorStyle: 'block',
       scrollback: 10000,
@@ -104,13 +145,38 @@ export function InvestigationTerminal({
       return shellAutocomplete(shell, index, tokens);
     });
 
-    term.writeln(
-      'Microsoft Windows [Version 10.0.22631]\r\n(c) Microsoft Corporation. All rights reserved.',
-    );
-    term.writeln('');
-    term.writeln(`ThreatRecon sandbox shell · workstation image ${workstationId}`);
-    term.writeln('Windows CMD semantics — type forensic queries or dir/cd/type.');
-    term.writeln('');
+    if (variant === 'investigation') {
+      term.writeln(
+        'Microsoft Windows [Version 10.0.22631]\r\n(c) Microsoft Corporation. All rights reserved.',
+      );
+      term.writeln('');
+      term.writeln(
+        `ThreatRecon sandbox shell · workstation image ${workstationId}`,
+      );
+      term.writeln('Windows CMD semantics — type forensic queries or dir/cd/type.');
+      term.writeln('');
+    } else if (variant === 'cmd') {
+      term.writeln(
+        'Microsoft Windows [Version 10.0.22621.3374]\r\n(c) Microsoft Corporation. All rights reserved.',
+      );
+      term.writeln('');
+    } else if (variant === 'powershell') {
+      term.writeln('Windows PowerShell');
+      term.writeln('Copyright (C) Microsoft Corporation. All rights reserved.');
+      term.writeln('');
+      term.writeln(
+        'Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows',
+      );
+      term.writeln('');
+    } else if (variant === 'ubuntu') {
+      term.writeln(
+        'Ubuntu 22.04.4 LTS — forensic terminal shim (read-only image)',
+      );
+      term.writeln(
+        'Bash-style prompts; investigation commands route to training sandbox.',
+      );
+      term.writeln('');
+    }
 
     let cancelled = false;
 
@@ -119,7 +185,9 @@ export function InvestigationTerminal({
         const shell = shellRef.current;
         if (!shell) break;
         try {
-          const input = await localEcho.read(getShellPrompt(shell));
+          const input = await localEcho.read(
+            promptFor(variant, shell, shellUsername, ubuntuHost),
+          );
           if (cancelled) break;
           const trimmed = input.trimEnd();
           if (!trimmed) continue;
@@ -142,13 +210,20 @@ export function InvestigationTerminal({
       localEcho.abortRead();
       term.dispose();
     };
-  }, [caseContent, difficulty, workstationId, shellUsername]);
+  }, [
+    caseContent,
+    difficulty,
+    workstationId,
+    shellUsername,
+    variant,
+    ubuntuHost,
+  ]);
 
   return (
     <div
       ref={containerRef}
       className={className}
-      style={{ minHeight: 200, width: '100%' }}
+      style={{ minHeight: 200, width: '100%', height: '100%' }}
     />
   );
 }
