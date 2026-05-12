@@ -84,16 +84,25 @@ const wallpapers: Record<
   'ubuntu-jelly': {
     style: {
       background:
-        'radial-gradient(ellipse at 30% 60%,#2c0e4a 0%,#3d1a6e 20%,#1a0a2e 40%,#0d0618 70%,#050310 100%)',
+        'radial-gradient(ellipse 80% 60% at 20% 80%, #2d0e4a 0%, #3a1566 15%, #1a0830 35%, #0a0515 55%, #050210 75%, #020108 100%)',
     },
     pattern: (
-      <svg
-        className="pointer-events-none absolute inset-0 opacity-[0.15]"
-        viewBox="0 0 600 400"
-      >
-        <ellipse cx="280" cy="220" rx="120" ry="160" fill="#772aff44" />
-        <ellipse cx="340" cy="200" rx="90" ry="130" fill="#e9542044" />
-      </svg>
+      <>
+        <svg
+          className="pointer-events-none absolute inset-0 opacity-[0.12]"
+          viewBox="0 0 600 400"
+        >
+          <ellipse cx="200" cy="260" rx="140" ry="180" fill="#772aff55" />
+          <ellipse cx="320" cy="220" rx="100" ry="150" fill="#e9542033" />
+        </svg>
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 25% 25%, #ffffff33 0, transparent 1.5px)`,
+            backgroundSize: '48px 48px',
+          }}
+        />
+      </>
     ),
   },
 };

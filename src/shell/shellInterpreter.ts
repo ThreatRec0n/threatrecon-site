@@ -5,15 +5,83 @@ import {
   type TerminalContext,
 } from '@/utils/terminal/commandRunner';
 import {
+  buildSarahWslVfs,
   buildWorkstationVfs,
+  linuxRootFromCaseTree,
   normalizeWindowsPath,
+  parseWslUnc,
   resolveWindowsPath,
+  walkLinuxVfs,
   walkVfs,
   type VfsDirNode,
   type VfsFileNode,
 } from './vfs';
 import { formatDirListing, parseDirFlags } from './dirFormat';
 import { forensicIntegrity } from './ForensicIntegrityEngine';
+import { displayMachineName } from '@/investigation/suspectWorkstation';
+import { CASE001_WS_OPS_02_TREE } from '@/data/cases/case001LinuxFs';
+import { executeLinuxShellLine } from './linuxShellInterpreter';
+import type { ShellHost, ShellSessionState } from './shellSession.types';
+
+export type { ShellSessionState } from './shellSession.types';
+
+const WSL_LAUNCH_BANNER = [
+  'Provisioning Ubuntu 22.04.4 LTS on Windows Subsystem for Linux...',
+  '',
+  'Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 5.15.0-107-generic x86_64)',
+  '',
+  ' * Documentation:  https://help.ubuntu.com',
+  '',
+].join('\r\n');
+
+const LINUX_TAB_COMMANDS = [
+  'cat',
+  'cd',
+  'clear',
+  'crontab',
+  'df',
+  'docker',
+  'dmesg',
+  'echo',
+  'exit',
+  'fc',
+  'file',
+  'find',
+  'free',
+  'git',
+  'grep',
+  'head',
+  'history',
+  'hostname',
+  'hostnamectl',
+  'id',
+  'ip',
+  'journalctl',
+  'kubectl',
+  'last',
+  'lastlog',
+  'ls',
+  'lsblk',
+  'md5sum',
+  'nmcli',
+  'ps',
+  'pwd',
+  'sha256sum',
+  'ss',
+  'stat',
+  'strings',
+  'sudo',
+  'tail',
+  'terraform',
+  'top',
+  'uname',
+  'uptime',
+  'wc',
+  'who',
+  'whoami',
+  'w',
+  'xxd',
+];
 
 const POWERSHELL_BANNER = [
   'Windows PowerShell',
@@ -68,16 +136,15 @@ export const SHELL_COMMANDS = [
   'usbview',
   'wevtutil',
   'whoami',
+  'wsl',
 ].sort();
 
-export interface ShellSessionState {
-  mode: 'cmd' | 'powershell';
-  cwd: string;
-  vfsRoot: VfsDirNode;
-  username: string;
-  workstationId: string;
-  caseContent: CaseContent;
-  difficulty: Difficulty;
+function shortenUnixPath(cwd: string, homeDir: string): string {
+  if (!homeDir) return cwd || '/';
+  if (cwd === homeDir || cwd.startsWith(`${homeDir}/`)) {
+    return `~${cwd === homeDir ? '' : cwd.slice(homeDir.length)}`;
+  }
+  return cwd;
 }
 
 export function createShellSession(opts: {
@@ -85,21 +152,102 @@ export function createShellSession(opts: {
   workstationId: string;
   caseContent: CaseContent;
   difficulty: Difficulty;
+  employeeId?: string;
+  shellHost?: ShellHost;
 }): ShellSessionState {
+  const employeeId = opts.employeeId ?? '';
+  const shellHost = opts.shellHost ?? 'windows';
+  const hostname = displayMachineName(opts.workstationId).toLowerCase();
+
+  if (shellHost === 'linux_workstation') {
+    const tree = opts.caseContent.workstations[opts.workstationId];
+    let unixRoot = linuxRootFromCaseTree(tree);
+    if (
+      !unixRoot &&
+      opts.caseContent.definition.id === 'case-001' &&
+      opts.workstationId === 'WS-OPS-02'
+    ) {
+      unixRoot = linuxRootFromCaseTree(CASE001_WS_OPS_02_TREE);
+    }
+    if (!unixRoot) {
+      unixRoot = linuxRootFromCaseTree({
+        type: 'dir',
+        children: {
+          home: {
+            type: 'dir',
+            children: {
+              [opts.username]: {
+                type: 'dir',
+                children: {
+                  'README.txt': {
+                    type: 'file',
+                    content: 'Linux workstation image unavailable.',
+                  },
+                },
+              },
+            },
+          },
+        },
+      })!;
+    }
+    const homeDir = `/home/${opts.username}`;
+    return {
+      host: 'linux_workstation',
+      mode: 'cmd',
+      inWsl: false,
+      cwdWin: '',
+      cwdUnix: `${homeDir}/projects`,
+      vfsWin: null,
+      vfsUnix: unixRoot,
+      username: opts.username,
+      workstationId: opts.workstationId,
+      employeeId,
+      caseContent: opts.caseContent,
+      difficulty: opts.difficulty,
+      shellHostname: hostname,
+      linuxHomeDir: homeDir,
+    };
+  }
+
   const tree = opts.caseContent.workstations[opts.workstationId];
+  const vfsWin = buildWorkstationVfs(tree, opts.username);
+  const sarahWsl =
+    opts.caseContent.definition.id === 'case-001' &&
+    employeeId === 'emp-sarah-chen';
+  const vfsUnix = sarahWsl ? buildSarahWslVfs(opts.username) : null;
+  const linuxHomeDir = sarahWsl ? `/home/${opts.username}` : '';
+
   return {
+    host: 'windows',
     mode: 'cmd',
-    cwd: `C:\\Users\\${opts.username}\\Workspace`,
-    vfsRoot: buildWorkstationVfs(tree, opts.username),
+    inWsl: false,
+    cwdWin: `C:\\Users\\${opts.username}\\Workspace`,
+    cwdUnix: sarahWsl ? `/mnt/c/Users/${opts.username}` : '/',
+    vfsWin,
+    vfsUnix,
     username: opts.username,
     workstationId: opts.workstationId,
+    employeeId,
     caseContent: opts.caseContent,
     difficulty: opts.difficulty,
+    shellHostname: hostname,
+    linuxHomeDir,
   };
 }
 
 export function getShellPrompt(s: ShellSessionState): string {
-  return s.mode === 'powershell' ? `PS ${s.cwd}> ` : `${s.cwd}> `;
+  if (s.host === 'linux_workstation') {
+    const path = shortenUnixPath(s.cwdUnix, s.linuxHomeDir);
+    const g = '\x1b[32m';
+    const b = '\x1b[34m';
+    const r = '\x1b[0m';
+    return `${g}${s.username}@${s.shellHostname}${r}:${b}${path}${r}$ `;
+  }
+  if (s.inWsl && s.vfsUnix) {
+    const path = shortenUnixPath(s.cwdUnix, s.linuxHomeDir);
+    return `${s.username}@${s.shellHostname}:${path}$ `;
+  }
+  return s.mode === 'powershell' ? `PS ${s.cwdWin}> ` : `${s.cwdWin}> `;
 }
 
 function workspaceRelative(cwd: string, username: string): string {
@@ -117,7 +265,7 @@ function legacyCtx(s: ShellSessionState): TerminalContext {
     caseContent: s.caseContent,
     difficulty: s.difficulty,
     workstationId: s.workstationId,
-    cwd: workspaceRelative(s.cwd, s.username),
+    cwd: workspaceRelative(s.cwdWin, s.username),
     setCwd: () => {},
   };
 }
@@ -177,8 +325,14 @@ function attribDisplayLine(f: VfsFileNode, windowsPath: string): string {
   return `${a}    ${h}        ${windowsPath}`;
 }
 
-function certutilHashOutput(absPath: string, node: VfsFileNode, algo: string): string {
-  forensicIntegrity.markFileHashed(normalizeWindowsPath(absPath).toLowerCase());
+function certutilHashOutput(
+  absPath: string,
+  node: VfsFileNode,
+  algo: string,
+  trackIntegrity = true,
+): string {
+  if (trackIntegrity)
+    forensicIntegrity.markFileHashed(normalizeWindowsPath(absPath).toLowerCase());
   const key =
     algo === 'SHA256' ? 'sha256' : algo === 'MD5' ? 'md5' : 'sha1';
   const raw = (node[key] ?? '').toLowerCase();
@@ -231,6 +385,34 @@ function pathCompletions(partial: string, cwd: string, vfsRoot: VfsDirNode): str
     .map((n) => (idx >= 0 ? `${norm.slice(0, idx + 1)}${n}` : n));
 }
 
+function resolveWinPathOrUnc(
+  s: ShellSessionState,
+  rawPath: string,
+): { win?: string; unix?: string } | null {
+  const q = stripQuotes(rawPath.trim());
+  const unc = parseWslUnc(q);
+  if (unc && s.vfsUnix && /^ubuntu/i.test(unc.distro)) {
+    return { unix: unc.unixPath };
+  }
+  if (!s.vfsWin) return null;
+  const resolved = resolveWindowsPath(s.cwdWin, q);
+  return resolved ? { win: resolved } : null;
+}
+
+function unixDirListingBanner(label: string, dir: VfsDirNode): string {
+  const lines = [...dir.children.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => {
+      const ch = dir.children.get(name)!;
+      const marker =
+        ch.kind === 'dir'
+          ? '<DIR>          '
+          : `${String(ch.kind === 'file' ? ch.content.length : 0).padStart(14)}`;
+      return `05/07/2026  11:14 PM    ${marker} ${name}`;
+    });
+  return [` Directory of ${label}`, '', ...lines, '', `               ${lines.length} File(s)`, ''].join('\r\n');
+}
+
 export function shellAutocomplete(
   s: ShellSessionState,
   index: number,
@@ -238,9 +420,14 @@ export function shellAutocomplete(
 ): string[] {
   const expr = (tokens[index] ?? '').toLowerCase();
   if (index === 0) {
-    return SHELL_COMMANDS.filter((c) => c.startsWith(expr));
+    const pool =
+      s.host === 'linux_workstation' || s.inWsl
+        ? [...new Set([...SHELL_COMMANDS, ...LINUX_TAB_COMMANDS])].sort()
+        : SHELL_COMMANDS;
+    return pool.filter((c) => c.startsWith(expr));
   }
-  return pathCompletions(tokens[index] ?? '', s.cwd, s.vfsRoot);
+  if (!s.vfsWin || s.inWsl) return [];
+  return pathCompletions(tokens[index] ?? '', s.cwdWin, s.vfsWin);
 }
 
 export function executeShellLine(s: ShellSessionState, raw: string): string {
@@ -248,6 +435,35 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
   if (!line) return '';
 
   const ll = line.toLowerCase();
+
+  if (s.host === 'linux_workstation') {
+    return consumeForensicWarnings(executeLinuxShellLine(s, raw));
+  }
+
+  if (s.host === 'windows' && s.inWsl && s.vfsUnix && ll === 'exit') {
+    s.inWsl = false;
+    return consumeForensicWarnings('');
+  }
+
+  if (s.host === 'windows' && !s.inWsl && ll === 'wsl') {
+    if (!s.vfsUnix) {
+      return consumeForensicWarnings(
+        "'wsl' is not recognized as an internal or external command.",
+      );
+    }
+    s.inWsl = true;
+    s.cwdUnix = `/mnt/c/Users/${s.username}`;
+    return consumeForensicWarnings(WSL_LAUNCH_BANNER);
+  }
+
+  if (s.host === 'windows' && s.inWsl && s.vfsUnix) {
+    return consumeForensicWarnings(executeLinuxShellLine(s, raw));
+  }
+
+  const vfsWin = s.vfsWin;
+  if (!vfsWin) {
+    return consumeForensicWarnings('Shell unavailable.');
+  }
 
   if (s.mode === 'cmd' && (ll === 'powershell' || ll === 'pwsh')) {
     s.mode = 'powershell';
@@ -273,19 +489,28 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
           'Get-FileHash : Algorithm must be MD5, SHA1, or SHA256.',
         );
       }
-      const resolved = resolveWindowsPath(s.cwd, pathArg);
-      if (!resolved) {
+      const hybrid = resolveWinPathOrUnc(s, pathArg);
+      if (!hybrid) {
         return consumeForensicWarnings(
           'Get-FileHash : Cannot find path because it does not exist.',
         );
       }
-      const hit = walkVfs(s.vfsRoot, resolved);
+      let hit:
+        | ReturnType<typeof walkVfs>
+        | ReturnType<typeof walkLinuxVfs>
+        | null = null;
+      if (hybrid.unix && s.vfsUnix) {
+        hit = walkLinuxVfs(s.vfsUnix, hybrid.unix);
+      } else if (hybrid.win) {
+        hit = walkVfs(vfsWin, hybrid.win);
+      }
       if (!hit || hit.node.kind !== 'file') {
         return consumeForensicWarnings(
           'Get-FileHash : Cannot find path because it does not exist.',
         );
       }
-      forensicIntegrity.markFileHashed(normalizeWindowsPath(resolved).toLowerCase());
+      if (hybrid.win)
+        forensicIntegrity.markFileHashed(normalizeWindowsPath(hybrid.win).toLowerCase());
       const node = hit.node as VfsFileNode;
       const key =
         algo === 'SHA256' ? 'sha256' : algo === 'MD5' ? 'md5' : 'sha1';
@@ -293,11 +518,12 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
       const pad =
         algo === 'SHA256' ? 64 : algo === 'MD5' ? 32 : 40;
       const hashVal = val.slice(0, pad).padEnd(pad);
+      const displayPath = hybrid.win ?? hybrid.unix ?? pathArg;
       const rows = [
         '',
         `Algorithm       Hash                                                                   Path`,
         `---------       ----                                                                   ----`,
-        `${algo.padEnd(15)} ${hashVal}       ${resolved}`,
+        `${algo.padEnd(15)} ${hashVal}       ${displayPath}`,
       ];
       return consumeForensicWarnings(rows.join('\r\n'));
     }
@@ -312,8 +538,19 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
       if (restTokens[0]?.toUpperCase() === '/D')
         pathToks = restTokens.slice(1);
       const pathArg = pathToks.join(' ').trim();
-      if (!pathArg) return consumeForensicWarnings(s.cwd);
+      if (!pathArg) return consumeForensicWarnings(s.cwdWin);
       let target = stripQuotes(pathArg);
+      if (s.vfsUnix) {
+        const uncCd = parseWslUnc(target);
+        if (uncCd && /^ubuntu/i.test(uncCd.distro)) {
+          const uh = walkLinuxVfs(s.vfsUnix, uncCd.unixPath);
+          if (uh?.node.kind === 'dir') {
+            s.inWsl = true;
+            s.cwdUnix = uncCd.unixPath.replace(/\/+$/, '') || '/';
+            return consumeForensicWarnings('');
+          }
+        }
+      }
       if (restTokens[0]?.toUpperCase() === '/D') {
         if (/^[a-z]:/i.test(target)) {
           if (!/^c:/i.test(target)) {
@@ -324,23 +561,23 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
           target = target.slice(2).replace(/^\\/, '');
         }
       }
-      const driveLetter = /^([a-z]:)/i.exec(s.cwd)?.[1]?.toUpperCase() ?? 'C:';
+      const driveLetter = /^([a-z]:)/i.exec(s.cwdWin)?.[1]?.toUpperCase() ?? 'C:';
       const resolved =
         target === '\\' || target === '/'
           ? `${driveLetter}\\`
-          : resolveWindowsPath(s.cwd, target);
+          : resolveWindowsPath(s.cwdWin, target);
       if (!resolved) {
         return consumeForensicWarnings(
           'The system cannot find the path specified.',
         );
       }
-      const hit = walkVfs(s.vfsRoot, resolved);
+      const hit = walkVfs(vfsWin, resolved);
       if (!hit || hit.node.kind !== 'dir') {
         return consumeForensicWarnings(
           'The system cannot find the path specified.',
         );
       }
-      s.cwd = normalizeWindowsPath(resolved).replace(/\\+$/, '');
+      s.cwdWin = normalizeWindowsPath(resolved).replace(/\\+$/, '');
       return consumeForensicWarnings('');
     }
 
@@ -349,15 +586,31 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
       const pathToks = tokens.slice(1).filter((t) => !t.startsWith('/'));
       const pathArg = pathToks.join(' ').trim();
       const flags = parseDirFlags(flagToks);
+      if (pathArg && s.vfsUnix) {
+        const hybridDir = resolveWinPathOrUnc(s, stripQuotes(pathArg));
+        if (hybridDir?.unix) {
+          const hit = walkLinuxVfs(s.vfsUnix, hybridDir.unix);
+          if (!hit) {
+            return consumeForensicWarnings(
+              'The system cannot find the path specified.',
+            );
+          }
+          if (hit.node.kind !== 'dir')
+            return consumeForensicWarnings('File Not Found');
+          return consumeForensicWarnings(
+            unixDirListingBanner(stripQuotes(pathArg), hit.node),
+          );
+        }
+      }
       const resolved = pathArg
-        ? resolveWindowsPath(s.cwd, stripQuotes(pathArg))
-        : s.cwd;
+        ? resolveWindowsPath(s.cwdWin, stripQuotes(pathArg))
+        : s.cwdWin;
       if (!resolved) {
         return consumeForensicWarnings(
           'The system cannot find the path specified.',
         );
       }
-      const hit = walkVfs(s.vfsRoot, resolved);
+      const hit = walkVfs(vfsWin, resolved);
       if (!hit) {
         const wild = pathArg.includes('*') || pathArg.includes('?');
         return consumeForensicWarnings(
@@ -377,13 +630,25 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
           'The syntax of the command is incorrect.',
         );
       }
-      const resolved = resolveWindowsPath(s.cwd, stripQuotes(pathArg));
+      const hybridTy = resolveWinPathOrUnc(s, stripQuotes(pathArg));
+      if (hybridTy?.unix && s.vfsUnix) {
+        const hit = walkLinuxVfs(s.vfsUnix, hybridTy.unix);
+        if (!hit) {
+          return consumeForensicWarnings(
+            'The system cannot find the file specified.',
+          );
+        }
+        if (hit.node.kind === 'dir')
+          return consumeForensicWarnings('Access is denied.');
+        return consumeForensicWarnings(hit.node.content.replace(/\n/g, '\r\n'));
+      }
+      const resolved = resolveWindowsPath(s.cwdWin, stripQuotes(pathArg));
       if (!resolved) {
         return consumeForensicWarnings(
           'The system cannot find the file specified.',
         );
       }
-      const hit = walkVfs(s.vfsRoot, resolved);
+      const hit = walkVfs(vfsWin, resolved);
       if (!hit) {
         return consumeForensicWarnings(
           'The system cannot find the file specified.',
@@ -407,15 +672,24 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
       const pathArg = pathToks.join(' ').trim();
       if (!pathArg)
         return consumeForensicWarnings('Parameter format not correct -');
-      const resolved = resolveWindowsPath(s.cwd, stripQuotes(pathArg));
-      if (!resolved) return consumeForensicWarnings('');
-      const hit = walkVfs(s.vfsRoot, resolved);
-      if (!hit || hit.node.kind !== 'file') return consumeForensicWarnings('');
+      const hybridAt = resolveWinPathOrUnc(s, stripQuotes(pathArg));
+      let resolvedWin = hybridAt?.win;
+      let hit =
+        hybridAt?.unix && s.vfsUnix
+          ? walkLinuxVfs(s.vfsUnix, hybridAt.unix)
+          : hybridAt?.win
+            ? walkVfs(vfsWin, hybridAt.win)
+            : null;
+      if (!resolvedWin && hybridAt?.unix) {
+        resolvedWin = hybridAt.unix;
+      }
+      if (!resolvedWin || !hit || hit.node.kind !== 'file')
+        return consumeForensicWarnings('');
       const f = hit.node as VfsFileNode;
       if (hiddenOp === 'set') f.hidden = true;
       if (hiddenOp === 'unset') f.hidden = false;
       if (hiddenOp) return consumeForensicWarnings('');
-      return consumeForensicWarnings(attribDisplayLine(f, resolved));
+      return consumeForensicWarnings(attribDisplayLine(f, resolvedWin));
     }
 
     case 'certutil': {
@@ -428,8 +702,8 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
         );
       }
       const pathArg = tokens.slice(2, -1).join(' ').trim();
-      const resolved = resolveWindowsPath(s.cwd, stripQuotes(pathArg));
-      if (!resolved) {
+      const hybridCt = resolveWinPathOrUnc(s, stripQuotes(pathArg));
+      if (!hybridCt) {
         return consumeForensicWarnings(
           [
             `${stripQuotes(pathArg)}: The system cannot find the file specified.`,
@@ -439,11 +713,20 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
           ].join('\r\n'),
         );
       }
-      const hit = walkVfs(s.vfsRoot, resolved);
-      if (!hit || hit.node.kind !== 'file') {
+      let hitCt:
+        | ReturnType<typeof walkVfs>
+        | ReturnType<typeof walkLinuxVfs>
+        | null = null;
+      let displayPath = hybridCt.win ?? hybridCt.unix ?? pathArg;
+      if (hybridCt.unix && s.vfsUnix) {
+        hitCt = walkLinuxVfs(s.vfsUnix, hybridCt.unix);
+      } else if (hybridCt.win) {
+        hitCt = walkVfs(vfsWin, hybridCt.win);
+      }
+      if (!hitCt || hitCt.node.kind !== 'file') {
         return consumeForensicWarnings(
           [
-            `${resolved}: The system cannot find the file specified.`,
+            `${displayPath}: The system cannot find the file specified.`,
             '0x80070002 (WIN32: 2 ERROR_FILE_NOT_FOUND)',
             'CertUtil: -hashfile command FAILED: 0x80070002 (WIN32: 2 ERROR_FILE_NOT_FOUND)',
             'CertUtil: The system cannot find the file specified.',
@@ -451,7 +734,12 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
         );
       }
       return consumeForensicWarnings(
-        certutilHashOutput(resolved, hit.node as VfsFileNode, algoRaw),
+        certutilHashOutput(
+          displayPath,
+          hitCt.node as VfsFileNode,
+          algoRaw,
+          !!hybridCt.win,
+        ),
       );
     }
 
@@ -459,14 +747,21 @@ export function executeShellLine(s: ShellSessionState, raw: string): string {
       const pathArg = tokens.slice(1).join(' ').trim();
       if (!pathArg)
         return consumeForensicWarnings('Strings: usage strings <path>');
-      const resolved = resolveWindowsPath(s.cwd, stripQuotes(pathArg));
-      if (!resolved || !walkVfs(s.vfsRoot, resolved)?.node) {
+      const hybridSt = resolveWinPathOrUnc(s, stripQuotes(pathArg));
+      let hitSt:
+        | ReturnType<typeof walkVfs>
+        | ReturnType<typeof walkLinuxVfs>
+        | null = null;
+      let disp = hybridSt?.win ?? hybridSt?.unix ?? '';
+      if (hybridSt?.unix && s.vfsUnix) {
+        hitSt = walkLinuxVfs(s.vfsUnix, hybridSt.unix);
+      } else if (hybridSt?.win) {
+        hitSt = walkVfs(vfsWin, hybridSt.win);
+      }
+      if (!hitSt || hitSt.node.kind !== 'file') {
         return consumeForensicWarnings(`Strings: could not open ${pathArg}`);
       }
-      const hit = walkVfs(s.vfsRoot, resolved)!;
-      if (hit.node.kind !== 'file')
-        return consumeForensicWarnings(`Strings: could not open ${pathArg}`);
-      return consumeForensicWarnings(stringsOutput(resolved, hit.node));
+      return consumeForensicWarnings(stringsOutput(disp || pathArg, hitSt.node));
     }
 
     case 'copy':

@@ -386,6 +386,13 @@ export function InvestigationScreen() {
           caseContent={content}
           difficulty={difficulty}
           workstationId={wsId}
+          shellHost={
+            selectedEmp &&
+            getSuspectOs(caseId, selectedEmp) === 'ubuntu2204'
+              ? 'linux_workstation'
+              : 'windows'
+          }
+          employeeId={selectedEmp ?? ''}
           shellUsername={
             (selectedEmp && content.employees[selectedEmp]?.email.split('@')[0]) ??
             'user'

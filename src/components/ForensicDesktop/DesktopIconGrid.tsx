@@ -19,32 +19,7 @@ export function DesktopIconGrid({
   onActivateIcon,
 }: Props) {
   if (os === 'ubuntu2204') {
-    const icons = [
-      { id: 'home', label: 'Home', glyph: '📁' },
-      { id: 'documents', label: 'Documents', glyph: '📄' },
-      { id: 'trash', label: 'Trash', glyph: '🗑' },
-    ];
-    return (
-      <div className="pointer-events-auto absolute left-6 top-6 flex flex-col gap-4">
-        {icons.map((ic) => (
-          <button
-            key={ic.id}
-            type="button"
-            className={clsx(
-              ICON_BASE,
-              selectedIcon === ic.id && 'border-[#e95420]/80 bg-[#e95420]/15',
-            )}
-            onClick={() =>
-              selectedIcon === ic.id ? onActivateIcon(ic.id) : onSelectIcon(ic.id)
-            }
-            onDoubleClick={() => onActivateIcon(ic.id)}
-          >
-            <span className="text-2xl">{ic.glyph}</span>
-            {ic.label}
-          </button>
-        ))}
-      </div>
-    );
+    return null;
   }
 
   const commonTopLeft = [

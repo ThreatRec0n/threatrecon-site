@@ -1,4 +1,5 @@
 import type { CaseContent } from './caseData.types';
+import { CASE001_WS_OPS_02_TREE } from './case001LinuxFs';
 
 export const CASE_001_ID = 'case-001';
 
@@ -78,6 +79,40 @@ export const case001Content: CaseContent = {
             'Microsoft Exchange PowerShell, Magnet AXIOM, Nuix, Purview/Mailflow investigations.',
         },
         {
+          title: 'LINUX HOST AUDIT TRAILS (auth.log / journalctl)',
+          whatTheyDid:
+            'Legitimate administrators leave coherent sudo/session timelines — correlate mounts with approved tickets.',
+          howItWorks:
+            '/var/log/auth.log captures PAM events and sudo command lines; systemd timestamps anchor insider stories to physical sessions.',
+          artifacts:
+            'auth.log lines, wtmp-derived last/lastlog, GNOME recently-used.xbel metadata.',
+          howInvestigatorsFind:
+            'Pivot from suspected timeframe → sudo patterns → USB/rsync narratives vs HR/access approvals.',
+          exampleCommands: [
+            'grep sudo /var/log/auth.log',
+            'cat ~/.local/share/recently-used.xbel',
+          ],
+          realTools:
+            'Sleuth Kit, Autopsy, Plaso/log2timeline, UAC (Eric Zimmerman helpers).',
+        },
+        {
+          title: 'WINDOWS SUBSYSTEM FOR LINUX (WSL2) FORENSICS',
+          whatTheyDid:
+            'Insiders sometimes execute Linux tooling against mounted corp drives — uploads via curl — believing shell clears erase artifacts.',
+          howItWorks:
+            'WSL maintains a discrete EXT4-backed filesystem reachable via \\\\wsl$\\<distro>\\ ; ~/.bash_history persists independently from PSReadLine.',
+          artifacts:
+            '\\\\wsl$\\.bash_history, WSL networking adapters (training analogue), Dropbox curl traces.',
+          howInvestigatorsFind:
+            'Enumerate \\\\wsl$ mounts early — hash histories — timeline alongside corp VPN egress.',
+          exampleCommands: [
+            'wsl',
+            'type \\\\wsl$\\Ubuntu-22.04\\home\\sarah.chen\\.bash_history',
+          ],
+          realTools:
+            'KAPE WSL modules, Magnet AXIOM, Defender/IR tooling with optional Linux acquisitions.',
+        },
+        {
           title: 'USB MASS STORAGE EXFILTRATION',
           whatTheyDid:
             'Mounted personal removable media and copied staged archives from high-sensitivity shares.',
@@ -95,6 +130,8 @@ export const case001Content: CaseContent = {
         'Forwarding rules are stealthy because they live server-side — audit them early.',
         'Badge data grounds cloud-heavy stories in physical reality.',
         'Large HTTPS uploads plus recruiter browsing often bracket insider staging.',
+        'Always inventory WSL2 histories via \\\\wsl$ — they survive naive shell clears.',
+        'Linux auth.log + sudo timelines excel at distinguishing authorized infra tasks from covert theft.',
       ],
       behavioralIndicators: [
         'Recent perceived promotional injustice.',
@@ -583,6 +620,7 @@ export const case001Content: CaseContent = {
         },
       },
     },
+    'WS-OPS-02': CASE001_WS_OPS_02_TREE,
   },
   workstationSecurityLog: {
     'WS-DEV-04':

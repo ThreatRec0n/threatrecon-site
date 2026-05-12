@@ -1,4 +1,5 @@
 import type { FileTreeNode } from '@/data/cases/caseData.types';
+import { SARAH_WSL_BASH_HISTORY } from '@/data/cases/case001LinuxFs';
 
 export type VfsFileNode = {
   kind: 'file';
@@ -173,6 +174,120 @@ export function resolveWindowsPath(cwd: string, target: string): string | null {
     } else if (tok !== '.') parts.push(tok);
   }
   return parts.length ? `${drive}\\${parts.join('\\')}` : `${drive}\\`;
+}
+
+/** Build Linux root VFS from case workstation tree (e.g. WS-OPS-02). */
+export function linuxRootFromCaseTree(tree: FileTreeNode | undefined): VfsDirNode | null {
+  if (!tree || tree.type !== 'dir' || !tree.children) return null;
+  const root = mkDir('');
+  root.hidden = true;
+  for (const [childName, child] of Object.entries(tree.children)) {
+    mergeTreeIntoDir(root, child, childName);
+  }
+  return root;
+}
+
+/** Sarah Chen WSL2 distro filesystem (Ubuntu 22.04) mounted at \\\\wsl$\\Ubuntu-22.04\\ */
+export function buildSarahWslVfs(username: string): VfsDirNode {
+  const root = mkDir('');
+  root.hidden = true;
+  const home = mkDir('home');
+  root.children.set('home', home);
+  const userDir = mkDir(username);
+  home.children.set(username, userDir);
+  userDir.children.set(
+    '.bash_history',
+    mkFile('.bash_history', SARAH_WSL_BASH_HISTORY),
+  );
+
+  const mnt = mkDir('mnt');
+  root.children.set('mnt', mnt);
+  const mc = mkDir('c');
+  mnt.children.set('c', mc);
+  const users = mkDir('Users');
+  mc.children.set('Users', users);
+  const sarahWin = mkDir(username);
+  users.children.set(username, sarahWin);
+  sarahWin.children.set(
+    'Desktop.txt',
+    mkFile('Desktop.txt', 'Accessible from WSL as /mnt/c/Users/' + username + '\n'),
+  );
+
+  const me = mkDir('e');
+  mnt.children.set('e', me);
+  const roadmap = mkDir('product-roadmap');
+  me.children.set('product-roadmap', roadmap);
+  roadmap.children.set(
+    'Q3-2026-Roadmap.pdf',
+    mkFile('Q3-2026-Roadmap.pdf', '[stub — mirrored from CORP-FS01 share]'),
+  );
+  const ipvault = mkDir('ip-vault');
+  me.children.set('ip-vault', ipvault);
+  ipvault.children.set(
+    'PatentPending-2026-03.docx',
+    mkFile('PatentPending-2026-03.docx', '[stub — mirrored from CORP-FS01 share]'),
+  );
+
+  return root;
+}
+
+const WSL_UNC_RE = /^\\\\wsl\$\\([^\\]+)\\([\s\S]*)$/i;
+
+/** Parse \\\\wsl$\\Ubuntu-22.04\\home\\user\\.bash_history → /home/user/.bash_history */
+export function parseWslUnc(path: string): { distro: string; unixPath: string } | null {
+  const norm = normalizeWindowsPath(path).replace(/\//g, '\\');
+  const m = WSL_UNC_RE.exec(norm);
+  if (!m) return null;
+  const tail = m[2]?.trim() ?? '';
+  const segs = tail.split('\\').filter(Boolean);
+  const unixPath = segs.length ? `/${segs.join('/')}` : '/';
+  return { distro: m[1], unixPath };
+}
+
+export function walkLinuxVfs(
+  root: VfsDirNode,
+  unixPath: string,
+): { node: VfsDirNode | VfsFileNode; parent: VfsDirNode | null; name: string } | null {
+  const clean = unixPath.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+  const segments = clean === '/' ? [] : clean.split('/').filter(Boolean);
+  let cur: VfsDirNode | VfsFileNode = root;
+  let parent: VfsDirNode | null = null;
+  let name = '';
+  if (!segments.length) {
+    return { node: cur, parent: null, name: '/' };
+  }
+  for (const seg of segments) {
+    if (cur.kind !== 'dir') return null;
+    parent = cur;
+    const nextChild: VfsDirNode | VfsFileNode | undefined =
+      cur.children.get(seg) ??
+      [...cur.children.entries()].find(([k]) => k.toLowerCase() === seg.toLowerCase())?.[1];
+    if (!nextChild) return null;
+    cur = nextChild;
+    name = seg;
+  }
+  return { node: cur, parent, name };
+}
+
+export function resolveUnixPath(cwd: string, target: string): string | null {
+  const t = target.trim();
+  if (!t) return (cwd || '/').replace(/\/+$/, '') || '/';
+  let parts: string[];
+  if (t.startsWith('/')) {
+    parts = t.split('/').filter(Boolean);
+  } else {
+    const cwdClean = (cwd || '/').replace(/\/+$/, '') || '/';
+    const cwdParts = cwdClean === '/' ? [] : cwdClean.split('/').filter(Boolean);
+    parts = [...cwdParts];
+    for (const tok of t.split('/')) {
+      if (tok === '.' || tok === '') continue;
+      if (tok === '..') {
+        if (parts.length) parts.pop();
+      } else parts.push(tok);
+    }
+  }
+  const out = parts.length ? `/${parts.join('/')}` : '/';
+  return out.replace(/\/+/g, '/');
 }
 
 export function walkVfs(

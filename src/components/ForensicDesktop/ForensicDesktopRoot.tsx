@@ -14,6 +14,7 @@ import {
   displayMachineName,
   windowsOsLabel,
 } from '@/investigation/suspectWorkstation';
+import { SARAH_WSL_EXPLORER_TREE } from '@/data/cases/case001LinuxFs';
 import { InvestigationTerminal } from '@/components/Terminal/InvestigationTerminal';
 import { FileTreeView } from '@/components/shared/FileTreeView';
 import { ForensicChrome } from './ForensicChrome';
@@ -25,8 +26,9 @@ import {
   type DeskWindowState,
 } from './DesktopWindows';
 import { WindowsTaskbar } from './WindowsTaskbar';
-import { UbuntuDockChrome } from './UbuntuDockChrome';
+import { UbuntuDockChrome, UBUNTU_DOCK_APPS } from './UbuntuDockChrome';
 import { EvidenceDrawer } from './EvidenceDrawer';
+import { ActivitiesOverview } from './ActivitiesOverview';
 import clsx from 'clsx';
 
 export type ToolkitPanelId = string;
@@ -86,10 +88,14 @@ function windowTitle(
   kind: DeskWindowKind,
   shellUser: string,
   email: string,
+  os: ForensicOs,
+  ubuntuHost: string,
 ): string {
   switch (kind) {
     case 'cmd':
-      return `C:\\Users\\${shellUser} - Command Prompt`;
+      return os === 'ubuntu2204'
+        ? `${shellUser}@${ubuntuHost}: ~/projects`
+        : `C:\\Users\\${shellUser} - Command Prompt`;
     case 'powershell':
       return 'Windows PowerShell';
     case 'explorer':
@@ -147,10 +153,11 @@ export function ForensicDesktopRoot(props: Props) {
   const [windows, setWindows] = useState<DeskWindowState[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [iconSel, setIconSel] = useState<string | null>(null);
+  const [activitiesOpen, setActivitiesOpen] = useState(false);
 
   const openWindow = useCallback(
     (kind: DeskWindowKind, title?: string) => {
-      const t = title ?? windowTitle(kind, shellUser, employee.email);
+      const t = title ?? windowTitle(kind, shellUser, employee.email, os, ubuntuHost);
       const { w, h } = defaultSize(kind);
       const id = crypto.randomUUID();
       zRef.current += 1;
@@ -174,7 +181,7 @@ export function ForensicDesktopRoot(props: Props) {
       });
       setActiveWindowId(id);
     },
-    [employee.email, shellUser],
+    [employee.email, shellUser, os, ubuntuHost],
   );
 
   const bringFront = (id: string) => {
@@ -259,7 +266,8 @@ export function ForensicDesktopRoot(props: Props) {
         return (
           <InvestigationTerminal
             variant={os === 'ubuntu2204' ? 'ubuntu' : 'cmd'}
-            ubuntuHost={ubuntuHost}
+            shellHost={os === 'ubuntu2204' ? 'linux_workstation' : 'windows'}
+            employeeId={employee.id}
             caseContent={caseContent}
             difficulty={difficulty}
             workstationId={wsId}
@@ -271,6 +279,8 @@ export function ForensicDesktopRoot(props: Props) {
         return (
           <InvestigationTerminal
             variant="powershell"
+            shellHost="windows"
+            employeeId={employee.id}
             caseContent={caseContent}
             difficulty={difficulty}
             workstationId={wsId}
@@ -278,17 +288,38 @@ export function ForensicDesktopRoot(props: Props) {
             className="h-full"
           />
         );
-      case 'explorer':
+      case 'explorer': {
+        const ub = os === 'ubuntu2204';
         return (
-          <div className="flex h-full flex-col bg-[#191919] text-white">
-            <div className="border-b border-black bg-[#2d2d2d] px-3 py-2 font-mono text-[11px]">
-              ↑ This PC ▸ {win.title}
+          <div
+            className={clsx(
+              'flex h-full flex-col text-white',
+              ub ? 'bg-[#2d2d2d] font-[Ubuntu,sans-serif]' : 'bg-[#191919]',
+            )}
+          >
+            <div
+              className={clsx(
+                'border-b px-3 py-2 font-mono text-[11px]',
+                ub ? 'border-black bg-[#353535]' : 'border-black bg-[#2d2d2d]',
+              )}
+            >
+              {ub ? `${shellUser}'s Files` : `↑ This PC ▸ ${win.title}`}
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-3">
               <FileTreeView root={caseContent.workstations[wsId]} />
+              {employee.id === 'emp-sarah-chen' &&
+              caseContent.definition.id === 'case-001' ? (
+                <>
+                  <p className="mb-1 mt-4 font-mono text-[10px] uppercase tracking-wide text-amber/90">
+                    \\wsl$\Ubuntu-22.04 · WSL2 filesystem (read-only)
+                  </p>
+                  <FileTreeView root={SARAH_WSL_EXPLORER_TREE} />
+                </>
+              ) : null}
             </div>
           </div>
         );
+      }
       case 'notepad':
         return (
           <div className="flex h-full flex-col bg-white text-black">
@@ -392,8 +423,10 @@ export function ForensicDesktopRoot(props: Props) {
       <div
         id="forensic-desktop-capture-root"
         className={clsx(
-          'desk-surface relative overflow-hidden pb-14',
-          os === 'ubuntu2204' ? 'pt-8' : '',
+          'desk-surface relative overflow-hidden',
+          os === 'ubuntu2204'
+            ? 'pb-4 pl-[72px] pt-8 font-[Ubuntu,Helvetica,sans-serif]'
+            : 'pb-14 font-[Segoe_UI,system-ui,sans-serif]',
         )}
         style={{ minHeight: '100vh' }}
       >
@@ -434,8 +467,10 @@ export function ForensicDesktopRoot(props: Props) {
         {os === 'ubuntu2204' ? (
           <UbuntuDockChrome
             title={`${shellUser}'s Files — Files`}
+            frozenClock="Mon 23:03"
             openKinds={[...new Set(windows.map((w) => w.kind))]}
             onOpenApp={(kind, title) => openWindow(kind, title)}
+            onOpenActivities={() => setActivitiesOpen(true)}
           />
         ) : (
           <WindowsTaskbar
@@ -468,6 +503,16 @@ export function ForensicDesktopRoot(props: Props) {
         toolkitTaggingDeck={toolkitTaggingDeck}
         toolkitMain={toolkitMain}
       />
+
+      {os === 'ubuntu2204' ? (
+        <ActivitiesOverview
+          open={activitiesOpen}
+          onClose={() => setActivitiesOpen(false)}
+          windows={windows}
+          dockApps={UBUNTU_DOCK_APPS}
+          onLaunch={(kind, title) => openWindow(kind, title)}
+        />
+      ) : null}
     </div>
   );
 }

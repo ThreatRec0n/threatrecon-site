@@ -97,13 +97,14 @@ export function MountingSequence({
             `  Volume label:     ubuntu-root`,
             `  File system:      ext4 (revision 1.0)`,
             `  Linux version:    Ubuntu 22.04.4 LTS (Jammy Jellyfish)`,
-            `  Kernel:           5.15.0-105-generic #115-Ubuntu`,
+            `  Kernel:           5.15.0-107-generic #117-Ubuntu`,
             ``,
             `> Parsing Linux forensic artifacts...`,
             `  [/etc/passwd]  User accounts .............. parsed ✓`,
+            `  [.zsh_history] Zsh history (primary) ....... parsed ✓`,
             `  [.bash_history] Shell history .............. parsed ✓`,
             `  [/var/log/auth.log] Auth events ........... parsed ✓`,
-            `  [Browser]      Firefox history ............ parsed ✓`,
+            `  [Browser]      Firefox history ............ extracted ✓`,
             ``,
           ];
 

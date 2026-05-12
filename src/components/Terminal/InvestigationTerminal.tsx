@@ -7,6 +7,7 @@ import LocalEchoController from 'local-echo';
 import '@xterm/xterm/css/xterm.css';
 import type { Difficulty } from '@/types/case.types';
 import type { CaseContent } from '@/data/cases/caseData.types';
+import type { ShellHost } from '@/shell/shellSession.types';
 import {
   createShellSession,
   executeShellLine,
@@ -28,19 +29,34 @@ type Props = {
   shellUsername: string;
   className?: string;
   variant?: InvestigationTerminalVariant;
-  ubuntuHost?: string;
+  shellHost?: ShellHost;
+  employeeId?: string;
 };
 
-function promptFor(
-  variant: InvestigationTerminalVariant,
-  shell: ShellSessionState,
-  shellUsername: string,
-  ubuntuHost: string,
-): string {
-  if (variant === 'ubuntu') {
-    return `${shellUsername}@${ubuntuHost || 'workstation'}:~$ `;
+function makeShellSession(p: {
+  shellUsername: string;
+  workstationId: string;
+  caseContent: CaseContent;
+  difficulty: Difficulty;
+  variant: InvestigationTerminalVariant;
+  shellHost?: ShellHost;
+  employeeId?: string;
+}): ShellSessionState {
+  const host: ShellHost =
+    p.shellHost ??
+    (p.variant === 'ubuntu' ? 'linux_workstation' : 'windows');
+  const s = createShellSession({
+    username: p.shellUsername,
+    workstationId: p.workstationId,
+    caseContent: p.caseContent,
+    difficulty: p.difficulty,
+    employeeId: p.employeeId ?? '',
+    shellHost: host,
+  });
+  if (s.host === 'windows') {
+    s.mode = p.variant === 'powershell' ? 'powershell' : 'cmd';
   }
-  return getShellPrompt(shell);
+  return s;
 }
 
 export function InvestigationTerminal({
@@ -50,29 +66,41 @@ export function InvestigationTerminal({
   shellUsername,
   className,
   variant = 'investigation',
-  ubuntuHost = 'nexus-ws',
+  shellHost,
+  employeeId,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<ShellSessionState>(
-    createShellSession({
-      username: shellUsername,
+    makeShellSession({
+      shellUsername,
       workstationId,
       caseContent,
       difficulty,
+      variant,
+      shellHost,
+      employeeId,
     }),
   );
 
   useEffect(() => {
-    const s = createShellSession({
-      username: shellUsername,
+    shellRef.current = makeShellSession({
+      shellUsername,
       workstationId,
       caseContent,
       difficulty,
+      variant,
+      shellHost,
+      employeeId,
     });
-    if (variant === 'powershell') s.mode = 'powershell';
-    else s.mode = 'cmd';
-    shellRef.current = s;
-  }, [shellUsername, workstationId, caseContent, difficulty, variant]);
+  }, [
+    shellUsername,
+    workstationId,
+    caseContent,
+    difficulty,
+    variant,
+    shellHost,
+    employeeId,
+  ]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -153,7 +181,9 @@ export function InvestigationTerminal({
       term.writeln(
         `ThreatRecon sandbox shell · workstation image ${workstationId}`,
       );
-      term.writeln('Windows CMD semantics — type forensic queries or dir/cd/type.');
+      term.writeln(
+        'Forensic routing — Windows CMD/PowerShell plus Linux parity where mounted.',
+      );
       term.writeln('');
     } else if (variant === 'cmd') {
       term.writeln(
@@ -170,10 +200,10 @@ export function InvestigationTerminal({
       term.writeln('');
     } else if (variant === 'ubuntu') {
       term.writeln(
-        'Ubuntu 22.04.4 LTS — forensic terminal shim (read-only image)',
+        'Ubuntu 22.04.4 LTS (GNU/Linux 5.15.0-107-generic x86_64)',
       );
       term.writeln(
-        'Bash-style prompts; investigation commands route to training sandbox.',
+        'GNOME Terminal snapshot · zsh-style prompt · read-only forensic routing.',
       );
       term.writeln('');
     }
@@ -185,9 +215,7 @@ export function InvestigationTerminal({
         const shell = shellRef.current;
         if (!shell) break;
         try {
-          const input = await localEcho.read(
-            promptFor(variant, shell, shellUsername, ubuntuHost),
-          );
+          const input = await localEcho.read(getShellPrompt(shell));
           if (cancelled) break;
           const trimmed = input.trimEnd();
           if (!trimmed) continue;
@@ -210,14 +238,7 @@ export function InvestigationTerminal({
       localEcho.abortRead();
       term.dispose();
     };
-  }, [
-    caseContent,
-    difficulty,
-    workstationId,
-    shellUsername,
-    variant,
-    ubuntuHost,
-  ]);
+  }, [caseContent, difficulty, workstationId, shellUsername, variant, shellHost, employeeId]);
 
   return (
     <div

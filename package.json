@@ -14,6 +14,8 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/bricolage-grotesque": "^5.2.6",
     "@fontsource/geist-mono": "^5.2.6",
+    "@fontsource/ubuntu": "^5.2.8",
+    "@fontsource/ubuntu-mono": "^5.2.8",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-search": "^0.15.0",
     "@xterm/addon-web-links": "^0.11.0",
