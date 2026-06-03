@@ -25,9 +25,9 @@ Those open only on explicit user click in a new tab with `rel="noopener noreferr
 
 - Hashing is **100% local**: SHA-1 and SHA-256 use the native `crypto.subtle` API;
   MD5 uses a small, bundled RFC 1321 implementation (`assets/js/md5.js`). All three
-  hash the UTF-8 bytes of the input. **No fake/surrogate hashes are ever shown** —
-  the previous truncated-SHA-1 "MD5" placeholder has been removed entirely. MD5
-  correctness is verified against RFC 1321 test vectors (`tests/md5.test.mjs`).
+  hash the UTF-8 bytes of the input. **Every displayed hash is genuinely computed; none
+  are faked or approximated.** MD5 correctness is verified against RFC 1321 test vectors
+  (`tests/md5.test.mjs`).
 - Entropy, IOC extraction, behavior/YARA-style regex matching, capability inference,
   scoring, and report generation are pure synchronous functions over in-memory strings.
 - Decoding (Base64, ROT13, hex, URL, PowerShell EncodedCommand) transforms text and
@@ -129,7 +129,8 @@ Enrichment is **opt-in and off by default**. The local analyzer works 100% witho
 
 - **Local-only mode (default):** No network calls. All hashing, IOC extraction,
   behavior/YARA-style matching, scoring, and reporting happen in the browser. This is
-  *local static analysis*, not live threat intelligence.
+  *local static analysis* / *browser-only analysis* — it does not query any external
+  threat-intelligence service.
 - **Enrichment mode (optional):** Only when the user clicks **"Enrich IOCs"**, the
   browser POSTs a small JSON payload of *extracted IOCs* to a **same-origin** serverless
   proxy (`/enrich`). The proxy holds the API keys and queries allowlisted providers

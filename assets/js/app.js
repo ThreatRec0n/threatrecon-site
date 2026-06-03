@@ -35,6 +35,9 @@ const ALLOWED_EXT = ['txt', 'log', 'ps1', 'bat', 'cmd', 'sh', 'py', 'js', 'vbs',
 const BLOCKED_EXT = ['exe', 'dll', 'bin', 'com', 'msi', 'sys', 'scr', 'jar', 'iso', 'img', 'docm', 'xlsm', 'zip', '7z', 'rar'];
 const MAX_UPLOAD_BYTES = 1024 * 1024; // 1 MB default
 
+/* Single source of truth for the demo notice (UI report, Markdown, JSON all match). */
+const DEMO_NOTICE = 'Demo sample. Safe text-only artifact. Not real malware. Network indicators use documentation ranges, example.com/example.org domains, or clearly labeled demo placeholders. No real malicious infrastructure is included.';
+
 /* Which result sections are shown for each analysis mode. */
 const MODE_SECTIONS = {
   deep: null, // null = show everything
@@ -231,7 +234,7 @@ function generateAnalystReport(ctx) {
 
   if (isDemo) {
     sections.push('DEMO NOTICE');
-    let demoNote = 'Demo sample. Safe text-only artifact. Not real malware. Network indicators use documentation ranges, example.com/example.org domains, or clearly labeled demo placeholders. No real malicious infrastructure is included.';
+    let demoNote = DEMO_NOTICE;
     if ((iocs.onion || []).length) demoNote += ' Onion indicator is a demo placeholder and should not be treated as live infrastructure.';
     sections.push(demoNote + '\n');
   }
@@ -239,7 +242,7 @@ function generateAnalystReport(ctx) {
   sections.push('EXECUTIVE SUMMARY');
   sections.push(`Composite threat score: ${total}/100 — assessed as ${verdict} with ${confidence} confidence. ` +
     `The sample triggered ${behaviors.length} behavioral indicator(s) (${criticals.length} CRITICAL, ${highs.length} HIGH, ${meds.length} MEDIUM), ` +
-    `${yaraHits.length} YARA-style local regex match(es), and ${iocTotal} extracted IOC(s). This assessment is based on local static analysis performed entirely in the browser; it is not live threat intelligence.`);
+    `${yaraHits.length} YARA-style local regex match(es), and ${iocTotal} extracted IOC(s). This assessment is local static analysis performed entirely in the browser and does not query any external threat-intelligence service.`);
 
   sections.push('\nTECHNICAL FINDINGS');
   if (criticals.length) sections.push('Critical: ' + criticals.map(b => b.label).join('; ') + '.');
@@ -537,6 +540,7 @@ async function runAnalysis() {
     timestamp: new Date().toISOString(),
     mode: analysisMode,
     demo: isDemo,
+    demoNotice: isDemo ? DEMO_NOTICE : null,
     sha256: h256, sha1: h1, md5: md5hash, entropy,
     score: scores.total, scoreBreakdown: scores, verdict, malwareType,
     behaviors: behaviors.map(b => ({ sev: b.sev, label: b.label, tech: b.tech })),
@@ -619,7 +623,7 @@ function exportMarkdown() {
   if (!lastReport) return;
   const r = lastReport;
   const md = `# ThreatRecon Triage Report
-${r.demo ? '\n> Demo sample. Safe text-only artifact. Not real malware. IOCs are documentation/test-range examples.\n' : ''}
+${r.demo ? '\n> ' + DEMO_NOTICE + '\n' : ''}
 **Date:** ${r.timestamp}
 **Analysis mode:** ${r.mode}
 **Score:** ${r.score}/100 — ${r.verdict}

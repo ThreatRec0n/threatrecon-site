@@ -11,7 +11,7 @@ Everything runs **locally in your browser**. There is no backend, no API, no sam
 ## Features
 
 - **Paste / Upload / IOC input** — analyze pasted text, an uploaded text/script/log file, or a single indicator.
-- **Hashing (all local, all real)** — MD5 (bundled RFC 1321 implementation, `assets/js/md5.js`), SHA-1, and SHA-256 (browser SubtleCrypto). No fake/surrogate hashes are ever shown; MD5 correctness is verified by `tests/md5.test.mjs`.
+- **Hashing (all local, all real)** — MD5 (bundled RFC 1321 implementation, `assets/js/md5.js`), SHA-1, and SHA-256 (browser SubtleCrypto). All three are genuinely computed from the input bytes; none are faked or approximated. MD5 correctness is verified by `tests/md5.test.mjs`.
 - **IOC extraction** — IPs, URLs, domains, onion addresses, MD5/SHA-1/SHA-256, emails, registry keys, file paths, BTC addresses, and CVEs, each with safe click-to-pivot links.
 - **Behavioral rules** — 50+ regex rules across execution, LOLBins, persistence (Windows + Linux), defense evasion, injection, credential access, impact, C2, and resource hijacking.
 - **YARA-style local regex rules** — 17 built-in signatures plus your own custom regex/keyword patterns (regex matching only — not a real YARA engine).
@@ -50,7 +50,7 @@ The core tool has no paid APIs, no required API keys, no backend, and no cloud s
 /assets/js/app.js        Orchestration, rendering, scoring, exports, enrichment client (ES module)
 /assets/js/rules.js      Behavior rules, YARA signatures, MITRE map, KB/tool data, demo sample
 /assets/js/utils.js      SHA hashing, entropy, decoders, escaping, IOC/string extraction
-/assets/js/md5.js        Local RFC 1321 MD5 implementation (real, not a surrogate)
+/assets/js/md5.js        Local RFC 1321 MD5 implementation (real, computed locally)
 /assets/img/             Image assets
 /functions/enrich.js     Optional serverless enrichment proxy (Cloudflare Pages Function)
 /tests/md5.test.mjs      MD5 RFC 1321 test vectors (node tests/md5.test.mjs)

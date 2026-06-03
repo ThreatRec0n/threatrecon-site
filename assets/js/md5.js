@@ -3,9 +3,9 @@
    A small, self-contained, correct MD5 (RFC 1321) implementation.
 
    WHY THIS EXISTS: the browser's SubtleCrypto does not provide MD5, but
-   MD5 is still a common malware-IOC hash. Rather than fake it (e.g. showing
-   a truncated SHA-1), we compute a REAL MD5 here, locally, with no network
-   calls and no execution of input. Input is treated purely as bytes.
+   MD5 is still a common malware-IOC hash. We compute a genuine MD5 here,
+   locally, with no network calls and no execution of input. Input is treated
+   purely as bytes — no approximations or placeholders are ever returned.
 
    The function hashes the UTF-8 byte encoding of the input string, so its
    result is consistent with the SHA-1/SHA-256 values (which also hash the
