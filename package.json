@@ -2,27 +2,16 @@
   "name": "threatrecon-site",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "description": "ThreatRecon Malware Triage Workbench",
-  "license": "MIT",
   "scripts": {
-    "start": "npx serve -l 8080 .",
-    "dev": "npx serve -l 8080 .",
-    "build": "echo Static site. No build step required.",
-    "vercel-build": "echo Static site. No Vercel build step required.",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "test": "node tests/md5.test.mjs"
   },
-  "devDependencies": {
-    "serve": "^14.2.4"
-  },
-  "keywords": [
-    "malware",
-    "triage",
-    "static-analysis",
-    "ioc",
-    "yara",
-    "mitre-attack",
-    "threat-intelligence",
-    "deobfuscation"
-  ]
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  }
 }

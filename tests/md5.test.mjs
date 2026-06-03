@@ -2,7 +2,7 @@
    Run: node tests/md5.test.mjs
    Proves MD5 is REAL (matches RFC 1321 vectors) — so the UI never shows a fake. */
 import assert from 'node:assert';
-import { md5 } from '../assets/js/md5.js';
+import { md5 } from '../public/assets/js/md5.js';
 
 const vectors = [
   ['', 'd41d8cd98f00b204e9800998ecf8427e'],

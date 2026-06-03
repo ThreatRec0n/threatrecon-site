@@ -1,30 +1,15 @@
-<!DOCTYPE html>
-<!--
-  ThreatRecon Signal Found.
-  Analyst: if you are reading source, you are already doing recon.
-  /anubis watches the threshold
--->
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ThreatRecon Malware Triage Workbench</title>
-  <meta name="description" content="Free, browser-based malware triage and threat intelligence workbench: static analysis, IOC extraction, behavior mapping, YARA-style matching, deobfuscation, MITRE ATT&CK mapping, and analyst reports. No API cost. No sample upload." />
-  <meta name="theme-color" content="#0a0c0f" />
-  <meta name="referrer" content="no-referrer" />
-  <!-- Meta CSP for hosts that cannot set HTTP headers (e.g. GitHub Pages).
-       connect-src 'self' allows the OPTIONAL same-origin enrichment proxy
-       (/enrich) only — never third-party APIs directly from the browser.
-       Local analysis makes zero network calls; enrichment is manual-only.
-       For a pure static GitHub Pages deploy you may tighten this to
-       connect-src 'none' (enrichment will simply report "unavailable").
-       Real deployments should ALSO send the headers in /_headers. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests" />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link rel="stylesheet" href="assets/css/style.css" />
-</head>
-<body>
+// ThreatRecon Signal Found.
+// Analyst: if you are reading source, you are already doing recon.
+// /anubis watches the threshold
+//
+// This page is a faithful 1:1 carrier for the finished ThreatRecon static
+// markup. The body of the original index.html is preserved verbatim (every
+// id, class, data-attribute, inline style, and entity is unchanged) and the
+// browser-only engine (public/assets/js/app.js, an ES module) drives it after
+// load. Using a single HTML carrier guarantees zero UI/behavior drift versus
+// the static build — no logic, scoring, wording, or export was rewritten.
 
+const BODY = `
 <div class="topbar">
   <div class="logo-wrap">
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><polygon points="11,1 21,6 21,16 11,21 1,16 1,6" stroke="#00d4ff" stroke-width="1.2" fill="none"/><polygon points="11,5 17,8 17,14 11,17 5,14 5,8" stroke="#00d4ff" stroke-width=".6" fill="rgba(0,212,255,.08)"/><circle cx="11" cy="11" r="2" fill="#00d4ff"/></svg>
@@ -100,7 +85,7 @@
         <textarea id="input-text" placeholder="Paste a script (.ps1 .bat .sh .py .js .vbs .php), log output, IOC list, Base64 blob, hex shellcode, command line, or any suspicious text artifact..."></textarea>
         <div style="margin-top:10px">
           <div style="font-size:10px;color:var(--text3);font-family:var(--term);margin-bottom:4px">Custom YARA / Regex Patterns (optional, one per line, case-insensitive)</div>
-          <textarea id="custom-yara" placeholder="mimikatz&#10;sekurlsa&#10;stratum\+tcp" style="min-height:80px"></textarea>
+          <textarea id="custom-yara" placeholder="mimikatz&#10;sekurlsa&#10;stratum\\+tcp" style="min-height:80px"></textarea>
         </div>
       </div>
       <div class="ipane" id="ipane-upload">
@@ -351,7 +336,8 @@
 </footer>
 
 <div class="toast" id="toast"></div>
+`;
 
-<script type="module" src="assets/js/app.js"></script>
-</body>
-</html>
+export default function Page() {
+  return <div id="tr-root" dangerouslySetInnerHTML={{ __html: BODY }} />;
+}

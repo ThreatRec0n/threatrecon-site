@@ -4,10 +4,13 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
-# Build output (this is a static site; no build needed)
+# Build output
 dist/
 build/
 .cache/
+.next/
+out/
+.vercel/
 
 # Logs
 *.log
