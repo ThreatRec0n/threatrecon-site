@@ -1,15 +1,19 @@
 {
   "name": "threatrecon-site",
-  "version": "3.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "ThreatRecon Malware Triage Workbench — a free, browser-based static malware triage and threat-intelligence workbench. No build step, no backend by default; optional serverless enrichment proxy.",
+  "description": "ThreatRecon Malware Triage Workbench",
   "license": "MIT",
   "scripts": {
-    "start": "npx --yes serve -l 8080 .",
-    "serve": "npx --yes serve -l 8080 .",
-    "dev": "python -m http.server 8080",
+    "start": "npx serve -l 8080 .",
+    "dev": "npx serve -l 8080 .",
+    "build": "echo Static site. No build step required.",
+    "vercel-build": "echo Static site. No Vercel build step required.",
     "test": "node tests/md5.test.mjs"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
   },
   "keywords": [
     "malware",
