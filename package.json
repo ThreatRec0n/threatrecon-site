@@ -1,44 +1,22 @@
 {
-  "name": "threatrecon-insidejob",
+  "name": "threatrecon-site",
+  "version": "3.0.0",
   "private": true,
-  "version": "1.0.0",
-  "type": "module",
+  "description": "ThreatRecon Malware Triage Workbench — a free, browser-based static malware triage and threat-intelligence workbench. No build step, no backend, no API.",
+  "license": "MIT",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "start": "npx --yes serve -l 8080 .",
+    "serve": "npx --yes serve -l 8080 .",
+    "dev": "python -m http.server 8080"
   },
-  "dependencies": {
-    "@dnd-kit/core": "^6.1.0",
-    "@dnd-kit/sortable": "^8.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
-    "@fontsource-variable/bricolage-grotesque": "^5.2.6",
-    "@fontsource/geist-mono": "^5.2.6",
-    "@fontsource/ubuntu": "^5.2.8",
-    "@fontsource/ubuntu-mono": "^5.2.8",
-    "@xterm/addon-fit": "^0.10.0",
-    "@xterm/addon-search": "^0.15.0",
-    "@xterm/addon-web-links": "^0.11.0",
-    "@xterm/xterm": "^5.5.0",
-    "clsx": "^2.1.1",
-    "date-fns": "^3.6.0",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^2.5.2",
-    "local-echo": "^0.2.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-rnd": "^10.5.3",
-    "react-router-dom": "^6.28.0"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.3",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.15",
-    "terser": "^5.36.0",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.11"
-  }
+  "keywords": [
+    "malware",
+    "triage",
+    "static-analysis",
+    "ioc",
+    "yara",
+    "mitre-attack",
+    "threat-intelligence",
+    "deobfuscation"
+  ]
 }

@@ -1,7 +1,31 @@
-node_modules
-dist
-.vite
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output (this is a static site; no build needed)
+dist/
+build/
+.cache/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
 .DS_Store
-*.local
+Thumbs.db
+*.swp
+
+# Environment / secrets (should never exist in this project)
 .env
 .env.*
+*.pem
+*.key
+
+# Local samples — never commit malware or sensitive input
+samples/
+*.malware
