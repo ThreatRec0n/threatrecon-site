@@ -339,3 +339,19 @@ body::after { content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0
   .hero h1 { font-size: 24px; }
   .cta { width: 100%; justify-content: center; }
 }
+
+/* ── Optional Threat Intel Enrichment ── */
+.enrich-label { font-size: 11px; color: var(--text3); line-height: 1.5; margin-bottom: 12px; border-left: 2px solid var(--blue, #00d4ff); padding-left: 10px; }
+.enrich-attrib { font-size: 9px; color: var(--text3); margin-top: 12px; opacity: .8; }
+.enrich-note { font-size: 10px; color: var(--text3); margin-top: 10px; font-family: var(--term); }
+.enrich-card { border: 1px solid var(--border, #1d2531); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
+.enrich-card-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: rgba(255,255,255,.02); flex-wrap: wrap; }
+.enrich-prov { font-size: 10px; color: var(--text2, #8a97a8); font-family: var(--term); text-transform: uppercase; letter-spacing: .5px; }
+.enrich-status { margin-left: auto; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; }
+.enrich-hit { background: rgba(255,77,79,.15); color: var(--red, #ff4d4f); }
+.enrich-not_found { background: rgba(120,140,160,.15); color: var(--text2, #8a97a8); }
+.enrich-error { background: rgba(255,165,0,.15); color: var(--orange, #ffa500); }
+.enrich-skipped { background: rgba(120,140,160,.1); color: var(--text3); }
+.enrich-card-body { padding: 8px 10px; }
+.enrich-foot { font-size: 9px; color: var(--text3); margin-top: 6px; }
+.enrich-foot a { margin-left: 8px; }

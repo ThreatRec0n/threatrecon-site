@@ -8,6 +8,16 @@ Recommended host order for full security headers: **Cloudflare Pages** or **Netl
 (both honor the `_headers` file). GitHub Pages works too, but cannot set custom
 response headers — the meta-tag CSP fallback covers most of the policy there.
 
+### Two deployment profiles
+
+| Profile | Hosting | Enrichment | API keys |
+| --- | --- | --- | --- |
+| **Static-only (default)** | GitHub Pages, or any static host | Disabled — the "Enrich IOCs" button reports "unavailable" | None needed |
+| **With enrichment (optional)** | **Cloudflare Pages** (preferred), Netlify, or Vercel | Enabled via the `/enrich` serverless function | Set as env vars (all optional) |
+
+The local analyzer is identical in both profiles. Enrichment only adds the optional
+`/enrich` proxy. **The site runs fully without any API keys.**
+
 ---
 
 ## 1. GitHub Pages
@@ -43,9 +53,15 @@ If you need the full header set, deploy to Cloudflare Pages or Netlify, or put
 Cloudflare in front of GitHub Pages and add the headers via a Cloudflare
 Transform Rule / Workers.
 
+> **GitHub Pages = static-only mode.** There is no serverless runtime, so the
+> `functions/enrich.js` proxy does not run and threat-intel enrichment is disabled.
+> The client handles the missing endpoint gracefully ("enrichment unavailable;
+> local analysis still completed"). For a maximally locked-down static deploy you may
+> change `connect-src 'self'` to `connect-src 'none'` in `index.html`.
+
 ---
 
-## 2. Cloudflare Pages
+## 2. Cloudflare Pages (preferred for enrichment)
 
 1. Push the project to GitHub/GitLab.
 2. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git**.
@@ -54,6 +70,15 @@ Transform Rule / Workers.
    - **Build command:** *(leave empty)*
    - **Build output directory:** `/` (root)
 4. Deploy. The included [`/_headers`](../_headers) file is applied automatically.
+   The [`functions/enrich.js`](../functions/enrich.js) file is auto-detected as a
+   Pages Function and served at **`/enrich`** — no extra config needed.
+
+### Enabling enrichment on Cloudflare Pages
+
+1. **Pages project → Settings → Environment variables** → add any of the keys below.
+2. Redeploy. The "Enrich IOCs" button now queries the configured providers.
+3. (Optional, durable rate-limit/cache) Create a KV namespace and bind it; extend
+   `functions/enrich.js` to read/write KV instead of the in-memory maps.
 
 ### Custom domain (threatrecon.io) on Cloudflare Pages
 
@@ -80,20 +105,84 @@ Transform Rule / Workers.
 > Drag-and-drop alternative: zip the project (or use the Netlify CLI `netlify deploy`)
 > and drop it into the Netlify dashboard — still no build step.
 
+### Enrichment on Netlify
+
+Netlify Functions use a slightly different signature. Add a thin wrapper at
+`netlify/functions/enrich.js` that adapts the Cloudflare handler, or port the body:
+
+```js
+// netlify/functions/enrich.js
+import { onRequestPost } from '../../functions/enrich.js';
+export const handler = async (event) => {
+  const request = new Request('https://local/enrich', {
+    method: event.httpMethod,
+    headers: event.headers,
+    body: event.body,
+  });
+  const res = await onRequestPost({ request, env: process.env });
+  return { statusCode: res.status, headers: { 'Content-Type': 'application/json' }, body: await res.text() };
+};
+```
+
+Add a redirect so the client's `/enrich` path resolves:
+
+```
+# netlify.toml
+[[redirects]]
+  from = "/enrich"
+  to = "/.netlify/functions/enrich"
+  status = 200
+```
+
+Set the same environment variables (below) under **Site settings → Environment variables**.
+
 ---
 
-## 4. Verifying the deployment
+## 4. Vercel (optional, enrichment-capable)
+
+Add `api/enrich.js` exporting a default handler that calls the shared logic, set the
+env vars under **Project → Settings → Environment Variables**, and the client `/enrich`
+path is served by the Vercel Function. Build command stays empty (static + functions).
+
+---
+
+## 5. Environment variables (all optional)
+
+Set any subset. Each enables the matching provider; missing keys simply skip that
+provider. **The site runs fully without any of them.** NVD works even with no key
+(at a lower rate limit). Keys are server-side only and never reach the browser.
+
+| Variable | Provider | Notes |
+| --- | --- | --- |
+| `MALWAREBAZAAR_API_KEY` | MalwareBazaar (abuse.ch) | Auth-Key; hash reputation, family, first seen, tags |
+| `THREATFOX_API_KEY` | ThreatFox (abuse.ch) | Auth-Key; IOC reputation, family, confidence |
+| `URLHAUS_API_KEY` | URLhaus (abuse.ch) | Auth-Key; malicious URL status, payload hash |
+| `VIRUSTOTAL_API_KEY` | VirusTotal | Free public API (rate-limited); hash/URL/domain/IP lookups only — never file upload |
+| `NVD_API_KEY` | NVD | Optional; raises rate limit for CVE enrichment |
+| `OTX_API_KEY` | OTX AlienVault | Free API key; pulses/reputation for IP/domain/hash/URL |
+
+> **NVD attribution (required):** "This product uses data from the NVD API but is not
+> endorsed or certified by the NVD." (Shown in the enrichment panel.)
+
+Do **not** add paid APIs and do **not** place keys in any client file, comment, or commit.
+
+---
+
+## 6. Verifying the deployment
 
 After deploy, confirm:
 
-- The page loads and the **DEMO → ANALYZE** flow produces a CRITICAL score.
-- Browser devtools **Network** tab shows **no outbound API/XHR/fetch** requests
-  (only the static `html/css/js/svg` assets).
+- The page loads and the **DEMO → ANALYZE** flow produces a CRITICAL (100/100) score.
+- During normal analysis the **Network** tab shows **no outbound API/XHR/fetch**
+  requests (only static `html/css/js/svg` assets). A request to `/enrich` appears
+  **only** if you click "Enrich IOCs".
 - **Console** shows the ThreatRecon easter-egg banner and **no errors**.
 - On Netlify/Cloudflare, **Network → response headers** include `Content-Security-Policy`,
   `X-Frame-Options`, etc.
+- With no API keys set, clicking "Enrich IOCs" shows "enrichment unavailable" and the
+  local report is unaffected. With keys set, provider result cards appear.
 
-## 5. Path notes
+## 7. Path notes
 
 All asset references in `index.html` are **relative** (`assets/...`, `favicon.svg`),
 so the site works both at a root domain (`https://threatrecon.io/`) and under a

@@ -14,17 +14,22 @@ executes the sample and never phones home.**
 | Arbitrary code execution from a sample | The app never `eval`s, compiles, or executes input. Decoders only transform text. |
 | Stored/Reflected XSS via malicious input | All user-controlled data is HTML-escaped before DOM insertion; the report uses `textContent`. |
 | Clickjacking | `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'`. |
-| Mixed-content / outbound beacons | CSP `connect-src 'none'`; no `fetch`/XHR/WebSocket exists in the code. |
+| Mixed-content / outbound beacons | CSP `connect-src 'self'`; the only possible `fetch` is a **manual** call to the same-origin enrichment proxy. No third-party host can be contacted from the browser. |
 | Supply-chain (third-party scripts) | No third-party scripts, CDNs, fonts, or trackers are loaded. All assets are local. |
+| API key leakage | Keys live only in serverless environment variables, never in frontend JS/HTML/comments/console/localStorage/repo. |
 
 Out of scope: the security of external pivot destinations (VirusTotal, Shodan, etc.).
 Those open only on explicit user click in a new tab with `rel="noopener noreferrer"`.
 
 ## 2. Browser-only design
 
-- Hashing uses the native `crypto.subtle` API (SHA-1, SHA-256).
-- Entropy, IOC extraction, behavior/YARA matching, capability inference, scoring,
-  and report generation are pure synchronous functions over in-memory strings.
+- Hashing is **100% local**: SHA-1 and SHA-256 use the native `crypto.subtle` API;
+  MD5 uses a small, bundled RFC 1321 implementation (`assets/js/md5.js`). All three
+  hash the UTF-8 bytes of the input. **No fake/surrogate hashes are ever shown** —
+  the previous truncated-SHA-1 "MD5" placeholder has been removed entirely. MD5
+  correctness is verified against RFC 1321 test vectors (`tests/md5.test.mjs`).
+- Entropy, IOC extraction, behavior/YARA-style regex matching, capability inference,
+  scoring, and report generation are pure synchronous functions over in-memory strings.
 - Decoding (Base64, ROT13, hex, URL, PowerShell EncodedCommand) transforms text and
   returns plain strings. There is **no execution path** for decoded content.
 
@@ -73,17 +78,21 @@ script-src 'self';
 style-src 'self' 'unsafe-inline';
 img-src 'self' data:;
 font-src 'self';
-connect-src 'none';
+connect-src 'self';
 object-src 'none';
 base-uri 'self';
-form-action 'none';
+form-action 'self';
 frame-ancestors 'none';
 upgrade-insecure-requests
 ```
 
 Notes:
 
-- `connect-src 'none'` is intentional — this build makes **no** API/network calls.
+- `connect-src 'self'` permits **only** the same-origin enrichment proxy (`/enrich`).
+  The browser can never contact a third-party API directly. Local analysis still
+  makes zero network calls; enrichment is manual-only (a button). For a pure static
+  GitHub Pages deployment you may tighten this to `connect-src 'none'` — enrichment
+  will then simply report "unavailable" and local analysis is unaffected.
 - `style-src` allows `'unsafe-inline'` because the UI uses some inline `style`
   attributes for dynamic bars/colors. No inline **scripts** or inline event handlers
   are used, so `script-src 'self'` (without `'unsafe-inline'`) is sufficient and strict.
@@ -112,7 +121,75 @@ Send all of these at the edge (see `/_headers`):
 - [x] No `eval` / `Function`.
 - [x] No third-party script or font loads.
 
-## 9. Responsible use
+## 9. Optional threat-intel enrichment
+
+Enrichment is **opt-in and off by default**. The local analyzer works 100% without it.
+
+### 9.1 Two modes
+
+- **Local-only mode (default):** No network calls. All hashing, IOC extraction,
+  behavior/YARA-style matching, scoring, and reporting happen in the browser. This is
+  *local static analysis*, not live threat intelligence.
+- **Enrichment mode (optional):** Only when the user clicks **"Enrich IOCs"**, the
+  browser POSTs a small JSON payload of *extracted IOCs* to a **same-origin** serverless
+  proxy (`/enrich`). The proxy holds the API keys and queries allowlisted providers
+  server-side, then returns normalized results.
+
+### 9.2 What is sent during enrichment
+
+Only extracted indicators, after validation and safety filtering:
+
+- SHA-256, SHA-1, MD5 (all real, locally computed)
+- URLs
+- Domains (excluding `example.com/.net/.org`, `localhost`, `.test/.invalid` unless demo mode)
+- **Public** IPv4 only
+- CVE IDs
+- `.onion` addresses
+
+### 9.3 What is NEVER sent
+
+- The full pasted sample or any uploaded file content
+- Decoded/deobfuscated payload bodies
+- Private/reserved IPs: `10/8`, `172.16/12`, `192.168/16`, `127/8`, `169.254/16`, `::1`, `fc00::/7`, `fe80::/10`
+- RFC 5737 documentation/test IPs (`192.0.2/24`, `198.51.100/24`, `203.0.113/24`) — skipped unless demo mode
+- Email addresses (no email enrichment feature is built)
+- Registry keys and file paths
+- Bitcoin addresses
+
+Filtering is applied **both** client-side (before sending) and server-side (defense in depth).
+
+### 9.4 API keys
+
+API keys are stored **only** as serverless environment variables on the deployment
+platform (Cloudflare/Netlify/Vercel). They never appear in frontend JavaScript, HTML,
+comments, console logs, `localStorage`, `sessionStorage`, or the git repository. The
+proxy never returns keys to the client.
+
+### 9.5 Proxy hardening (`functions/enrich.js`)
+
+- **Allowlisted providers only:** MalwareBazaar, ThreatFox, URLhaus (abuse.ch),
+  VirusTotal, NVD, OTX AlienVault. No paid APIs. No arbitrary URLs.
+- **Per-IP rate limiting** (best-effort in-memory; bind KV for durability).
+- **Request size limit** (16 KB) and **per-type IOC caps** (15).
+- **IOC type validation** via strict regex before any upstream call.
+- **Per-provider timeouts** (6 s) via `AbortController`; provider errors are isolated
+  and returned as `error` cards without breaking the response.
+- **In-memory caching** (10 min TTL) to respect free-tier fair-use limits.
+- Results are labeled with **source name and timestamp** and include
+  `hit` / `not_found` / `error` / `skipped` states.
+
+### 9.6 Limitations
+
+- Enrichment results are **third-party intelligence and not absolute truth**; corroborate
+  independently before acting.
+- abuse.ch APIs require an Auth-Key under their fair-use community terms; VirusTotal/OTX
+  free tiers are rate-limited; NVD works without a key at a lower rate limit.
+- NVD attribution (required): *"This product uses data from the NVD API but is not
+  endorsed or certified by the NVD."*
+- Static analysis cannot observe runtime behavior, decrypt packed payloads, or attribute
+  threat actors. Family/type labels are heuristic and require dynamic-analysis validation.
+
+## 10. Responsible use
 
 This tool is for education, research, and defensive security. Do not paste sensitive
 data into any web tool. Do not upload live malware to a public deployment. Analyze

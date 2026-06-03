@@ -208,11 +208,25 @@ export function classifyStrings(text) {
   return results.slice(0, 30);
 }
 
+/** True for loopback/private/link-local/reserved IPv4 (and IPv6 loopback/ULA/link-local).
+    Such addresses are local-only indicators, never external IOCs. */
+export function isPrivateOrReservedIp(ip) {
+  if (ip.includes(':')) return /^(::1|fe80:|fc|fd)/i.test(ip);
+  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const a = +m[1], b = +m[2];
+  if (a === 10 || a === 127 || a === 0) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true;
+  return false;
+}
+
 /** Extract IOCs from text. All regex-based; capped per type to bound output. */
 export function extractIOCs(text) {
   const ipRx = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
   const urlRx = /https?:\/\/[^\s"'<>\]]+/gi;
-  const onionRx = /\b[a-z2-7]{16,56}\.onion\b/gi;
+  const onionRx = /\b[a-z2-7][a-z2-7-]{14,54}[a-z2-7]\.onion\b/gi;
   const domainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|io|ru|cn|tk|xyz|top|cc|pw|onion|info|biz|co|me|us|uk|de|fr|to|site|club)\b/gi;
   const md5Rx = /\b[a-fA-F0-9]{32}\b/g;
   const sha1Rx = /\b[a-fA-F0-9]{40}\b/g;
@@ -227,8 +241,17 @@ export function extractIOCs(text) {
   const urls = [...new Set(text.match(urlRx) || [])].slice(0, 12);
   const rawDomains = [...new Set(text.match(domainRx) || [])];
   const domains = rawDomains.filter(d => !urls.some(u => u.includes(d))).slice(0, 12);
+
+  // Separate loopback/private/reserved IPs into a local-only bucket so they are
+  // NOT treated as external IOCs (not enriched, not recommended for blocking).
+  const allIps = [...new Set(text.match(ipRx) || [])];
+  const ips = [];
+  const localIndicators = [];
+  allIps.forEach(ip => { (isPrivateOrReservedIp(ip) ? localIndicators : ips).push(ip); });
+
   return {
-    ips: [...new Set(text.match(ipRx) || [])].slice(0, 12),
+    ips: ips.slice(0, 12),
+    localIndicators: localIndicators.slice(0, 8),
     urls,
     domains,
     onion: [...new Set(text.match(onionRx) || [])].slice(0, 8),

@@ -11,10 +11,11 @@ Everything runs **locally in your browser**. There is no backend, no API, no sam
 ## Features
 
 - **Paste / Upload / IOC input** — analyze pasted text, an uploaded text/script/log file, or a single indicator.
-- **Hashing** — SHA-1 and SHA-256 via the browser's native SubtleCrypto (no MD5 in-browser; a truncated SHA-1 surrogate is shown for reference).
+- **Hashing (all local, all real)** — MD5 (bundled RFC 1321 implementation, `assets/js/md5.js`), SHA-1, and SHA-256 (browser SubtleCrypto). No fake/surrogate hashes are ever shown; MD5 correctness is verified by `tests/md5.test.mjs`.
 - **IOC extraction** — IPs, URLs, domains, onion addresses, MD5/SHA-1/SHA-256, emails, registry keys, file paths, BTC addresses, and CVEs, each with safe click-to-pivot links.
 - **Behavioral rules** — 50+ regex rules across execution, LOLBins, persistence (Windows + Linux), defense evasion, injection, credential access, impact, C2, and resource hijacking.
-- **YARA-style matching** — 17 built-in signatures plus your own custom regex/keyword patterns.
+- **YARA-style local regex rules** — 17 built-in signatures plus your own custom regex/keyword patterns (regex matching only — not a real YARA engine).
+- **Optional threat-intel enrichment** — off by default. A manual "Enrich IOCs" button can query free/free-tier providers (MalwareBazaar, ThreatFox, URLhaus, VirusTotal, NVD, OTX) **through a same-origin serverless proxy** that holds the API keys. Local analysis works 100% without it. See [`docs/deployment.md`](./docs/deployment.md).
 - **MITRE ATT&CK mapping** — findings mapped to 40+ techniques with direct links.
 - **Shannon entropy** — packing/encryption indicator with thresholds.
 - **String classification** — network / crypto / evasion / suspicious buckets.
@@ -27,34 +28,38 @@ Everything runs **locally in your browser**. There is no backend, no API, no sam
 
 ## Security model (summary)
 
-- **Browser-only.** No server-side code. The smallest attack surface is the one that never runs the sample.
-- **No network calls.** CSP `connect-src 'none'`; there is no `fetch`/XHR/WebSocket in the app.
+- **Browser-only by default.** No server-side code is required for analysis. The smallest attack surface is the one that never runs the sample.
+- **No automatic network calls.** Local analysis makes zero requests. CSP `connect-src 'self'` permits only the optional, manual, same-origin enrichment proxy — never third-party APIs from the browser.
 - **No execution.** No `eval`, no `Function()` constructor, no injection of user input as script.
-- **No upload / no storage.** Files are read locally with `FileReader`; nothing is sent or persisted.
-- **XSS-safe rendering.** All user-controlled data (IOCs, decoded blobs, custom patterns, strings, file names) is HTML-escaped before insertion, and the report is written with `textContent`.
+- **No upload / no storage.** Files are read locally with `FileReader`; nothing is sent or persisted. Enrichment sends only extracted IOCs (never files or full sample text), and never private IPs, registry keys, file paths, or emails.
+- **API keys are server-side only.** Keys live in serverless environment variables — never in frontend JS/HTML/comments/console/storage/repo.
+- **XSS-safe rendering.** All user-controlled data (IOCs, decoded blobs, custom patterns, strings, file names, enrichment results) is HTML-escaped before insertion, and the report is written with `textContent`.
 - **Hardening headers** shipped in [`_headers`](./_headers) for Netlify / Cloudflare Pages, plus a meta CSP fallback for GitHub Pages.
 
 Full details: [`docs/security.md`](./docs/security.md).
 
-## No API cost
+## No required API cost
 
-There are no paid APIs, no API keys, no backend, and no cloud sample storage. External links (VirusTotal, Shodan, sandboxes, etc.) are **pivot links** that only open when you click them — nothing is auto-fetched.
+The core tool has no paid APIs, no required API keys, no backend, and no cloud sample storage. External links (VirusTotal, Shodan, sandboxes, etc.) are **pivot links** that only open when you click them — nothing is auto-fetched. Optional enrichment uses only free/free-tier providers and is disabled unless you deploy the serverless proxy and configure keys.
 
 ## Project structure
 
 ```
 /index.html              Single-page app shell (all sections)
 /assets/css/style.css    Theme + responsive styles
-/assets/js/app.js        Orchestration, rendering, scoring, exports (ES module)
-/assets/js/rules.js      Behavior rules, YARA signatures, MITRE map, KB/tool data
-/assets/js/utils.js      Hashing, entropy, decoders, escaping, IOC/string extraction
+/assets/js/app.js        Orchestration, rendering, scoring, exports, enrichment client (ES module)
+/assets/js/rules.js      Behavior rules, YARA signatures, MITRE map, KB/tool data, demo sample
+/assets/js/utils.js      SHA hashing, entropy, decoders, escaping, IOC/string extraction
+/assets/js/md5.js        Local RFC 1321 MD5 implementation (real, not a surrogate)
 /assets/img/             Image assets
+/functions/enrich.js     Optional serverless enrichment proxy (Cloudflare Pages Function)
+/tests/md5.test.mjs      MD5 RFC 1321 test vectors (node tests/md5.test.mjs)
 /favicon.svg             Site icon
 /_headers                Security headers for Netlify / Cloudflare Pages
 /robots.txt              Crawler directives
 /sitemap.xml             Sitemap
-/docs/security.md        Threat model & hardening
-/docs/deployment.md      Deployment guides
+/docs/security.md        Threat model & hardening (incl. enrichment data policy)
+/docs/deployment.md      Deployment guides (static-only + enrichment)
 /README.md               This file
 /LICENSE                 MIT + safety disclaimer
 ```
@@ -71,7 +76,15 @@ python -m http.server 8080
 npx serve -l 8080 .
 ```
 
-Then open `http://localhost:8080/`.
+Then open `http://localhost:8080/`. Local analysis works fully here; the optional
+"Enrich IOCs" button will report "unavailable" because a static server has no `/enrich`
+function (this is expected and non-breaking).
+
+Run the MD5 test suite:
+
+```bash
+node tests/md5.test.mjs   # or: npm test
+```
 
 ## Deployment
 

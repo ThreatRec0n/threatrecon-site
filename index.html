@@ -13,9 +13,13 @@
   <meta name="theme-color" content="#0a0c0f" />
   <meta name="referrer" content="no-referrer" />
   <!-- Meta CSP for hosts that cannot set HTTP headers (e.g. GitHub Pages).
-       connect-src 'none' because this site never makes API/network calls.
+       connect-src 'self' allows the OPTIONAL same-origin enrichment proxy
+       (/enrich) only — never third-party APIs directly from the browser.
+       Local analysis makes zero network calls; enrichment is manual-only.
+       For a pure static GitHub Pages deploy you may tighten this to
+       connect-src 'none' (enrichment will simply report "unavailable").
        Real deployments should ALSO send the headers in /_headers. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
@@ -188,7 +192,7 @@
 
     <div class="analyzer-grid" style="margin-bottom:16px">
       <div class="panel" data-section="yara">
-        <div class="panel-head"><div class="dot dot-orange"></div>YARA-Style Rule Matches<span id="yara-total" style="margin-left:auto;font-size:10px;color:var(--text3)"></span></div>
+        <div class="panel-head"><div class="dot dot-orange"></div>YARA-style local regex rules<span id="yara-total" style="margin-left:auto;font-size:10px;color:var(--text3)"></span></div>
         <div class="panel-body" id="yara-body"></div>
       </div>
       <div class="panel" data-section="mitre">
@@ -216,8 +220,8 @@
     </div>
 
     <div class="panel" data-section="report" style="margin-bottom:16px">
-      <div class="panel-head"><div class="dot dot-green"></div>Analyst Report
-        <span style="margin-left:6px;font-size:9px;color:var(--text3)">[Local engine &middot; FOR610/GREM-style structure]</span>
+      <div class="panel-head"><div class="dot dot-green"></div>Local Analyst Report
+        <span style="margin-left:6px;font-size:9px;color:var(--text3)">[Local rules engine &middot; FOR610/GREM-style structure &middot; no AI, no cloud]</span>
         <span style="margin-left:auto;font-size:9px;color:var(--green)">Offline only</span>
       </div>
       <div class="panel-body"><div class="ai-streaming" id="ai-text"></div></div>
@@ -229,13 +233,26 @@
         <button class="btn-export" id="exp-copyreport">&#10697; Copy Report</button>
       </div>
     </div>
+
+    <!-- ===== Optional Threat Intel Enrichment (off by default, manual only) ===== -->
+    <div class="panel" data-section="enrich" id="enrich-panel" style="margin-bottom:16px;display:none">
+      <div class="panel-head"><div class="dot dot-blue"></div>Threat Intel Enrichment
+        <span style="margin-left:6px;font-size:9px;color:var(--text3)">[optional &middot; third-party data]</span>
+        <button class="btn-export" id="btn-enrich" style="margin-left:auto">&#8635; Enrich IOCs</button>
+      </div>
+      <div class="panel-body">
+        <div class="enrich-label">Optional. Sends only extracted IOCs (hashes, URLs, domains, public IPs, CVEs, onion addresses) to a configured same-origin enrichment proxy. Does not send files, full sample content, decoded payloads, private IPs, registry keys, file paths, or emails. Requires a serverless deployment with API keys; on static-only hosting it will report "unavailable". Results are third-party intelligence and are not absolute truth.</div>
+        <div id="enrich-body"><div class="no-ioc">Enrichment not run yet. Click &ldquo;Enrich IOCs&rdquo; to query configured providers (optional).</div></div>
+        <div class="enrich-attrib">This product uses data from the NVD API but is not endorsed or certified by the NVD. Other results may come from MalwareBazaar, ThreatFox, URLhaus (abuse.ch), VirusTotal, and OTX AlienVault when configured.</div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- ============ THREAT KB ============ -->
 <div class="page" id="page-kb">
   <div class="page-title">Threat Intelligence KB</div>
-  <div class="page-sub">Malware families compiled from public threat reporting — reference only.</div>
+  <div class="page-sub">Educational summaries of malware families compiled from public threat reporting. Reference only &mdash; the analyzer does not attribute analyzed samples to any of these families or actors.</div>
   <div class="kb-filters">
     <button class="kb-filter active" data-filter="all">ALL</button>
     <button class="kb-filter" data-filter="ransomware">Ransomware</button>
