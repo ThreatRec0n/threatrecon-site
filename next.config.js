@@ -2,7 +2,7 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value:
-      "default-src 'self'; script-src 'self' 'sha256-oPQFUz8C6Ny5rWy8swc7PaMMgOttCjFq9/vLAeDLSZI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src https://threatrecon.io/_vercel/insights/view https://threatrecon.io/_vercel/insights/event https://threatrecon.io/_vercel/insights/session https://threatrecon.io/_vercel/speed-insights/vitals; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests",
+      "default-src 'self'; script-src 'self' 'sha256-/H/6q5dKXGYO6GSU6qEp2Lkl7ctwQw60bw3al9+AwlI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src https://www.threatrecon.io/_vercel/insights/view https://www.threatrecon.io/_vercel/insights/event https://www.threatrecon.io/_vercel/insights/session https://www.threatrecon.io/_vercel/speed-insights/vitals; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests",
   },
   {
     key: "Strict-Transport-Security",

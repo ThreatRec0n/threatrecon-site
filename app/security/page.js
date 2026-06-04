@@ -1,11 +1,11 @@
 import LegalPageLayout from "../../components/LegalPageLayout";
 
 export const metadata = {
-  title: "ThreatRecon Security Model | Local Browser Based Malware Analysis",
+  title: "Security",
   description:
-    "Security model for ThreatRecon.io browser based static malware triage, local analysis, no sample upload, and manual external pivots.",
+    "ThreatRecon.io security model, local file analysis design, no account requirement, responsible use, and known limitations.",
   alternates: {
-    canonical: "https://threatrecon.io/security",
+    canonical: "https://www.threatrecon.io/security",
   },
 };
 
@@ -43,12 +43,6 @@ export default function SecurityPage() {
         <div className="panel-head"><div className="dot dot-yellow"></div>Limitations</div>
         <div className="panel-body">
           <p>ThreatRecon.io provides static analysis assistance and analyst training workflows. Static analysis results should be reviewed by a human analyst and should not be treated as a complete malware verdict by themselves.</p>
-        </div>
-      </div>
-      <div className="panel">
-        <div className="panel-head"><div className="dot dot-red"></div>Contact</div>
-        <div className="panel-body">
-          <p>Contact options will be added when official ThreatRecon.io support channels are available.</p>
         </div>
       </div>
     </LegalPageLayout>

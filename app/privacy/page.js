@@ -1,10 +1,10 @@
 import LegalPageLayout from "../../components/LegalPageLayout";
 
 export const metadata = {
-  title: "ThreatRecon Privacy Policy | Local Static Analysis and No Sample Upload",
-  description: "Privacy practices for ThreatRecon.io local static analysis, browser based malware triage, Vercel telemetry, and no sample upload.",
+  title: "Privacy",
+  description: "ThreatRecon.io privacy practices for browser based static analysis, local file workflows, no account requirement, and submitted sample handling.",
   alternates: {
-    canonical: "https://threatrecon.io/privacy",
+    canonical: "https://www.threatrecon.io/privacy",
   },
 };
 

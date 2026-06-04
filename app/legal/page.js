@@ -1,10 +1,10 @@
 import LegalPageLayout from "../../components/LegalPageLayout";
 
 export const metadata = {
-  title: "ThreatRecon Legal Notice | Defensive Static Malware Triage",
-  description: "Legal notice and responsible use language for ThreatRecon.io defensive static malware triage.",
+  title: "Legal",
+  description: "ThreatRecon.io legal and acceptable use terms for defensive security education, malware triage practice, and analyst workflow training.",
   alternates: {
-    canonical: "https://threatrecon.io/legal",
+    canonical: "https://www.threatrecon.io/legal",
   },
 };
 

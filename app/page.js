@@ -86,6 +86,46 @@ export default function Page() {
           </div>
         </section>
 
+        <section className="landing-section landing-split">
+          <div className="trust-panel">
+            <div className="section-kicker">Privacy and Safety</div>
+            <h2>Browser based static analysis</h2>
+            <p>Files are processed locally in your browser and are not uploaded to ThreatRecon.io.</p>
+            <p>ThreatRecon.io is designed for browser based static analysis. Files are not uploaded to ThreatRecon.io. The platform does not require an account, does not require a login, and does not collect submitted samples.</p>
+          </div>
+          <div className="trust-panel">
+            <div className="section-kicker">Responsible Use</div>
+            <h2>Defensive use disclaimer</h2>
+            <p>ThreatRecon.io is built for defensive security education, malware triage practice, and analyst workflow training. Users are responsible for using the platform legally and ethically.</p>
+          </div>
+        </section>
+
+        <section className="landing-section walkthrough-card">
+          <div className="walkthrough-copy">
+            <div className="section-kicker">Walkthrough</div>
+            <h2>Static Malware Triage Walkthrough</h2>
+            <p>The safe sample <code>invoice_update.exe</code> demonstrates how an analyst reviews strings, suspicious APIs, IOCs, entropy, MITRE ATT&CK behavior, and final reporting. It uses placeholder training content only, with no live infrastructure or sensitive identifiers.</p>
+          </div>
+          <div className="walkthrough-art" aria-hidden="true">
+            <div className="walk-row"><span>sample</span><strong>invoice_update.exe</strong></div>
+            <div className="walk-row"><span>mode</span><strong>static triage</strong></div>
+            <div className="walk-row"><span>output</span><strong>analyst report</strong></div>
+          </div>
+        </section>
+
+        <section className="landing-section">
+          <div className="section-kicker">Output Preview</div>
+          <h2>Visual proof placeholders</h2>
+          <div className="proof-grid">
+            <div className="proof-card"><div className="proof-bar"></div><h3>Analyzer Overview</h3><p>Score, verdict, static metadata, and workflow summary.</p></div>
+            <div className="proof-card"><div className="proof-bar"></div><h3>IOC Extraction</h3><p>Structured indicators with actionability and hunt context.</p></div>
+            <div className="proof-card"><div className="proof-bar"></div><h3>MITRE ATT&CK Mapping</h3><p>Tactics, techniques, evidence, confidence, and detection ideas.</p></div>
+            <div className="proof-card"><div className="proof-bar"></div><h3>YARA Draft</h3><p>Analyst-reviewed draft rule generated from static findings.</p></div>
+            <div className="proof-card"><div className="proof-bar"></div><h3>Sigma Draft</h3><p>Experimental detection logic for command line and registry behavior.</p></div>
+            <div className="proof-card"><div className="proof-bar"></div><h3>Analyst Report Export</h3><p>Markdown, JSON, IOC CSV, blocklist, YARA, and Sigma outputs.</p></div>
+          </div>
+        </section>
+
         <section className="landing-section">
           <div className="section-kicker">Trust Boundary</div>
           <h2>Known Limitations</h2>

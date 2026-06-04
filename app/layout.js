@@ -1,7 +1,7 @@
 import "./globals.css";
 import VercelTelemetry from "./components/VercelTelemetry";
 
-const siteUrl = "https://threatrecon.io";
+const siteUrl = "https://www.threatrecon.io";
 const siteTitle = "ThreatRecon.io | Browser Based Malware Triage and Threat Hunting Lab";
 const siteDescription =
   "Analyze suspicious files locally in your browser with IOC extraction, strings analysis, entropy checks, MITRE ATT&CK mapping, YARA style drafts, Sigma style drafts, and analyst reporting.";
@@ -41,7 +41,7 @@ export const metadata = {
   referrer: "no-referrer",
   icons: { icon: "/favicon.svg" },
   alternates: {
-    canonical: siteUrl,
+    canonical: `${siteUrl}/`,
   },
   robots: {
     index: true,
@@ -81,29 +81,20 @@ export const viewport = {
   themeColor: "#0a0c0f",
 };
 
-const structuredData = [
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "ThreatRecon.io",
-    applicationCategory: "SecurityApplication",
-    operatingSystem: "Web browser",
-    description: structuredDataDescription,
-    url: `${siteUrl}/`,
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-    },
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "ThreatRecon.io",
+  url: `${siteUrl}/`,
+  description: structuredDataDescription,
+  applicationCategory: "SecurityApplication",
+  operatingSystem: "Web browser",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
   },
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "ThreatRecon.io",
-    url: `${siteUrl}/`,
-    description: structuredDataDescription,
-  },
-];
+};
 
 export default function RootLayout({ children }) {
   return (
