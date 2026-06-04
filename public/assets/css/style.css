@@ -1397,6 +1397,33 @@ textarea.textarea-sm { min-height: 80px; }
 
 .rec-item:last-child { border-bottom: none; }
 
+.query-card {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg3);
+}
+
+.query-title {
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-family: var(--term);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.query-card pre {
+  margin: 6px 0;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
 /* ── Deobfuscation ──────────────────────────────────────────────────── */
 .deobf-item {
   font-size: 11px;

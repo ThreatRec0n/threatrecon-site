@@ -83,7 +83,7 @@ export const THREATRECON_BODY = `
       <div class="panel-head"><div class="dot dot-blue"></div>Sample Input</div>
       <div class="input-tabs">
         <button class="itab active" data-tab="paste">Paste</button>
-        <button class="itab" data-tab="upload">Upload File</button>
+        <button class="itab" data-tab="upload">Select Local File</button>
         <button class="itab" data-tab="url">URL / Hash</button>
       </div>
       <div class="ipane active" id="ipane-paste">
@@ -94,11 +94,11 @@ export const THREATRECON_BODY = `
         <textarea id="custom-yara" class="textarea-sm" placeholder="mimikatz&#10;sekurlsa&#10;stratum\\+tcp"></textarea>
       </div>
       <div class="ipane" id="ipane-upload">
-        <div class="safety-gate safety-gate--compact">Allowed: txt, log, ps1, bat, cmd, sh, py, js, vbs, php, rb, pl, conf, json, xml, ini, csv, yar. Blocked: exe, dll, bin, com, msi, sys, scr, jar, iso, img, docm, xlsm, zip, 7z, rar. <strong>Files are parsed locally in your browser. They are not uploaded.</strong></div>
+        <div class="safety-gate safety-gate--compact">Allowed: txt, log, ps1, bat, cmd, sh, py, js, vbs, php, rb, pl, conf, json, xml, ini, csv, yar. Blocked: exe, dll, bin, com, msi, sys, scr, jar, iso, img, docm, xlsm, zip, 7z, rar. <strong>Files are read locally in your browser. Nothing is uploaded, stored, or executed.</strong></div>
         <div class="drop-zone" id="drop-zone">
           <div class="drop-icon">&#8679;</div>
-          <div class="drop-txt">Drop a text file here or click to browse</div>
-          <div class="drop-sub">Read as text only &middot; never executed &middot; never uploaded</div>
+          <div class="drop-txt">Drop a text file here or click to select local file</div>
+          <div class="drop-sub">Local browser analysis only &middot; no upload &middot; read as text only</div>
         </div>
         <div class="file-loaded" id="file-loaded" style="display:none"></div>
         <div class="file-blocked" id="file-blocked" style="display:none"></div>
@@ -182,6 +182,17 @@ export const THREATRECON_BODY = `
     </div>
 
     <div class="analyzer-grid analyzer-grid--stack">
+      <div class="panel" data-section="pe">
+        <div class="panel-head"><div class="dot dot-purple"></div><div class="panel-head-text"><span class="panel-head-title">Static PE Triage</span><span class="panel-head-desc">MZ/PE headers, sections, imports, entropy, and packer hints when visible locally</span></div></div>
+        <div class="panel-body" id="pe-body"></div>
+      </div>
+      <div class="panel" data-section="script">
+        <div class="panel-head"><div class="dot dot-orange"></div><div class="panel-head-text"><span class="panel-head-title">Script Analysis</span><span class="panel-head-desc">PowerShell, JavaScript, VBScript, Batch, Python, HTA, and macro-style indicators</span></div></div>
+        <div class="panel-body" id="script-body"></div>
+      </div>
+    </div>
+
+    <div class="analyzer-grid analyzer-grid--stack">
       <div class="panel" data-section="yara">
         <div class="panel-head"><div class="dot dot-orange"></div><div class="panel-head-text"><span class="panel-head-title">YARA-style local regex rules</span><span class="panel-head-desc">Heuristic pattern matches — not a full YARA engine</span></div><span id="yara-total" class="panel-head-count"></span></div>
         <div class="panel-body" id="yara-body"></div>
@@ -201,6 +212,22 @@ export const THREATRECON_BODY = `
         <div class="panel-head"><div class="dot dot-green"></div><span class="panel-head-title">Recommended Next Steps</span></div>
         <div class="panel-body" id="recommendations-body"></div>
       </div>
+    </div>
+
+    <div class="analyzer-grid analyzer-grid--stack">
+      <div class="panel" data-section="re-guidance">
+        <div class="panel-head"><div class="dot dot-green"></div><div class="panel-head-text"><span class="panel-head-title">Reverse Engineering Guidance</span><span class="panel-head-desc">Rule-based next steps only — no AI, no external calls</span></div></div>
+        <div class="panel-body" id="re-guidance-body"></div>
+      </div>
+      <div class="panel" data-section="hunting">
+        <div class="panel-head"><div class="dot dot-blue"></div><div class="panel-head-text"><span class="panel-head-title">Hunting Queries</span><span class="panel-head-desc">Safe Splunk, Defender KQL, and Elastic templates generated from local findings</span></div></div>
+        <div class="panel-body" id="hunting-body"></div>
+      </div>
+    </div>
+
+    <div class="panel" data-section="reputation">
+      <div class="panel-head"><div class="dot dot-blue"></div><div class="panel-head-text"><span class="panel-head-title">Manual Reputation Pivot</span><span class="panel-head-desc">VirusTotal, MalwareBazaar, ThreatFox, URLhaus, and OTX links — manual only</span></div></div>
+      <div class="panel-body" id="reputation-body"></div>
     </div>
 
     <div class="panel panel-dynamic" data-section="dynamic" id="dynamic-analysis-card">
@@ -295,10 +322,13 @@ export const THREATRECON_BODY = `
       <div class="export-row" id="export-row" style="display:none">
         <button class="btn-export" id="exp-json">&#8659; JSON Report</button>
         <button class="btn-export" id="exp-md">&#8659; Markdown Report</button>
+        <button class="btn-export" id="exp-ioc-csv">&#8659; IOC CSV</button>
+        <button class="btn-export" id="exp-blocklist">&#8659; Blocklist</button>
         <button class="btn-export" id="exp-yara">&#8659; YARA Rules</button>
         <button class="btn-export" id="exp-copyioc">&#10697; Copy IOCs</button>
         <button class="btn-export" id="exp-copyreport">&#10697; Copy Report</button>
       </div>
+      <p class="field-hint">Reports may contain sensitive IOCs, paths, hashes, or investigation notes. Store and share responsibly.</p>
     </div>
 
     <!-- ===== Optional Threat Intel Enrichment (off by default, manual only) ===== -->

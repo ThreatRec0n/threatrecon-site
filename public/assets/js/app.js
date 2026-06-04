@@ -15,6 +15,7 @@
 import {
   escapeHtml, sha256, sha1, shannonEntropy,
   extractEncodedBlobs, classifyStrings, extractIOCs,
+  isPrivateOrReservedIp as isLocalPrivateIp,
 } from './utils.js';
 import { md5 } from './md5.js';
 import {
@@ -41,9 +42,9 @@ const DEMO_NOTICE = 'Demo sample. Safe text-only artifact. Not real malware. Net
 /* Which result sections are shown for each analysis mode. */
 const MODE_SECTIONS = {
   deep: null, // null = show everything
-  quick: new Set(['static', 'score', 'ioc', 'behavior', 'yara', 'mitre', 'entropy', 'capabilities', 'recommendations', 'dynamic', 'report', 'enrich']),
-  ioc: new Set(['static', 'score', 'ioc', 'enrich']),
-  deobf: new Set(['static', 'score', 'deobf', 'strings', 'entropy']),
+  quick: new Set(['static', 'score', 'ioc', 'behavior', 'script', 'pe', 'yara', 'mitre', 'entropy', 'capabilities', 're-guidance', 'hunting', 'reputation', 'recommendations', 'dynamic', 'report', 'enrich']),
+  ioc: new Set(['static', 'score', 'ioc', 'hunting', 'reputation', 'enrich']),
+  deobf: new Set(['static', 'score', 'deobf', 'strings', 'entropy', 'script']),
 };
 
 /* ─── Small UI helpers ──────────────────────────────────────────────────── */
@@ -221,6 +222,242 @@ function computeRecommendations(caps, malwareType, behaviors, iocs) {
   return rec;
 }
 
+/* ─── Static PE + script triage (local heuristics only) ─────────────────── */
+const PE_IMPORTS = [
+  'VirtualAlloc', 'VirtualAllocEx', 'WriteProcessMemory', 'CreateRemoteThread',
+  'LoadLibraryA', 'LoadLibraryW', 'GetProcAddress', 'WinExec', 'ShellExecute',
+  'InternetOpen', 'InternetOpenUrl', 'URLDownloadToFile', 'CryptEncrypt',
+  'IsDebuggerPresent', 'CheckRemoteDebuggerPresent', 'NtQueryInformationProcess',
+  'RegSetValue', 'CreateService', 'OpenSCManager', 'SetWindowsHookEx', 'GetAsyncKeyState',
+];
+const PACKER_HINTS = ['UPX', 'ASPack', 'Themida', 'VMProtect', 'Enigma', 'PECompact', 'MPRESS', 'FSG', 'Obsidium'];
+const PACKED_SECTIONS = ['.upx', 'upx0', 'upx1', '.packed', '.aspack', '.adata', '.petite', '.mpress'];
+
+function safeByteAt(input, offset) {
+  return offset >= 0 && offset < input.length ? input.charCodeAt(offset) & 0xff : 0;
+}
+
+function readU16LE(input, offset) {
+  return safeByteAt(input, offset) | (safeByteAt(input, offset + 1) << 8);
+}
+
+function readU32LE(input, offset) {
+  return (safeByteAt(input, offset) | (safeByteAt(input, offset + 1) << 8) |
+    (safeByteAt(input, offset + 2) << 16) | (safeByteAt(input, offset + 3) << 24)) >>> 0;
+}
+
+function readAscii(input, offset, len) {
+  let out = '';
+  for (let i = 0; i < len; i++) {
+    const c = safeByteAt(input, offset + i);
+    if (!c) break;
+    out += c >= 32 && c <= 126 ? String.fromCharCode(c) : '';
+  }
+  return out.trim();
+}
+
+function entropyOfSlice(input, offset, len) {
+  if (offset < 0 || len <= 0 || offset >= input.length) return 0;
+  return shannonEntropy(input.slice(offset, Math.min(input.length, offset + len)));
+}
+
+function analyzePE(input) {
+  const hasMZ = input.length > 1 && input.charCodeAt(0) === 0x4d && input.charCodeAt(1) === 0x5a;
+  const peOffset = hasMZ ? readU32LE(input, 0x3c) : -1;
+  const hasPE = peOffset > 0 && peOffset + 6 < input.length && input.slice(peOffset, peOffset + 4) === 'PE\0\0';
+  const machine = hasPE ? readU16LE(input, peOffset + 4) : 0;
+  const archMap = {
+    0x014c: 'x86 (IMAGE_FILE_MACHINE_I386)',
+    0x8664: 'x64 (IMAGE_FILE_MACHINE_AMD64)',
+    0x01c0: 'ARM',
+    0xaa64: 'ARM64',
+  };
+  const sectionCount = hasPE ? Math.min(readU16LE(input, peOffset + 6), 24) : 0;
+  const optSize = hasPE ? readU16LE(input, peOffset + 20) : 0;
+  const sectionTable = hasPE ? peOffset + 24 + optSize : -1;
+  const sections = [];
+  for (let i = 0; i < sectionCount; i++) {
+    const off = sectionTable + (i * 40);
+    if (off + 40 > input.length) break;
+    const name = readAscii(input, off, 8) || `(section ${i + 1})`;
+    const rawSize = readU32LE(input, off + 16);
+    const rawPtr = readU32LE(input, off + 20);
+    const entropy = entropyOfSlice(input, rawPtr, Math.min(rawSize, 128 * 1024));
+    sections.push({ name, rawSize, entropy });
+  }
+  const visibleImports = PE_IMPORTS.filter(api => new RegExp(api.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(input));
+  const packerHints = PACKER_HINTS.filter(h => new RegExp(h, 'i').test(input));
+  const packedSectionHits = sections.filter(s => PACKED_SECTIONS.some(p => s.name.toLowerCase().includes(p)));
+  const highEntropySections = sections.filter(s => s.entropy >= 7.2);
+  const readable = (input.match(/[ -~]{4,}/g) || []).length;
+  const packedIndicators = [];
+  if (shannonEntropy(input) >= 7.2) packedIndicators.push('Overall entropy above 7.2');
+  if (readable < Math.max(8, input.length / 5000)) packedIndicators.push('Few readable strings for file size');
+  if (packerHints.length) packedIndicators.push(`Compiler/packer hints: ${packerHints.join(', ')}`);
+  if (packedSectionHits.length) packedIndicators.push(`Packed section names: ${packedSectionHits.map(s => s.name).join(', ')}`);
+  if (highEntropySections.length) packedIndicators.push(`High-entropy sections: ${highEntropySections.map(s => `${s.name} (${s.entropy.toFixed(2)})`).join(', ')}`);
+  return {
+    detected: hasMZ || hasPE || visibleImports.length > 2 || sections.length > 0,
+    hasMZ,
+    hasPE,
+    fileType: hasPE ? 'Windows PE executable or DLL-like content' : hasMZ ? 'MZ/DOS executable-like content' : 'No PE structure detected',
+    architecture: hasPE ? (archMap[machine] || `Unknown machine 0x${machine.toString(16)}`) : 'Not available',
+    sections,
+    visibleImports,
+    packerHints,
+    packedIndicators,
+  };
+}
+
+const SCRIPT_RULES = {
+  PowerShell: ['EncodedCommand', 'FromBase64String', 'IEX', 'Invoke-Expression', 'Invoke-WebRequest', 'DownloadString', 'Start-Process', 'Bypass', 'Hidden', 'NoProfile', 'Add-MpPreference', 'Set-MpPreference', 'AmsiUtils', 'amsiInitFailed'],
+  JavaScript: ['eval', 'Function', 'ActiveXObject', 'WScript.Shell', 'mshta', 'document.write', 'atob', 'unescape', 'String.fromCharCode', 'XMLHttpRequest', 'fetch'],
+  VBScript: ['CreateObject', 'WScript.Shell', 'MSXML2.XMLHTTP', 'ADODB.Stream', 'Shell.Application', 'Run', 'Exec'],
+  Batch: ['certutil', 'bitsadmin', 'reg add', 'schtasks', 'vssadmin', 'bcdedit', 'wevtutil', 'net user', 'net group', 'whoami', 'ipconfig', 'taskkill', 'powershell'],
+  Python: ['socket', 'subprocess', 'os.system', 'base64.b64decode', 'requests.get', 'exec', 'eval', 'marshal', 'pickle.loads'],
+  HTA: ['<hta:application', 'mshta', 'ActiveXObject', 'VBScript', 'JScript', 'WScript.Shell'],
+  'Office macro-style': ['AutoOpen', 'Document_Open', 'Auto_Open', 'Shell', 'CreateObject', 'WScript.Shell', 'PowerShell', 'URLDownloadToFile'],
+};
+
+function analyzeScripts(input) {
+  return Object.entries(SCRIPT_RULES).map(([family, tokens]) => {
+    const hits = tokens.filter(t => new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(input));
+    return { family, hits };
+  }).filter(x => x.hits.length);
+}
+
+function analystConfidence(behaviors, iocs, yaraHits, capabilities) {
+  const strong = behaviors.filter(b => ['CRITICAL', 'HIGH'].includes(b.sev)).length;
+  const cats = new Set(capabilities.map(c => c.class));
+  const iocCount = Object.values(iocs).flat().length;
+  if (strong >= 3 || cats.size >= 3 || (strong >= 2 && yaraHits.length >= 2)) return 'High';
+  if (strong >= 1 || iocCount >= 2 || yaraHits.length >= 1) return 'Medium';
+  return 'Low';
+}
+
+function likelyCategory(malwareType, capabilities, iocs, behaviors) {
+  const labels = behaviors.map(b => b.label.toLowerCase()).join(' ');
+  const caps = capabilities.map(c => c.class).join(' ');
+  if (/ransom/i.test(malwareType + caps + labels)) return 'Ransomware';
+  if (/credential|stealer|harvester|keylog/i.test(malwareType + caps + labels)) return 'Credential Stealer';
+  if (/backdoor|rat|command & control/i.test(malwareType + caps + labels)) return 'Backdoor';
+  if (/miner|cryptomining/i.test(malwareType + caps + labels)) return 'Miner';
+  if (/download|stager|loader/i.test(malwareType + caps + labels)) return 'Downloader';
+  if ((iocs.emails || []).length && (iocs.urls || []).length) return 'Phishing Artifact';
+  if (/script|powershell|javascript|vbscript|batch|python/i.test(malwareType + labels)) return 'Suspicious Script';
+  return 'Unknown Suspicious';
+}
+
+function buildBehaviorTimeline(behaviors, scriptFindings, peTriage) {
+  const lines = [];
+  if (scriptFindings.length) lines.push('Script launcher or interpreter indicators observed.');
+  if (behaviors.some(b => /download|staging|transfer/i.test(b.label))) lines.push('Payload retrieval or staging behavior indicated.');
+  if (behaviors.some(b => /persistence|scheduled|registry|service/i.test(b.label))) lines.push('Persistence mechanism indicated.');
+  if (behaviors.some(b => /credential|lsass|mimikatz/i.test(b.label))) lines.push('Credential access behavior indicated.');
+  if (behaviors.some(b => /shadow|ransom|backup/i.test(b.label))) lines.push('Impact / ransomware preparation indicated.');
+  if (peTriage.detected) lines.push('PE-like binary artifact should be reviewed for imports, sections, and packing.');
+  return lines.length ? lines : ['No clear multi-stage behavior timeline inferred from static evidence.'];
+}
+
+function buildREGuidance(ctx) {
+  const { peTriage, scriptFindings, capabilities, malwareType, iocs, behaviors } = ctx;
+  const out = [];
+  if (peTriage.detected) {
+    out.push('Open the sample in PEStudio, Detect It Easy, or PE-bear for header/import review.');
+    out.push('Review imports for process injection, networking, persistence, crypto, and anti-debug APIs.');
+    out.push('Check section entropy and section names for packing before deeper disassembly.');
+    out.push('Extract strings and compare them with ThreatRecon IOCs.');
+    out.push('Use Ghidra or Cutter for deeper code review only in an authorized lab.');
+  }
+  if (scriptFindings.some(s => s.family === 'PowerShell')) {
+    out.push('Decode PowerShell Base64 payloads and review web requests, output paths, execution policy bypass, hidden windows, and persistence commands.');
+  }
+  if (scriptFindings.some(s => ['JavaScript', 'VBScript', 'HTA', 'Office macro-style'].includes(s.family))) {
+    out.push('Review script COM objects, ActiveX usage, download cradles, and shell execution chains before opening any linked artifact.');
+  }
+  if (capabilities.some(c => c.class === 'Credential Access')) {
+    out.push('Hunt for LSASS access, procdump/comsvcs.dll usage, Mimikatz strings, and suspicious dump files in EDR process trees.');
+  }
+  if (/ransomware/i.test(malwareType) || capabilities.some(c => c.class === 'Ransomware Behavior')) {
+    out.push('Check shadow copy deletion, extension changes, ransom-note paths, and backup deletion. Do not reconnect affected systems until containment is complete.');
+  }
+  if ((iocs.ips || []).length || (iocs.domains || []).length || (iocs.urls || []).length || (iocs.sha256 || []).length) {
+    out.push('Pivot extracted IOCs manually in reputation tools, then add confirmed IOCs to SIEM, EDR, firewall, DNS, or proxy hunts.');
+  }
+  if (behaviors.length && !out.length) out.push('Use the behavior list as a triage checklist and confirm with controlled dynamic analysis if authorized.');
+  return out.length ? out : ['No specific reverse-engineering guidance beyond standard strings, imports, entropy, and IOC review.'];
+}
+
+function suspiciousCommands(input) {
+  return input.split(/\n/).map(s => s.trim()).filter(s =>
+    /(powershell|cmd\.exe|wscript|cscript|mshta|rundll32|regsvr32|certutil|bitsadmin|schtasks|vssadmin|curl|wget|python|subprocess|os\.system)/i.test(s)
+  ).slice(0, 8);
+}
+
+function buildHuntingQueries(iocs, commands) {
+  const values = [
+    ...(iocs.ips || []), ...(iocs.domains || []), ...(iocs.urls || []),
+    ...(iocs.md5 || []), ...(iocs.sha1 || []), ...(iocs.sha256 || []),
+    ...commands.map(c => c.slice(0, 120)),
+  ].filter(Boolean).slice(0, 12);
+  return values.map(v => ({
+    value: v,
+    splunk: `index=* "${v.replace(/"/g, '\\"')}"`,
+    defender: `DeviceProcessEvents\n| where ProcessCommandLine contains "${v.replace(/"/g, '\\"')}"`,
+    elastic: `process.command_line : "*${v.replace(/"/g, '\\"')}*"`,
+  }));
+}
+
+function isBlockableIp(ip) {
+  return !isLocalPrivateIp(ip) && !/^192\.0\.2\.|^198\.51\.100\.|^203\.0\.113\./.test(ip);
+}
+
+function blocklistItems(iocs) {
+  return [
+    ...(iocs.ips || []).filter(isBlockableIp),
+    ...(iocs.domains || []),
+    ...(iocs.urls || []),
+    ...(iocs.md5 || []), ...(iocs.sha1 || []), ...(iocs.sha256 || []),
+  ];
+}
+
+function iocRows(iocs) {
+  const rows = [];
+  const add = (type, values, notes = '') => (values || []).forEach(value => rows.push({ type, value, source: 'ThreatRecon local extraction', confidence: 'medium', notes }));
+  add('ip', (iocs.ips || []).filter(isBlockableIp), 'External IP');
+  add('domain', iocs.domains, 'Domain indicator');
+  add('url', iocs.urls, 'URL indicator');
+  add('email', iocs.emails, 'Email indicator; do not block without context');
+  add('hash_md5', iocs.md5, 'Hash indicator');
+  add('hash_sha1', iocs.sha1, 'Hash indicator');
+  add('hash_sha256', iocs.sha256, 'Hash indicator');
+  add('file_path', iocs.paths, 'Local file path');
+  add('registry_key', iocs.registry, 'Registry artifact');
+  add('mutex', iocs.mutex, 'Mutex / mutant indicator');
+  return rows;
+}
+
+function pivotLinksForIOCs(iocs) {
+  const links = [];
+  const add = (label, url, value) => links.push({ label, url, value });
+  [...(iocs.md5 || []), ...(iocs.sha1 || []), ...(iocs.sha256 || [])].slice(0, 8).forEach(h => {
+    add('VirusTotal hash search', `https://www.virustotal.com/gui/search/${encodeURIComponent(h)}`, h);
+    add('MalwareBazaar hash search', `https://bazaar.abuse.ch/browse.php?search=${encodeURIComponent(h)}`, h);
+    add('ThreatFox search', 'https://threatfox.abuse.ch/browse/', h);
+  });
+  (iocs.urls || []).slice(0, 6).forEach(u => {
+    add('VirusTotal URL search', `https://www.virustotal.com/gui/search/${encodeURIComponent(u)}`, u);
+    add('URLhaus URL search', `https://urlhaus.abuse.ch/browse.php?search=${encodeURIComponent(u)}`, u);
+    add('OTX URL search', `https://otx.alienvault.com/indicator/url/${encodeURIComponent(u)}`, u);
+  });
+  [...(iocs.domains || []), ...(iocs.ips || []).filter(isBlockableIp)].slice(0, 8).forEach(v => {
+    add('VirusTotal indicator search', `https://www.virustotal.com/gui/search/${encodeURIComponent(v)}`, v);
+    add('OTX indicator search', `https://otx.alienvault.com/indicator/domain/${encodeURIComponent(v)}`, v);
+    add('ThreatFox search', 'https://threatfox.abuse.ch/browse/', v);
+  });
+  return links.slice(0, 24);
+}
+
 /* ─── Dynamic analysis handoff (external links only — manual analyst step) ─ */
 function buildDynamicAnalysisNextSteps() {
   const cfg = DYNAMIC_ANALYSIS_CONFIG;
@@ -324,12 +561,12 @@ function updateDynamicContextualActions(iocs, behaviors, capabilities, malwareTy
 /* ─── Structured analyst report (local, no API) ─────────────────────────── */
 function generateAnalystReport(ctx) {
   const { input, total, verdict, behaviors, iocs, yaraHits, entropy, entropyCat,
-    mitreList, h256, malwareType, capabilities, deobf, isDemo } = ctx;
+    mitreList, h256, malwareType, capabilities, deobf, isDemo, confidence,
+    category, timeline, huntingQueries, reGuidance, peTriage, scriptFindings } = ctx;
   const criticals = behaviors.filter(b => b.sev === 'CRITICAL');
   const highs = behaviors.filter(b => b.sev === 'HIGH');
   const meds = behaviors.filter(b => b.sev === 'MED');
   const iocTotal = Object.values(iocs).flat().length;
-  const confidence = criticals.length >= 2 ? 'high' : (criticals.length === 1 || highs.length >= 3) ? 'medium-high' : highs.length > 0 ? 'medium' : 'low';
   const sections = [];
 
   if (isDemo) {
@@ -344,10 +581,20 @@ function generateAnalystReport(ctx) {
     `The sample triggered ${behaviors.length} behavioral indicator(s) (${criticals.length} CRITICAL, ${highs.length} HIGH, ${meds.length} MEDIUM), ` +
     `${yaraHits.length} YARA-style local regex match(es), and ${iocTotal} extracted IOC(s). This assessment is local static analysis performed entirely in the browser and does not query any external threat-intelligence service.`);
 
-  sections.push('\nTECHNICAL FINDINGS');
+  sections.push('\nANALYST CONFIDENCE');
+  sections.push(`${confidence}. Confidence is based on the number and strength of behavior categories, IOC density, YARA-style matches, and static context.`);
+
+  sections.push('\nKEY FINDINGS');
   if (criticals.length) sections.push('Critical: ' + criticals.map(b => b.label).join('; ') + '.');
   if (highs.length) sections.push('High: ' + highs.slice(0, 6).map(b => b.label).join('; ') + '.');
   if (meds.length) sections.push('Medium: ' + meds.slice(0, 6).map(b => b.label).join('; ') + '.');
+  if (scriptFindings.length) sections.push('Script indicators: ' + scriptFindings.map(s => `${s.family} (${s.hits.join(', ')})`).join('; ') + '.');
+  if (peTriage.detected) sections.push(`Static PE triage: ${peTriage.fileType}; architecture ${peTriage.architecture}; suspicious imports: ${peTriage.visibleImports.join(', ') || 'none visible'}.`);
+
+  sections.push('\nLIKELY MALWARE CATEGORY');
+  sections.push(category);
+
+  sections.push('\nTECHNICAL INDICATORS');
   sections.push(`Shannon entropy is ${entropy.toFixed(3)} bits/byte (${entropyCat.toLowerCase()}), ` +
     (entropy >= 7.2 ? 'consistent with a packed/encrypted payload that should be unpacked before deeper analysis.'
       : entropy >= 6.5 ? 'suggesting obfuscation or compression layers.'
@@ -371,13 +618,22 @@ function generateAnalystReport(ctx) {
   const iocLines = Object.entries(iocs).filter(([, v]) => v.length).map(([k, v]) => `${k}: ${v.join(', ')}`);
   sections.push(iocLines.length ? iocLines.join('\n') : 'No IOCs extracted.');
 
+  sections.push('\nBEHAVIOR TIMELINE');
+  sections.push(timeline.map(x => `- ${x}`).join('\n'));
+
   sections.push('\nDEOBFUSCATED CONTENT');
   sections.push(deobf.length ? deobf.map(d => `[${d.type}] ${d.decoded.slice(0, 160)}`).join('\n') : 'No encoded/obfuscated blobs decoded.');
 
-  sections.push('\nRECOMMENDED RESPONSE ACTIONS');
+  sections.push('\nRECOMMENDED CONTAINMENT');
   if (isDemo) sections.push('Because this is demo mode, response actions are shown for analyst training only.');
   if ((iocs.localIndicators || []).length) sections.push('Note: loopback/local indicators (e.g. 127.0.0.1) are local-only and must NOT be blocked at the firewall or DNS layer or treated as external IOCs.');
   sections.push(ctx.recommendations.map(r => `- ${r}`).join('\n'));
+
+  sections.push('\nRECOMMENDED HUNTING QUERIES');
+  sections.push(huntingQueries.length ? huntingQueries.slice(0, 6).map(q => `- Splunk: ${q.splunk}\n  Defender: ${q.defender.replace(/\n/g, ' ')}\n  Elastic: ${q.elastic}`).join('\n') : 'No query templates generated.');
+
+  sections.push('\nREVERSE ENGINEERING GUIDANCE');
+  sections.push(reGuidance.map(g => `- ${g}`).join('\n'));
 
   sections.push('\n' + formatDynamicAnalysisReportText());
 
@@ -426,6 +682,7 @@ function renderIOC(iocs) {
     { key: 'emails', label: 'Email Addresses', cls: '', link: null },
     { key: 'registry', label: 'Registry Keys', cls: 'reg', link: null },
     { key: 'paths', label: 'File Paths', cls: 'path', link: null },
+    { key: 'mutex', label: 'Mutex / Mutant Indicators', cls: 'reg', link: null },
     { key: 'btc', label: 'BTC Addresses', cls: '', link: v => `https://www.blockchain.com/explorer/addresses/btc/${encodeURIComponent(v)}` },
     { key: 'cve', label: 'CVE References', cls: '', link: v => `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(v)}` },
   ].filter(d => iocs[d.key] && iocs[d.key].length);
@@ -520,6 +777,68 @@ function renderRecommendations(rec) {
     : rec.map(r => `<div class="rec-item">\u2022 ${escapeHtml(r)}</div>`).join('');
 }
 
+function renderPETriage(pe) {
+  const body = $('pe-body');
+  if (!body) return;
+  if (!pe.detected) {
+    body.innerHTML = '<div class="no-ioc">No PE-like structure detected. Static PE Triage appears when MZ/PE headers, sections, imports, or PE strings are visible.</div>';
+    return;
+  }
+  const sectionRows = pe.sections.length
+    ? pe.sections.map(s => `<div class="meta-row"><span class="meta-key">${escapeHtml(s.name)}</span><span class="meta-val">raw ${Number(s.rawSize).toLocaleString()} bytes · entropy ${s.entropy.toFixed(2)}${s.entropy >= 7.2 ? ' · packed?' : ''}</span></div>`).join('')
+    : '<div class="meta-row"><span class="meta-val">Section table not parsable from available text/bytes.</span></div>';
+  body.innerHTML = `
+    <div class="meta-row"><span class="meta-key">Type guess</span><span class="meta-val">${escapeHtml(pe.fileType)}</span></div>
+    <div class="meta-row"><span class="meta-key">DOS header</span><span class="meta-val">${pe.hasMZ ? 'MZ header present' : 'Not detected'}</span></div>
+    <div class="meta-row"><span class="meta-key">PE signature</span><span class="meta-val">${pe.hasPE ? 'PE signature present' : 'Not detected'}</span></div>
+    <div class="meta-row"><span class="meta-key">Architecture</span><span class="meta-val">${escapeHtml(pe.architecture)}</span></div>
+    <h4 class="dyn-section-title">Sections</h4>${sectionRows}
+    <h4 class="dyn-section-title">Suspicious visible imports</h4>
+    ${(pe.visibleImports.length ? pe.visibleImports.map(x => `<span class="ioc-pill hash">${escapeHtml(x)}</span>`).join('') : '<div class="no-ioc">No listed suspicious Windows APIs visible in strings.</div>')}
+    <h4 class="dyn-section-title">Packer / compiler hints</h4>
+    ${(pe.packedIndicators.length ? pe.packedIndicators.map(x => `<div class="rec-item">• ${escapeHtml(x)}</div>`).join('') : '<div class="no-ioc">No strong packing indicators from local static heuristics.</div>')}
+    <p class="field-hint">Static PE Triage is a lightweight browser heuristic, not full binary reverse engineering.</p>`;
+}
+
+function renderScriptAnalysis(findings) {
+  const body = $('script-body');
+  if (!body) return;
+  body.innerHTML = findings.length
+    ? findings.map(f => `<div class="finding-row"><span class="sev-tag sev-MED">${escapeHtml(f.family)}</span><div><div class="find-text">${f.hits.map(escapeHtml).join(', ')}</div><div class="find-tech">Local script indicator match</div></div></div>`).join('')
+    : '<div class="no-ioc">No PowerShell, JavaScript, VBScript, Batch, Python, HTA, or macro-style indicators detected.</div>';
+}
+
+function renderREGuidance(guidance) {
+  const body = $('re-guidance-body');
+  if (!body) return;
+  body.innerHTML = guidance.map(g => `<div class="rec-item">• ${escapeHtml(g)}</div>`).join('');
+}
+
+function renderHuntingQueries(queries) {
+  const body = $('hunting-body');
+  if (!body) return;
+  if (!queries.length) {
+    body.innerHTML = '<div class="no-ioc">No IOC or suspicious command values available for query templates yet.</div>';
+    return;
+  }
+  body.innerHTML = queries.map(q => `
+    <div class="query-card">
+      <div class="query-title">${escapeHtml(q.value)}</div>
+      <pre>Splunk: ${escapeHtml(q.splunk)}</pre>
+      <pre>Defender KQL:\n${escapeHtml(q.defender)}</pre>
+      <pre>Elastic: ${escapeHtml(q.elastic)}</pre>
+    </div>`).join('');
+}
+
+function renderManualPivots(links) {
+  const body = $('reputation-body');
+  if (!body) return;
+  body.innerHTML = links.length
+    ? `<div class="enrich-label">External links are manual analyst pivots. Do not submit sensitive samples or proprietary data to public services unless authorized.</div>` +
+      links.map(l => `<a class="ioc-pill" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.label)}: ${escapeHtml(l.value)} ↗</a>`).join('')
+    : '<div class="no-ioc">No manual reputation pivot links generated yet.</div>';
+}
+
 function renderDeobf(deobf) {
   if (!deobf.length) { $('deobf-body').innerHTML = '<div class="no-ioc">No encoded or obfuscated blobs detected.</div>'; return; }
   $('deobf-body').innerHTML = deobf.map(d => {
@@ -604,11 +923,20 @@ async function runAnalysis() {
   const deobf = extractEncodedBlobs(input);
   const strings = classifyStrings(input);
   const capabilities = computeCapabilities(behaviors, iocs, builtInHits);
+  const peTriage = analyzePE(input);
+  const scriptFindings = analyzeScripts(input);
+  const suspiciousCmds = suspiciousCommands(input);
 
   const scores = computeScore(behaviors, iocs, builtInHits, entropy, deobf.length, capabilities.length);
   const verdict = verdictFromScore(scores.total);
   const malwareType = computeMalwareType(behaviors, iocs, builtInHits, scores.total);
   const recommendations = computeRecommendations(capabilities, malwareType, behaviors, iocs);
+  const confidence = analystConfidence(behaviors, iocs, builtInHits, capabilities);
+  const category = likelyCategory(malwareType, capabilities, iocs, behaviors);
+  const timeline = buildBehaviorTimeline(behaviors, scriptFindings, peTriage);
+  const reGuidance = buildREGuidance({ peTriage, scriptFindings, capabilities, malwareType, iocs, behaviors });
+  const huntingQueries = buildHuntingQueries(iocs, suspiciousCmds);
+  const pivotLinks = pivotLinksForIOCs(iocs);
 
   // MITRE technique set
   const mitreSet = new Set();
@@ -629,17 +957,24 @@ async function runAnalysis() {
   renderBehaviors(behaviors);
   const entropyCat = renderEntropy(entropy);
   renderStrings(strings);
+  renderPETriage(peTriage);
+  renderScriptAnalysis(scriptFindings);
   renderYara(allHits);
   renderMitre(mitreList);
   renderCapabilities(capabilities, malwareType);
   renderRecommendations(recommendations);
+  renderREGuidance(reGuidance);
+  renderHuntingQueries(huntingQueries);
+  renderManualPivots(pivotLinks);
   updateDynamicContextualActions(iocs, behaviors, capabilities, malwareType);
   renderDeobf(deobf);
 
   // Analyst report (textContent only — never innerHTML)
   const report = generateAnalystReport({
     input, total: scores.total, verdict, behaviors, iocs, yaraHits: allHits,
-    entropy, entropyCat, mitreList, h256, h1, md5hash, malwareType, capabilities, deobf, recommendations, isDemo,
+    entropy, entropyCat, mitreList, h256, h1, md5hash, malwareType, capabilities,
+    deobf, recommendations, isDemo, confidence, category, timeline, huntingQueries,
+    reGuidance, peTriage, scriptFindings,
   });
   typewrite($('ai-text'), report);
 
@@ -650,11 +985,14 @@ async function runAnalysis() {
     demoNotice: isDemo ? DEMO_NOTICE : null,
     sha256: h256, sha1: h1, md5: md5hash, entropy,
     score: scores.total, scoreBreakdown: scores, verdict, malwareType,
+    analystConfidence: confidence, likelyCategory: category,
     behaviors: behaviors.map(b => ({ sev: b.sev, label: b.label, tech: b.tech })),
     yaraHits: allHits.map(y => ({ name: y.name, desc: y.desc })),
     mitre: mitreList, capabilities: capabilities.map(c => c.class),
     iocs, deobfuscated: deobf.map(d => ({ type: d.type, decoded: d.decoded.slice(0, 400) })),
-    recommendations, report,
+    peTriage, scriptFindings, behaviorTimeline: timeline, huntingQueries, reGuidance,
+    manualReputationPivots: pivotLinks, blocklist: blocklistItems(iocs),
+    iocCsvRows: iocRows(iocs), recommendations, report,
     dynamicAnalysisNextSteps: buildDynamicAnalysisNextSteps(),
   };
 
@@ -737,6 +1075,8 @@ ${r.demo ? '\n> ' + DEMO_NOTICE + '\n' : ''}
 **Date:** ${r.timestamp}
 **Analysis mode:** ${r.mode}
 **Score:** ${r.score}/100 — ${r.verdict}
+**Analyst confidence:** ${r.analystConfidence}
+**Likely malware category:** ${r.likelyCategory}
 **Inferred type (heuristic):** ${r.malwareType}
 
 ## Hashes (calculated locally)
@@ -757,14 +1097,36 @@ ${r.mitre.join(', ') || 'none'}
 ## Capabilities
 ${r.capabilities.map(c => `- ${c}`).join('\n') || '- none'}
 
+## Static PE Triage
+${r.peTriage.detected ? [
+  `- Type guess: ${r.peTriage.fileType}`,
+  `- DOS header: ${r.peTriage.hasMZ}`,
+  `- PE signature: ${r.peTriage.hasPE}`,
+  `- Architecture: ${r.peTriage.architecture}`,
+  `- Suspicious visible imports: ${r.peTriage.visibleImports.join(', ') || 'none'}`,
+  `- Packed indicators: ${r.peTriage.packedIndicators.join('; ') || 'none'}`,
+].join('\n') : '- No PE-like structure detected'}
+
+## Script Analysis
+${r.scriptFindings.map(s => `- ${s.family}: ${s.hits.join(', ')}`).join('\n') || '- none'}
+
 ## IOCs
 ${Object.entries(r.iocs).filter(([, v]) => v.length).map(([k, v]) => `### ${k}\n${v.join('\n')}`).join('\n\n') || 'none'}
 
 ## Deobfuscated Content
 ${r.deobfuscated.map(d => `- [${d.type}] ${d.decoded}`).join('\n') || '- none'}
 
-## Recommended Response Actions
+## Behavior Timeline
+${r.behaviorTimeline.map(x => `- ${x}`).join('\n') || '- none'}
+
+## Recommended Containment
 ${r.recommendations.map(x => `- ${x}`).join('\n')}
+
+## Recommended Hunting Queries
+${r.huntingQueries.slice(0, 8).map(q => `- ${q.value}\n  - Splunk: \`${q.splunk}\`\n  - Defender KQL: \`${q.defender.replace(/\n/g, ' ')}\`\n  - Elastic: \`${q.elastic}\``).join('\n') || '- none'}
+
+## Reverse Engineering Guidance
+${r.reGuidance.map(x => `- ${x}`).join('\n') || '- none'}
 
 ${formatDynamicAnalysisMarkdown()}
 
@@ -772,6 +1134,36 @@ ${formatDynamicAnalysisMarkdown()}
 *Generated locally by ThreatRecon Malware Triage Workbench — static analysis only, no sample upload, no API calls.*`;
   download(`threatrecon-report-${Date.now()}.md`, md, 'text/markdown');
   showToast('Markdown report downloaded');
+}
+
+function csvEscape(v) {
+  const s = String(v ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function exportIOCCSV() {
+  if (!lastReport) return;
+  const header = ['type', 'value', 'source', 'confidence', 'notes'];
+  const rows = [header.join(',')].concat(lastReport.iocCsvRows.map(r =>
+    [r.type, r.value, r.source, r.confidence, r.notes].map(csvEscape).join(',')
+  ));
+  download(`threatrecon-iocs-${Date.now()}.csv`, rows.join('\n'), 'text/csv');
+  showToast('IOC CSV downloaded');
+}
+
+function exportBlocklist() {
+  if (!lastReport) return;
+  const plain = ['# ThreatRecon blocklist export', '# IPs, domains, URLs, and hashes only', ...lastReport.blocklist].join('\n');
+  const csv = ['type,value'].concat(lastReport.blocklist.map(v => {
+    const type = /^[0-9a-f]{32}$/i.test(v) ? 'hash_md5'
+      : /^[0-9a-f]{40}$/i.test(v) ? 'hash_sha1'
+        : /^[0-9a-f]{64}$/i.test(v) ? 'hash_sha256'
+          : /^https?:\/\//i.test(v) ? 'url'
+            : /^\d{1,3}(\.\d{1,3}){3}$/.test(v) ? 'ip' : 'domain';
+    return [type, v].map(csvEscape).join(',');
+  })).join('\n');
+  download(`threatrecon-blocklist-${Date.now()}.txt`, plain + '\n\n# CSV\n' + csv + '\n', 'text/plain');
+  showToast('Blocklist downloaded');
 }
 
 function exportYARA() {
@@ -1036,6 +1428,8 @@ function wire() {
     $('btn-loadioc').addEventListener('click', loadIOC);
     $('exp-json').addEventListener('click', exportJSON);
     $('exp-md').addEventListener('click', exportMarkdown);
+    $('exp-ioc-csv').addEventListener('click', exportIOCCSV);
+    $('exp-blocklist').addEventListener('click', exportBlocklist);
     $('exp-yara').addEventListener('click', exportYARA);
     $('exp-copyioc').addEventListener('click', copyIOCs);
     $('exp-copyreport').addEventListener('click', copyReport);

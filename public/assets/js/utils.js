@@ -117,8 +117,9 @@ export function tryUrlDecode(s) {
 
 /**
  * Extract and decode encoded/obfuscated blobs from input text. Supports
- * Base64, ROT13, hex (\xNN and 0xNN), URL/percent encoding, and PowerShell
- * -EncodedCommand (UTF-16LE Base64). Attempts up to two decode layers so
+ * Base64, ROT13, hex (\xNN and 0xNN), URL/percent encoding, PowerShell
+ * -EncodedCommand (UTF-16LE Base64), JavaScript atob/String.fromCharCode
+ * patterns, char-code arrays, and simple reversed-string hints. Attempts up to two decode layers so
  * nested encodings (e.g. Base64 inside Base64) are surfaced.
  *
  * SECURITY: nothing here is ever executed. Each result is a plain object of
@@ -180,6 +181,34 @@ export function extractEncodedBlobs(input) {
     push('URL encoded', tok, tryUrlDecode(tok));
   }
 
+  // JavaScript atob("...") and atob('...') patterns.
+  const atobRx = /atob\s*\(\s*['"]([A-Za-z0-9+/=]{12,})['"]\s*\)/gi;
+  while ((m = atobRx.exec(input)) !== null) {
+    push('JavaScript atob()', m[1], tryAtob(m[1]));
+  }
+
+  // String.fromCharCode(72,101,108,108,111) and similar numeric arrays.
+  const charCodeRx = /String\.fromCharCode\s*\(\s*([0-9,\s]{11,})\s*\)/gi;
+  while ((m = charCodeRx.exec(input)) !== null) {
+    const nums = m[1].split(',').map(x => Number(x.trim())).filter(n => Number.isInteger(n) && n >= 0 && n <= 255);
+    if (nums.length >= 4) push('String.fromCharCode', m[0], String.fromCharCode(...nums));
+  }
+
+  const arrayCharRx = /\[\s*((?:\d{2,3}\s*,\s*){4,}\d{2,3})\s*\]\s*(?:\.map|\.forEach|;)/g;
+  while ((m = arrayCharRx.exec(input)) !== null) {
+    const nums = m[1].split(',').map(x => Number(x.trim())).filter(n => Number.isInteger(n) && n >= 0 && n <= 255);
+    if (nums.length >= 4) push('Char code array', m[0], String.fromCharCode(...nums));
+  }
+
+  // Simple reversal only when the sample hints at reversal to avoid noise.
+  if (/reverse\s*\(|\.split\(['"]{2}\)\.reverse\(\)|strrev/i.test(input)) {
+    const revRx = /['"]([A-Za-z0-9_:/?&=.%\-]{12,})['"]/g;
+    while ((m = revRx.exec(input)) !== null) {
+      const decoded = m[1].split('').reverse().join('');
+      if (/https?:\/\/|powershell|cmd\.exe|\.exe|\/bin\//i.test(decoded)) push('Simple string reversal', m[1], decoded);
+    }
+  }
+
   // ROT13: long alphabetic runs that decode to different readable text.
   const rotRx = /[A-Za-z]{16,}/g;
   while ((m = rotRx.exec(input)) !== null) {
@@ -237,6 +266,7 @@ export function extractIOCs(text) {
   const pathUnixRx = /\/(?:tmp|var|etc|home|root|bin|usr|opt|dev|proc)\/[^\s"'<>\n]*/g;
   const btcRx = /\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g;
   const cveRx = /CVE-\d{4}-\d{4,7}/gi;
+  const mutexRx = /(?:mutex|mutant|CreateMutex(?:A|W)?)\s*[:=]?\s*["']?([A-Za-z0-9_.\\-{}]{6,80})/gi;
 
   const urls = [...new Set(text.match(urlRx) || [])].slice(0, 12);
   const rawDomains = [...new Set(text.match(domainRx) || [])];
@@ -248,6 +278,12 @@ export function extractIOCs(text) {
   const ips = [];
   const localIndicators = [];
   allIps.forEach(ip => { (isPrivateOrReservedIp(ip) ? localIndicators : ips).push(ip); });
+
+  const mutex = [];
+  let mx;
+  while ((mx = mutexRx.exec(text)) !== null) {
+    if (!mutex.includes(mx[1])) mutex.push(mx[1]);
+  }
 
   return {
     ips: ips.slice(0, 12),
@@ -263,5 +299,6 @@ export function extractIOCs(text) {
     paths: [...new Set([...(text.match(pathWinRx) || []), ...(text.match(pathUnixRx) || [])])].slice(0, 8),
     btc: [...new Set(text.match(btcRx) || [])].slice(0, 4),
     cve: [...new Set(text.match(cveRx) || [])].slice(0, 6),
+    mutex: mutex.slice(0, 6),
   };
 }
