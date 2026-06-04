@@ -2574,7 +2574,7 @@ body::after {
 }
 
 /* Home page: SSR decoy for View Page Source; hidden after client hydration */
-.source-decoy {
+#source-decoy {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -2587,23 +2587,27 @@ body::after {
   padding: 32px 20px;
 }
 
-.source-decoy h1 {
+#source-decoy h1 {
   font-family: var(--head, system-ui, sans-serif);
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
 }
 
-.source-decoy img {
+#source-decoy img {
+  width: 200px;
+  height: auto;
   opacity: 0.85;
 }
 
-html.tr-hydrated .source-decoy {
-  display: none;
+html.tr-hydrated #source-decoy {
+  display: none !important;
 }
 
-#client-app {
-  min-height: 0;
+#client-app,
+#threatrecon-client-shell {
+  display: block;
+  min-height: 100vh;
 }
 
 html:not(.tr-hydrated) #client-app {
@@ -2613,4 +2617,5 @@ html:not(.tr-hydrated) #client-app {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+  pointer-events: none;
 }

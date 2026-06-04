@@ -1008,7 +1008,7 @@ function renderSandboxes() {
 
 /* ─── Event wiring (replaces every inline on* handler) ──────────────────── */
 function wire() {
-  if (!$('tr-root')) return;
+  if (!$('threatrecon-client-shell') && !$('tr-root')) return;
 
   // Navigation tabs + any element with data-nav (CTAs, footer links)
   document.querySelectorAll('.nav-tab[data-page]').forEach(t =>
@@ -1092,5 +1092,16 @@ function wire() {
   console.log('Signal found. Static analysis only. No cloud calls. No detonation.');
 }
 
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
-else wire();
+function bootThreatRecon() {
+  if (window.__THREATRECON_BOOTED__) return;
+  window.__THREATRECON_BOOTED__ = true;
+  wire();
+}
+
+window.bootThreatRecon = bootThreatRecon;
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootThreatRecon);
+} else {
+  bootThreatRecon();
+}
