@@ -1,8 +1,4 @@
-// ThreatRecon Signal Found.
-// Analyst: if you are reading source, you are already doing recon.
-// /anubis watches the threshold
-//
-// This page is a faithful 1:1 carrier for the finished ThreatRecon static
+// Faithful 1:1 carrier for the finished ThreatRecon static
 // markup. The body of the original index.html is preserved verbatim (every
 // id, class, data-attribute, inline style, and entity is unchanged) and the
 // browser-only engine (public/assets/js/app.js, an ES module) drives it after
@@ -387,7 +383,7 @@ const BODY = `
         <li>Do not paste live malware unless you understand the risk; even though nothing executes here, handle samples in a controlled environment.</li>
         <li>Treat all results as triage hints — confirm with a dynamic sandbox and reputable threat intelligence.</li>
       </ul>
-      <p>Full threat model and hardening details: see <code>docs/security.md</code> in the repository.</p>
+      <p>Full threat model and hardening details are described on this Security notice and in <a href="/legal">Legal &amp; Responsible Use</a>, <a href="/privacy">Privacy</a>, and internal security documentation aligned with OWASP Top 10 and secure-development practice. The site is production-hardened and privacy-conscious; it is not guaranteed secure against all attacks.</p>
     </div></div>
   </div>
 </div>
@@ -398,13 +394,13 @@ const BODY = `
   <div class="page-sub">A free, browser-based malware triage and threat-intelligence workbench.</div>
   <div class="prose">
     <div class="panel"><div class="panel-body">
-      <p><strong>ThreatRecon Malware Triage Workbench</strong> is a static, client-side tool for fast first-pass triage of suspicious scripts, logs, and indicators. It performs static analysis, IOC extraction, behavior mapping, YARA-style matching, deobfuscation, MITRE ATT&amp;CK mapping, and analyst report generation — entirely in your browser, with zero recurring cost and no external dependencies at runtime.</p>
+      <p>ThreatRecon is an independent browser-based malware triage workbench built for safe static analysis, IOC extraction, ATT&amp;CK mapping, and analyst workflow support. It performs static analysis, behavior mapping, YARA-style local regex rules, deobfuscation, and report generation entirely in your browser, with no sample upload and no API calls by default.</p>
       <h3 style="margin-top:14px">Why static + browser-only?</h3>
       <p>Keeping everything client-side means there is no server to attack, no sample storage to leak, and no API bills. The smallest attack surface is the one that never executes the sample and never phones home.</p>
       <h3 style="margin-top:14px">Limitations</h3>
       <p>Static heuristics cannot observe runtime behavior, unpack encrypted payloads, resolve dynamically built strings, or attribute threat actors with confidence. Always validate findings with a dedicated dynamic sandbox.</p>
-      <h3 style="margin-top:14px">Source</h3>
-      <p>Open source and deployable to any static host. See the repository <code>README.md</code> for deployment and the security model.</p>
+      <h3 style="margin-top:14px">Responsible use</h3>
+      <p>Use ThreatRecon only for authorized defensive security work. See <a href="/legal">Legal &amp; Responsible Use</a>, <a href="/privacy">Privacy</a>, and <a href="/terms">Terms</a> for site policies.</p>
     </div></div>
   </div>
 </div>
@@ -413,13 +409,15 @@ const BODY = `
   <div class="footer-inner">
     <div class="footer-about">
       <div class="footer-brand">ThreatRecon.io</div>
-      <div class="footer-meta">Browser-based malware triage workbench. Static analysis only &middot; No cloud sample upload &middot; No detonation &middot; No API cost by default.</div>
+      <div class="footer-meta">ThreatRecon.io &middot; Browser-only static malware triage &middot; No sample upload &middot; No API calls by default</div>
     </div>
     <div class="footer-links">
       <a data-nav="analyzer" href="#analyzer">Analyzer</a>
       <a data-nav="security" href="#security">Security</a>
       <a data-nav="about" href="#about">About</a>
-      <a class="footer-link-github" href="https://github.com/ThreatRec0n/threatrecon-site" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.92-1.17-.92-1.17-.75-.51.06-.5.06-.5.83.06 1.27.85 1.27.85.74 1.27 1.94.9 2.41.69.07-.54.29-.9.53-1.11-1.77-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.67 7.67 0 018 4.15c.68 0 1.37.09 2.01.27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> GitHub</a>
+      <a href="/legal">Legal</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
     </div>
   </div>
 </footer>
@@ -427,6 +425,8 @@ const BODY = `
 <div class="toast" id="toast"></div>
 `;
 
+// dangerouslySetInnerHTML: static trusted template only (BODY constant). User paste/decoded
+// content is rendered by app.js via escapeHtml/textContent — never injected here.
 export default function Page() {
   return <div id="tr-root" dangerouslySetInnerHTML={{ __html: BODY }} />;
 }

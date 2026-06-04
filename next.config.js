@@ -2,44 +2,49 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value:
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests",
+  },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=31536000; includeSubDomains",
   },
   {
     key: "X-Content-Type-Options",
-    value: "nosniff"
+    value: "nosniff",
   },
   {
     key: "Referrer-Policy",
-    value: "no-referrer"
+    value: "no-referrer",
   },
   {
     key: "Permissions-Policy",
     value:
-      "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=()"
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=()",
   },
   {
     key: "Cross-Origin-Opener-Policy",
-    value: "same-origin"
+    value: "same-origin",
   },
   {
     key: "Cross-Origin-Resource-Policy",
-    value: "same-origin"
+    value: "same-origin",
   },
   {
     key: "X-Frame-Options",
-    value: "DENY"
-  }
+    value: "DENY",
+  },
 ];
 
 const nextConfig = {
+  productionBrowserSourceMaps: false,
   async headers() {
     return [
       {
         source: "/(.*)",
-        headers: securityHeaders
-      }
+        headers: securityHeaders,
+      },
     ];
-  }
+  },
 };
 
 module.exports = nextConfig;

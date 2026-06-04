@@ -1003,6 +1003,8 @@ function renderSandboxes() {
 
 /* ─── Event wiring (replaces every inline on* handler) ──────────────────── */
 function wire() {
+  if (!$('tr-root')) return;
+
   // Navigation tabs + any element with data-nav (CTAs, footer links)
   document.querySelectorAll('.nav-tab[data-page]').forEach(t =>
     t.addEventListener('click', () => showPage(t.dataset.page)));
@@ -1021,30 +1023,32 @@ function wire() {
   document.querySelectorAll('.mode-btn').forEach(b =>
     b.addEventListener('click', () => setMode(b.dataset.mode)));
 
-  // Core actions
-  $('btn-analyze').addEventListener('click', runAnalysis);
-  $('btn-clear').addEventListener('click', clearAll);
-  $('btn-demo').addEventListener('click', loadDemo);
-  $('btn-loadioc').addEventListener('click', loadIOC);
-
-  // Exports
-  $('exp-json').addEventListener('click', exportJSON);
-  $('exp-md').addEventListener('click', exportMarkdown);
-  $('exp-yara').addEventListener('click', exportYARA);
-  $('exp-copyioc').addEventListener('click', copyIOCs);
-  $('exp-copyreport').addEventListener('click', copyReport);
+  const btnAnalyze = $('btn-analyze');
+  if (btnAnalyze) {
+    btnAnalyze.addEventListener('click', runAnalysis);
+    $('btn-clear').addEventListener('click', clearAll);
+    $('btn-demo').addEventListener('click', loadDemo);
+    $('btn-loadioc').addEventListener('click', loadIOC);
+    $('exp-json').addEventListener('click', exportJSON);
+    $('exp-md').addEventListener('click', exportMarkdown);
+    $('exp-yara').addEventListener('click', exportYARA);
+    $('exp-copyioc').addEventListener('click', copyIOCs);
+    $('exp-copyreport').addEventListener('click', copyReport);
+  }
 
   // Optional threat-intel enrichment (off by default; manual button only)
   if ($('btn-enrich')) $('btn-enrich').addEventListener('click', enrichIOCs);
 
   // File upload + drag/drop (File Safety Gate)
   const fileInput = $('file-input');
-  fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
-  $('drop-zone').addEventListener('click', () => fileInput.click());
   const dz = $('drop-zone');
-  dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
-  dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+  if (fileInput && dz) {
+    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    dz.addEventListener('click', () => fileInput.click());
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+  }
 
   // Dynamic analysis contextual handoff (scroll only — no external auto-submit)
   document.body.addEventListener('click', (e) => {
@@ -1070,12 +1074,13 @@ function wire() {
       renderKB(f.dataset.filter);
     }));
 
-  // Initial render of static content
-  renderKB('all');
-  renderTools();
-  renderCheatSheet();
-  renderSandboxes();
-  setMode('deep');
+  if ($('kb-grid')) {
+    renderKB('all');
+    renderTools();
+    renderCheatSheet();
+    renderSandboxes();
+    setMode('deep');
+  }
 
   // Tasteful console easter egg (no secrets, no endpoints).
   console.log('%cThreatRecon', 'color:#00d4ff;font-size:20px;font-weight:bold;');

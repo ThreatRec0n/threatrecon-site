@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" role="img" aria-label="Generic sci-fi helmet silhouette">
+  <defs>
+    <linearGradient id="helm" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a2332"/>
+      <stop offset="100%" stop-color="#080a0e"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="118" rx="42" ry="8" fill="#0a0c0f" opacity="0.6"/>
+  <path fill="url(#helm)" stroke="#2a3a58" stroke-width="1.2" d="M60 8c-22 0-38 14-38 36v18c0 8 4 14 10 18l-6 28h68l-6-28c6-4 10-10 10-18V44c0-22-16-36-38-36z"/>
+  <path fill="#131a24" d="M28 54c0-14 14-26 32-26s32 12 32 26v10c0 6-3 11-8 14H36c-5-3-8-8-8-14V54z"/>
+  <path fill="none" stroke="#00d4ff" stroke-width="1" opacity="0.35" d="M36 68h48"/>
+  <ellipse cx="60" cy="52" rx="18" ry="22" fill="#0e1219" opacity="0.9"/>
+  <path fill="#00d4ff" opacity="0.12" d="M44 32h32l4 12H40l4-12z"/>
+</svg>
