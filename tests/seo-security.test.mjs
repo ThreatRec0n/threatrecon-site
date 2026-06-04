@@ -30,11 +30,15 @@ assert(robots.includes('Sitemap: https://threatrecon.io/sitemap.xml'), 'robots s
 });
 assert(!sitemap.includes('/source'), 'sitemap must not include /source');
 
-assert(page.includes('May the Sudo be with you!'), 'source decoy text missing');
-assert(!page.includes('Analyzer Dashboard'), 'app/page.js must not expose analyzer or landing markup');
+assert(page.includes('Analyze suspicious files locally in your browser.'), 'homepage source must expose crawler-readable hero copy');
+assert(page.includes('Static Malware Analysis'), 'homepage source must expose static malware analysis copy');
+assert(page.includes('IOC Extraction and Threat Hunting'), 'homepage source must expose IOC/threat hunting copy');
+assert(page.includes('Known Limitations'), 'homepage source must expose known limitations copy');
+assert(!page.includes('May the Sudo be with you!'), 'homepage source must not expose the old decoy as crawler copy');
+assert(!page.includes('Analyzer Dashboard'), 'app/page.js must not expose stale analyzer wording');
 assert(!page.includes('threatrecon-client-shell'), 'app/page.js must not expose client shell markup');
 
-assert(shell.includes('Analyze suspicious files locally in your browser.'), 'crawler-readable hero copy missing');
+assert(shell.includes('Analyze suspicious files locally in your browser.'), 'client shell hero copy missing');
 assert(shell.includes('How It Works'), 'how it works section missing');
 assert(shell.includes('Static Malware Analysis'), 'static malware analysis heading missing');
 assert(shell.includes('IOC Extraction and Threat Hunting'), 'IOC/threat hunting heading missing');
@@ -53,4 +57,4 @@ assert(nextConfig.includes("connect-src https://threatrecon.io/_vercel/insights/
 
 assert(existsSync(new URL('../public/og-threatrecon.svg', import.meta.url)), 'OG image fallback missing');
 
-console.log('SEO security OK — metadata, robots, sitemap, JSON-LD, OG, privacy, and source-decoy checks passed.');
+console.log('SEO security OK — metadata, robots, sitemap, JSON-LD, OG, privacy, and crawler source checks passed.');

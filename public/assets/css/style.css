@@ -2789,31 +2789,8 @@ body::after {
   opacity: 0.85;
 }
 
-/* Home page: hidden SSR decoy for View Page Source only */
-#source-decoy {
+#crawler-home[hidden] {
   display: none !important;
-  min-height: 100vh;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  background: var(--bg, #0a0c0f);
-  color: var(--accent, #00d4ff);
-  text-align: center;
-  padding: 32px 20px;
-}
-
-#source-decoy h1 {
-  font-family: var(--head, system-ui, sans-serif);
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-#source-decoy img {
-  width: 200px;
-  height: auto;
-  opacity: 0.85;
 }
 
 #threatrecon-client-shell {

@@ -23,6 +23,8 @@ function mountThreatRecon() {
 
   // Static trusted application shell only. Never insert user-controlled analysis content here.
   mount.innerHTML = `<div id="threatrecon-client-shell">${THREATRECON_BODY}</div>`;
+  const fallback = document.getElementById('crawler-home');
+  if (fallback) fallback.hidden = true;
   document.documentElement.classList.add('tr-hydrated');
   bootEngine();
 }
