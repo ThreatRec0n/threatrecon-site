@@ -2572,3 +2572,45 @@ body::after {
   margin: 0 auto;
   opacity: 0.85;
 }
+
+/* Home page: SSR decoy for View Page Source; hidden after client hydration */
+.source-decoy {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: var(--bg, #0a0c0f);
+  color: var(--accent, #00d4ff);
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.source-decoy h1 {
+  font-family: var(--head, system-ui, sans-serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.source-decoy img {
+  opacity: 0.85;
+}
+
+html.tr-hydrated .source-decoy {
+  display: none;
+}
+
+#client-app {
+  min-height: 0;
+}
+
+html:not(.tr-hydrated) #client-app {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}

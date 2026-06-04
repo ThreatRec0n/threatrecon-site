@@ -1,11 +1,5 @@
-// Faithful 1:1 carrier for the finished ThreatRecon static
-// markup. The body of the original index.html is preserved verbatim (every
-// id, class, data-attribute, inline style, and entity is unchanged) and the
-// browser-only engine (public/assets/js/app.js, an ES module) drives it after
-// load. Using a single HTML carrier guarantees zero UI/behavior drift versus
-// the static build — no logic, scoring, wording, or export was rewritten.
-
-const BODY = `
+// Static trusted template — client-only render (not in SSR View Source).
+export const THREATRECON_BODY = `
 <div class="topbar">
   <div class="logo-wrap">
     <svg class="logo-mark" width="24" height="24" viewBox="0 0 22 22" fill="none" aria-hidden="true"><polygon points="11,1 21,6 21,16 11,21 1,16 1,6" stroke="#00d4ff" stroke-width="1.2" fill="none"/><polygon points="11,5 17,8 17,14 11,17 5,14 5,8" stroke="#00d4ff" stroke-width=".6" fill="rgba(0,212,255,.08)"/><circle cx="11" cy="11" r="2" fill="#00d4ff"/></svg>
@@ -424,9 +418,3 @@ const BODY = `
 
 <div class="toast" id="toast"></div>
 `;
-
-// dangerouslySetInnerHTML: static trusted template only (BODY constant). User paste/decoded
-// content is rendered by app.js via escapeHtml/textContent — never injected here.
-export default function Page() {
-  return <div id="tr-root" dangerouslySetInnerHTML={{ __html: BODY }} />;
-}
