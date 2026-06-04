@@ -94,7 +94,7 @@ export const THREATRECON_BODY = `
         <textarea id="custom-yara" class="textarea-sm" placeholder="mimikatz&#10;sekurlsa&#10;stratum\\+tcp"></textarea>
       </div>
       <div class="ipane" id="ipane-upload">
-        <div class="safety-gate safety-gate--compact">Allowed: txt, log, ps1, bat, cmd, sh, py, js, vbs, php, rb, pl, conf, json, xml, ini, csv, yar. Blocked: exe, dll, bin, com, msi, sys, scr, jar, iso, img, docm, xlsm, zip, 7z, rar. <strong>Files are read locally in your browser. Nothing is uploaded, stored, or executed.</strong></div>
+        <div class="safety-gate safety-gate--compact">Allowed: text/script/log files and PE-like binaries up to the browser-safe size cap. Archives and Office macro containers remain blocked. <strong>Files are read locally in your browser. Nothing is uploaded, stored, or executed.</strong></div>
         <div class="drop-zone" id="drop-zone">
           <div class="drop-icon">&#8679;</div>
           <div class="drop-txt">Drop a text file here or click to select local file</div>
@@ -118,6 +118,15 @@ export const THREATRECON_BODY = `
         <button class="mode-btn" data-mode="quick">Quick scan</button>
         <button class="mode-btn" data-mode="ioc">IOC-only</button>
         <button class="mode-btn" data-mode="deobf">Deobfuscation</button>
+      </div>
+
+      <div class="mode-row workflow-row">
+        <span class="mode-label">Workflow</span>
+        <button class="workflow-btn active" data-workflow="SOC Triage">SOC Triage</button>
+        <button class="workflow-btn" data-workflow="Malware Analysis">Malware Analysis</button>
+        <button class="workflow-btn" data-workflow="Reverse Engineering Prep">RE Prep</button>
+        <button class="workflow-btn" data-workflow="Threat Hunting">Threat Hunting</button>
+        <button class="workflow-btn" data-workflow="Incident Report">Incident Report</button>
       </div>
 
       <div class="analyze-row">
@@ -157,6 +166,18 @@ export const THREATRECON_BODY = `
 
   <div class="spinner" id="spinner"><div class="spin-dot"></div><span id="spinner-txt">Initializing engines...</span></div>
 
+  <div class="panel compare-panel">
+    <div class="panel-head"><div class="dot dot-purple"></div><div class="panel-head-text"><span class="panel-head-title">Sample Comparison</span><span class="panel-head-desc">Compare two artifacts locally for shared IOCs, strings, behaviors, rules, and ATT&amp;CK techniques</span></div></div>
+    <div class="panel-body">
+      <div class="compare-grid">
+        <textarea id="compare-a" class="textarea-sm" placeholder="Input A — paste sample text, strings, IOCs, or commands"></textarea>
+        <textarea id="compare-b" class="textarea-sm" placeholder="Input B — paste second sample"></textarea>
+      </div>
+      <div class="analyze-row analyze-row--compact"><button class="btn-export" id="btn-compare">Compare Samples</button><span class="field-hint">Local only. No upload, no API calls, no execution.</span></div>
+      <div id="compare-body"></div>
+    </div>
+  </div>
+
   <!-- RESULTS -->
   <div class="results-wrap" id="results-wrap">
     <div class="analyzer-grid analyzer-grid--stack">
@@ -179,6 +200,10 @@ export const THREATRECON_BODY = `
         <div class="panel-head"><div class="dot dot-blue"></div><span class="panel-head-title">Extracted Strings Classification</span></div>
         <div class="panel-body panel-body--scroll" id="strings-body"></div>
       </div>
+      <div class="panel" data-section="strings-intel">
+        <div class="panel-head"><div class="dot dot-blue"></div><div class="panel-head-text"><span class="panel-head-title">Strings Intelligence</span><span class="panel-head-desc">Grouped static strings with confidence labels</span></div></div>
+        <div class="panel-body panel-body--scroll" id="strings-intel-body"></div>
+      </div>
     </div>
 
     <div class="analyzer-grid analyzer-grid--stack">
@@ -190,6 +215,10 @@ export const THREATRECON_BODY = `
         <div class="panel-head"><div class="dot dot-orange"></div><div class="panel-head-text"><span class="panel-head-title">Script Analysis</span><span class="panel-head-desc">PowerShell, JavaScript, VBScript, Batch, Python, HTA, and macro-style indicators</span></div></div>
         <div class="panel-body" id="script-body"></div>
       </div>
+      <div class="panel" data-section="api-risk">
+        <div class="panel-head"><div class="dot dot-red"></div><div class="panel-head-text"><span class="panel-head-title">API Risk Table</span><span class="panel-head-desc">Suspicious imports and API strings with analyst meaning</span></div></div>
+        <div class="panel-body" id="api-risk-body"></div>
+      </div>
     </div>
 
     <div class="analyzer-grid analyzer-grid--stack">
@@ -200,6 +229,32 @@ export const THREATRECON_BODY = `
       <div class="panel" data-section="mitre">
         <div class="panel-head"><div class="dot dot-purple"></div><div class="panel-head-text"><span class="panel-head-title">MITRE ATT&amp;CK Mapping</span><span class="panel-head-desc">Techniques linked to the knowledge base</span></div></div>
         <div class="panel-body" id="mitre-body"></div>
+      </div>
+      <div class="panel" data-section="attack-table">
+        <div class="panel-head"><div class="dot dot-purple"></div><div class="panel-head-text"><span class="panel-head-title">ATT&amp;CK Evidence Table</span><span class="panel-head-desc">Tactic, technique, evidence, confidence, and detection idea</span></div></div>
+        <div class="panel-body" id="attack-table-body"></div>
+      </div>
+    </div>
+
+    <div class="analyzer-grid analyzer-grid--stack">
+      <div class="panel" data-section="timeline">
+        <div class="panel-head"><div class="dot dot-yellow"></div><div class="panel-head-text"><span class="panel-head-title">Attack Timeline</span><span class="panel-head-desc">Initial execution through impact, inferred from static evidence</span></div></div>
+        <div class="panel-body" id="timeline-body"></div>
+      </div>
+      <div class="panel" data-section="ioc-action">
+        <div class="panel-head"><div class="dot dot-green"></div><div class="panel-head-text"><span class="panel-head-title">IOC Actionability</span><span class="panel-head-desc">Confidence, actionability, reason, and recommended action</span></div></div>
+        <div class="panel-body" id="ioc-action-body"></div>
+      </div>
+    </div>
+
+    <div class="analyzer-grid analyzer-grid--stack">
+      <div class="panel" data-section="draft-yara">
+        <div class="panel-head"><div class="dot dot-orange"></div><div class="panel-head-text"><span class="panel-head-title">Draft YARA Rule</span><span class="panel-head-desc">Generated from suspicious local static findings</span></div></div>
+        <div class="panel-body" id="draft-yara-body"></div>
+      </div>
+      <div class="panel" data-section="draft-sigma">
+        <div class="panel-head"><div class="dot dot-orange"></div><div class="panel-head-text"><span class="panel-head-title">Draft Sigma Rule</span><span class="panel-head-desc">Generated from suspicious process, registry, and script behavior</span></div></div>
+        <div class="panel-body" id="draft-sigma-body"></div>
       </div>
     </div>
 
@@ -223,6 +278,11 @@ export const THREATRECON_BODY = `
         <div class="panel-head"><div class="dot dot-blue"></div><div class="panel-head-text"><span class="panel-head-title">Hunting Queries</span><span class="panel-head-desc">Safe Splunk, Defender KQL, and Elastic templates generated from local findings</span></div></div>
         <div class="panel-body" id="hunting-body"></div>
       </div>
+    </div>
+
+    <div class="panel" data-section="detection">
+      <div class="panel-head"><div class="dot dot-purple"></div><div class="panel-head-text"><span class="panel-head-title">Detection Engineering</span><span class="panel-head-desc">Sigma, YARA, Splunk, Defender KQL, Elastic, blocklists, DNS, and EDR hunt output</span></div></div>
+      <div class="panel-body" id="detection-body"></div>
     </div>
 
     <div class="panel" data-section="reputation">
@@ -325,6 +385,7 @@ export const THREATRECON_BODY = `
         <button class="btn-export" id="exp-ioc-csv">&#8659; IOC CSV</button>
         <button class="btn-export" id="exp-blocklist">&#8659; Blocklist</button>
         <button class="btn-export" id="exp-yara">&#8659; YARA Rules</button>
+        <button class="btn-export" id="exp-sigma">&#8659; Sigma Rule</button>
         <button class="btn-export" id="exp-copyioc">&#10697; Copy IOCs</button>
         <button class="btn-export" id="exp-copyreport">&#10697; Copy Report</button>
       </div>

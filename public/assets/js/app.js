@@ -17,6 +17,19 @@ import {
   extractEncodedBlobs, classifyStrings, extractIOCs,
   isPrivateOrReservedIp as isLocalPrivateIp,
 } from './utils.js';
+import {
+  advancedDecode,
+  buildApiRisk,
+  buildAttackTable,
+  buildAttackTimeline,
+  buildDetectionEngineering,
+  buildIOCActionability,
+  buildStringsIntelligence,
+  compareSamples,
+  generateDraftSigma,
+  generateDraftYara,
+  parsePE,
+} from './advanced-analysis.js';
 import { md5 } from './md5.js';
 import {
   BEHAVIOR_RULES, YARA_RULES, MITRE_MAP, DEMO_SAMPLE,
@@ -30,11 +43,16 @@ let fileContent = '';
 let fileName = '';
 let lastReport = null;
 let analysisMode = 'deep'; // deep | quick | ioc | deobf
+let workflowMode = 'SOC Triage';
+let lastComparison = null;
 
 /* Upload allow / block lists for the File Safety Gate. */
-const ALLOWED_EXT = ['txt', 'log', 'ps1', 'bat', 'cmd', 'sh', 'py', 'js', 'vbs', 'php', 'rb', 'pl', 'conf', 'json', 'xml', 'ini', 'csv', 'yar'];
-const BLOCKED_EXT = ['exe', 'dll', 'bin', 'com', 'msi', 'sys', 'scr', 'jar', 'iso', 'img', 'docm', 'xlsm', 'zip', '7z', 'rar'];
-const MAX_UPLOAD_BYTES = 1024 * 1024; // 1 MB default
+const TEXT_EXT = ['txt', 'log', 'ps1', 'bat', 'cmd', 'sh', 'py', 'js', 'vbs', 'php', 'rb', 'pl', 'conf', 'json', 'xml', 'ini', 'csv', 'yar'];
+const PE_BINARY_EXT = ['exe', 'dll', 'bin', 'com', 'sys', 'scr'];
+const ALLOWED_EXT = TEXT_EXT.concat(PE_BINARY_EXT);
+const BLOCKED_EXT = ['msi', 'jar', 'iso', 'img', 'docm', 'xlsm', 'zip', '7z', 'rar'];
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2 MB browser-safe local analysis cap
+const MAX_INPUT_CHARS = 2 * 1024 * 1024;
 
 /* Single source of truth for the demo notice (UI report, Markdown, JSON all match). */
 const DEMO_NOTICE = 'Demo sample. Safe text-only artifact. Not real malware. Network indicators use documentation ranges, example.com/example.org domains, or clearly labeled demo placeholders. No real malicious infrastructure is included.';
@@ -42,9 +60,9 @@ const DEMO_NOTICE = 'Demo sample. Safe text-only artifact. Not real malware. Net
 /* Which result sections are shown for each analysis mode. */
 const MODE_SECTIONS = {
   deep: null, // null = show everything
-  quick: new Set(['static', 'score', 'ioc', 'behavior', 'script', 'pe', 'yara', 'mitre', 'entropy', 'capabilities', 're-guidance', 'hunting', 'reputation', 'recommendations', 'dynamic', 'report', 'enrich']),
-  ioc: new Set(['static', 'score', 'ioc', 'hunting', 'reputation', 'enrich']),
-  deobf: new Set(['static', 'score', 'deobf', 'strings', 'entropy', 'script']),
+  quick: new Set(['static', 'score', 'score-explain', 'ioc', 'ioc-action', 'behavior', 'script', 'pe', 'api-risk', 'yara', 'draft-yara', 'draft-sigma', 'mitre', 'attack-table', 'timeline', 'entropy', 'capabilities', 're-guidance', 'hunting', 'detection', 'reputation', 'recommendations', 'dynamic', 'report', 'enrich']),
+  ioc: new Set(['static', 'score', 'ioc', 'ioc-action', 'hunting', 'detection', 'reputation', 'enrich']),
+  deobf: new Set(['static', 'score', 'deobf', 'strings', 'strings-intel', 'entropy', 'script']),
 };
 
 /* ─── Small UI helpers ──────────────────────────────────────────────────── */
@@ -80,6 +98,11 @@ function setMode(mode) {
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
 }
 
+function setWorkflowMode(mode) {
+  workflowMode = mode || 'SOC Triage';
+  document.querySelectorAll('.workflow-btn').forEach(b => b.classList.toggle('active', b.dataset.workflow === workflowMode));
+}
+
 /* Apply section visibility for the active analysis mode. */
 function applyModeVisibility() {
   const allowed = MODE_SECTIONS[analysisMode];
@@ -103,7 +126,7 @@ function handleFile(file) {
     fileName = '';
     blockedEl.style.display = 'block';
     blockedEl.textContent = '\u26A0 Blocked: ' + reason + ' Nothing was uploaded or executed — analysis is local only.';
-    showToast('Upload blocked');
+    showToast('Local file blocked');
   };
 
   if (file.size > MAX_UPLOAD_BYTES) {
@@ -121,13 +144,25 @@ function handleFile(file) {
 
   const reader = new FileReader();
   reader.onload = (ev) => {
-    fileContent = String(ev.target.result || '');
+    const result = ev.target.result;
+    if (result instanceof ArrayBuffer) {
+      const bytes = new Uint8Array(result);
+      let out = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        out += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      fileContent = out;
+    } else {
+      fileContent = String(result || '');
+    }
     fileName = file.name;
     loadedEl.style.display = 'block';
     // textContent — never innerHTML — so a crafted file name cannot inject markup.
     loadedEl.textContent = `\u2713 Loaded (local): ${fileName} \u2014 ${fileContent.length.toLocaleString()} bytes. Not uploaded anywhere.`;
   };
-  reader.readAsText(file); // read as TEXT only; the file is never executed.
+  if (PE_BINARY_EXT.includes(ext)) reader.readAsArrayBuffer(file);
+  else reader.readAsText(file); // read locally only; the file is never executed.
 }
 
 /* ─── Scoring (six weighted components) ─────────────────────────────────── */
@@ -589,7 +624,8 @@ function generateAnalystReport(ctx) {
   const { input, total, verdict, behaviors, iocs, yaraHits, entropy, entropyCat,
     mitreList, h256, malwareType, capabilities, deobf, isDemo, confidence,
     category, timeline, huntingQueries, reGuidance, peTriage, scriptFindings,
-    exportNotes } = ctx;
+    exportNotes, scores, workflowMode, stringsIntelligence, apiRisk, attackTable,
+    draftYara, draftSigma, iocActionability } = ctx;
   const criticals = behaviors.filter(b => b.sev === 'CRITICAL');
   const highs = behaviors.filter(b => b.sev === 'HIGH');
   const meds = behaviors.filter(b => b.sev === 'MED');
@@ -611,6 +647,9 @@ function generateAnalystReport(ctx) {
   sections.push('\nANALYST CONFIDENCE');
   sections.push(`${confidence}. Confidence is based on the number and strength of behavior categories, IOC density, YARA-style matches, and static context.`);
 
+  sections.push('\nANALYST WORKFLOW MODE');
+  sections.push(`${workflowMode}. This changes report emphasis only; detection truth and scoring are unchanged.`);
+
   sections.push('\nKEY FINDINGS');
   if (criticals.length) sections.push('Critical: ' + criticals.map(b => b.label).join('; ') + '.');
   if (highs.length) sections.push('High: ' + highs.slice(0, 6).map(b => b.label).join('; ') + '.');
@@ -620,6 +659,9 @@ function generateAnalystReport(ctx) {
 
   sections.push('\nLIKELY MALWARE CATEGORY');
   sections.push(category);
+
+  sections.push('\nSCORE EXPLANATION');
+  sections.push(`Behavior score: ${scores.beh}; IOC score: ${scores.iocScore}; YARA score: ${scores.yaraScore}; entropy score: ${scores.entScore}; deobfuscation score: ${scores.deobfScore}; capability score: ${scores.capScore}. Final verdict follows the composite score threshold.`);
 
   sections.push('\nTECHNICAL INDICATORS');
   sections.push(`Shannon entropy is ${entropy.toFixed(3)} bits/byte (${entropyCat.toLowerCase()}), ` +
@@ -641,13 +683,31 @@ function generateAnalystReport(ctx) {
   sections.push('\nATT&CK MAPPING');
   sections.push(mitreList.length ? mitreList.map(t => MITRE_MAP[t] || t).join('\n') : 'No techniques mapped.');
 
+  sections.push('\nATT&CK TABLE');
+  sections.push(attackTable.length ? attackTable.map(r => `- ${r.tactic} | ${r.techniqueId} ${r.techniqueName} | Evidence: ${r.observedEvidence} | Confidence: ${r.confidence} | Detection: ${r.detectionIdea}`).join('\n') : 'No ATT&CK table rows generated.');
+
   sections.push('\nINDICATORS OF COMPROMISE');
   const iocLines = Object.entries(iocs).filter(([, v]) => v.length).map(([k, v]) => `${k}: ${v.join(', ')}`);
   sections.push(iocLines.length ? iocLines.join('\n') : 'No IOCs extracted.');
   if (exportNotes.length) sections.push('\nActionable export notes:\n' + exportNotes.map(n => `- ${n}`).join('\n'));
 
+  sections.push('\nIOC ACTIONABILITY');
+  sections.push(iocActionability.length ? iocActionability.map(r => `- ${r.type}: ${r.value} | actionable=${r.actionable ? 'yes' : 'no'} | ${r.reason} | ${r.recommendedAction}`).join('\n') : 'No IOC actionability rows generated.');
+
+  sections.push('\nSTRINGS INTELLIGENCE');
+  sections.push(stringsIntelligence.length ? stringsIntelligence.map(c => `- ${c.name} (${c.confidence}): ${c.items.slice(0, 6).join('; ')}`).join('\n') : 'No high-signal string categories detected.');
+
+  sections.push('\nAPI RISK TABLE');
+  sections.push(apiRisk.length ? apiRisk.map(a => `- ${a.api} | ${a.category} | ${a.risk} | ${a.detectedAs} | ${a.why}`).join('\n') : 'No suspicious API imports or API strings detected.');
+
   sections.push('\nBEHAVIOR TIMELINE');
-  sections.push(timeline.map(x => `- ${x}`).join('\n'));
+  sections.push(timeline.map(x => `- ${x.stage}: ${x.evidence.join('; ')} | Confidence: ${x.confidence}${x.technique ? ` | ${x.technique}` : ''} | Validate: ${x.validation}`).join('\n'));
+
+  sections.push('\nDRAFT YARA RULE');
+  sections.push(draftYara);
+
+  sections.push('\nDRAFT SIGMA RULE');
+  sections.push(draftSigma);
 
   sections.push('\nDEOBFUSCATED CONTENT');
   sections.push(deobf.length ? deobf.map(d => `[${d.type}] ${d.decoded.slice(0, 160)}`).join('\n') : 'No encoded/obfuscated blobs decoded.');
@@ -774,6 +834,19 @@ function renderStrings(strings) {
     }).join('');
 }
 
+function renderStringsIntelligence(categories) {
+  const body = $('strings-intel-body');
+  if (!body) return;
+  body.innerHTML = categories.length
+    ? `<p class="field-hint">String categories are static indicators and require analyst validation.</p>` +
+      categories.map(c => `<div class="query-card">
+        <div class="query-title">${escapeHtml(c.name)} <span class="ioc-count">${escapeHtml(c.confidence)}</span></div>
+        <div class="field-hint">${escapeHtml(c.explanation)}</div>
+        <div>${c.items.map(v => `<span class="ioc-pill">${escapeHtml(v)}</span>`).join('')}</div>
+      </div>`).join('')
+    : '<div class="no-ioc">No high-signal strings grouped into intelligence categories.</div>';
+}
+
 function renderYara(allHits) {
   $('yara-total').textContent = allHits.length + ' matches';
   $('yara-body').innerHTML = allHits.length === 0
@@ -789,6 +862,114 @@ function renderMitre(mitreList) {
       const url = `https://attack.mitre.org/techniques/${t.replace('.', '/')}`;
       return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="mitre-tag">${escapeHtml(label)}</a>`;
     }).join('');
+}
+
+function renderAttackTable(rows) {
+  const body = $('attack-table-body');
+  if (!body) return;
+  if (!rows.length) {
+    body.innerHTML = '<div class="no-ioc">No ATT&CK table rows generated.</div>';
+    return;
+  }
+  body.innerHTML = `<div class="tr-table-wrap"><table class="tr-table">
+    <thead><tr><th>Tactic</th><th>Technique</th><th>Observed evidence</th><th>Confidence</th><th>Detection idea</th></tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      <td>${escapeHtml(r.tactic)}</td>
+      <td><a href="https://attack.mitre.org/techniques/${escapeHtml(r.techniqueId.replace('.', '/'))}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.techniqueId)}</a><br><span class="field-hint">${escapeHtml(r.techniqueName)}</span></td>
+      <td>${escapeHtml(r.observedEvidence)}</td>
+      <td>${escapeHtml(r.confidence)}</td>
+      <td>${escapeHtml(r.detectionIdea)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function renderTimelineTable(rows) {
+  const body = $('timeline-body');
+  if (!body) return;
+  body.innerHTML = rows.map(r => `<div class="query-card">
+    <div class="query-title">${escapeHtml(r.stage)} <span class="ioc-count">${escapeHtml(r.confidence)}</span></div>
+    <div>${r.evidence.map(e => `<div class="rec-item">• ${escapeHtml(e)}</div>`).join('')}</div>
+    ${r.technique ? `<div class="find-tech">${escapeHtml(r.technique)}</div>` : ''}
+    <div class="field-hint">Validation: ${escapeHtml(r.validation)}</div>
+  </div>`).join('');
+}
+
+function renderApiRisk(rows) {
+  const body = $('api-risk-body');
+  if (!body) return;
+  body.innerHTML = rows.length
+    ? `<div class="tr-table-wrap"><table class="tr-table">
+        <thead><tr><th>API</th><th>Category</th><th>Risk</th><th>Why it matters</th><th>Detected as</th></tr></thead>
+        <tbody>${rows.map(r => `<tr><td>${escapeHtml(r.api)}</td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.risk)}</td><td>${escapeHtml(r.why)}</td><td>${escapeHtml(r.detectedAs)}</td></tr>`).join('')}</tbody>
+      </table></div>`
+    : '<div class="no-ioc">No suspicious API imports or API strings detected.</div>';
+}
+
+function renderGeneratedRule(targetId, rule, label) {
+  const body = $(targetId);
+  if (!body) return;
+  body.innerHTML = `<p class="field-hint">Draft ${escapeHtml(label)} rule. Analyst review required before production use.</p>
+    <pre class="rule-preview">${escapeHtml(rule)}</pre>
+    <button class="btn-export copy-generated" data-copy-target="${escapeHtml(targetId)}">⧉ Copy ${escapeHtml(label)}</button>`;
+}
+
+function renderIOCActionability(rows) {
+  const body = $('ioc-action-body');
+  if (!body) return;
+  body.innerHTML = rows.length
+    ? `<div class="tr-table-wrap"><table class="tr-table">
+        <thead><tr><th>Type</th><th>Value</th><th>Confidence</th><th>Actionable</th><th>Reason</th><th>Recommended action</th></tr></thead>
+        <tbody>${rows.map(r => `<tr><td>${escapeHtml(r.type)}</td><td>${escapeHtml(r.value)}</td><td>${escapeHtml(r.confidence)}</td><td>${r.actionable ? 'yes' : 'no'}</td><td>${escapeHtml(r.reason)}</td><td>${escapeHtml(r.recommendedAction)}</td></tr>`).join('')}</tbody>
+      </table></div>`
+    : '<div class="no-ioc">No IOC actionability rows generated.</div>';
+}
+
+function renderDetectionEngineering(out) {
+  const body = $('detection-body');
+  if (!body) return;
+  const blocks = [
+    ['Draft Sigma', out.draftSigma],
+    ['Draft YARA', out.draftYara],
+    ['Splunk Queries', (out.splunk || []).join('\n\n')],
+    ['Defender KQL', (out.defender || []).join('\n\n')],
+    ['Elastic Queries', (out.elastic || []).join('\n\n')],
+    ['Firewall Blocklist', (out.firewallBlocklist || []).join('\n')],
+    ['DNS Blocklist', (out.dnsBlocklist || []).join('\n')],
+    ['EDR Hash Hunt Suggestions', (out.edrHashHunts || []).join('\n')],
+  ];
+  body.innerHTML = blocks.map(([title, text], idx) => `<div class="query-card">
+    <div class="query-title">${escapeHtml(title)}</div>
+    <pre class="rule-preview" id="det-block-${idx}">${escapeHtml(text || 'No output generated.')}</pre>
+    <button class="btn-export copy-generated" data-copy-target="det-block-${idx}">⧉ Copy ${escapeHtml(title)}</button>
+  </div>`).join('');
+}
+
+function renderComparison(result) {
+  const body = $('compare-body');
+  if (!body) return;
+  if (!result) {
+    body.innerHTML = '<div class="no-ioc">Paste two samples and click Compare Samples. Comparison is local only.</div>';
+    return;
+  }
+  const sharedIocLines = Object.entries(result.sharedIocs).filter(([, v]) => v.length)
+    .map(([k, v]) => `<div class="meta-row"><span class="meta-key">${escapeHtml(k)}</span><span class="meta-val">${v.map(escapeHtml).join(', ')}</span></div>`).join('');
+  body.innerHTML = `<div class="score-wrap">
+      <div class="score-big">${result.similarityScore}</div>
+      <div class="score-meta"><div class="score-label">Similarity / 100</div><div id="compare-verdict">${escapeHtml(result.possibleRelation)} possible relation</div></div>
+    </div>
+    <p class="field-hint">${escapeHtml(result.reasoning)}</p>
+    <h4 class="dyn-section-title">Shared IOCs</h4>${sharedIocLines || '<div class="no-ioc">No shared IOCs.</div>'}
+    <h4 class="dyn-section-title">Shared Strings</h4><div>${result.sharedStrings.map(s => `<span class="ioc-pill">${escapeHtml(s)}</span>`).join('') || '<div class="no-ioc">No shared strings.</div>'}</div>
+    <h4 class="dyn-section-title">Shared Behaviors / Rules / ATT&CK</h4>
+    <div>${result.sharedBehaviors.concat(result.sharedYara, result.sharedMitre).map(s => `<span class="ioc-pill hash">${escapeHtml(s)}</span>`).join('') || '<div class="no-ioc">No shared behavior, YARA, or ATT&CK overlap.</div>'}</div>
+    <div class="export-row export-row--inline">
+      <button class="btn-export" id="exp-compare-json">⇓ Comparison JSON</button>
+      <button class="btn-export" id="exp-compare-md">⇓ Comparison Markdown</button>
+    </div>`;
+  const jsonBtn = $('exp-compare-json');
+  const mdBtn = $('exp-compare-md');
+  if (jsonBtn) jsonBtn.addEventListener('click', exportComparisonJSON);
+  if (mdBtn) mdBtn.addEventListener('click', exportComparisonMarkdown);
 }
 
 function renderCapabilities(capabilities, malwareType) {
@@ -809,18 +990,28 @@ function renderPETriage(pe) {
   const body = $('pe-body');
   if (!body) return;
   const sectionRows = pe.sections.length
-    ? pe.sections.map(s => `<div class="meta-row"><span class="meta-key">${escapeHtml(s.name)}</span><span class="meta-val">raw ${Number(s.rawSize).toLocaleString()} bytes · entropy ${s.entropy.toFixed(2)}${s.entropy >= 7.2 ? ' · packed?' : ''}</span></div>`).join('')
+    ? pe.sections.map(s => `<div class="meta-row"><span class="meta-key">${escapeHtml(s.name)}</span><span class="meta-val">virtual ${Number(s.virtualSize || 0).toLocaleString()} · raw ${Number(s.rawSize).toLocaleString()} bytes · entropy ${s.entropy.toFixed(2)}${s.executable ? ' · executable' : ''}${s.writable ? ' · writable' : ''}${s.suspicious ? ' · suspicious' : ''}${s.notes?.length ? ` · ${s.notes.map(escapeHtml).join(', ')}` : ''}</span></div>`).join('')
     : `<div class="meta-row"><span class="meta-val">${pe.detected ? 'Section table not parsable from available text/bytes.' : 'No section table parsed because no MZ/PE structure was detected.'}</span></div>`;
   body.innerHTML = `
     <div class="meta-row"><span class="meta-key">Type guess</span><span class="meta-val">${escapeHtml(pe.fileType)}</span></div>
     <div class="meta-row"><span class="meta-key">DOS header</span><span class="meta-val">${pe.hasMZ ? 'true' : 'false'}</span></div>
     <div class="meta-row"><span class="meta-key">PE signature</span><span class="meta-val">${pe.hasPE ? 'true' : 'false'}</span></div>
     <div class="meta-row"><span class="meta-key">Architecture</span><span class="meta-val">${escapeHtml(pe.architecture)}</span></div>
+    <div class="meta-row"><span class="meta-key">Timestamp</span><span class="meta-val">${escapeHtml(pe.timestamp || 'Not available')}</span></div>
+    <div class="meta-row"><span class="meta-key">Subsystem</span><span class="meta-val">${escapeHtml(pe.subsystem || 'Not available')}</span></div>
+    <div class="meta-row"><span class="meta-key">Image base</span><span class="meta-val">${escapeHtml(pe.imageBase || 'Not available')}</span></div>
+    <div class="meta-row"><span class="meta-key">Entry point RVA</span><span class="meta-val">${escapeHtml(pe.entryPointRva || 'Not available')}</span></div>
+    <div class="meta-row"><span class="meta-key">DLL characteristics</span><span class="meta-val">${(pe.dllCharacteristics || []).map(escapeHtml).join(', ') || 'none parsed'}</span></div>
     <h4 class="dyn-section-title">Sections</h4>${sectionRows}
-    <h4 class="dyn-section-title">${pe.realImportTableParsed ? 'Imports' : 'Suspicious API strings'}</h4>
-    ${((pe.realImportTableParsed ? pe.imports : pe.suspiciousApiStrings).length ? (pe.realImportTableParsed ? pe.imports : pe.suspiciousApiStrings).map(x => `<span class="ioc-pill hash">${escapeHtml(x)}</span>`).join('') : '<div class="no-ioc">No listed suspicious Windows API strings visible.</div>')}
+    <h4 class="dyn-section-title">Imports</h4>
+    ${(pe.imports || []).length ? pe.imports.map(x => `<span class="ioc-pill hash">${escapeHtml(x)}</span>`).join('') : '<div class="no-ioc">No PE import table entries parsed from available bytes.</div>'}
+    <h4 class="dyn-section-title">Exports</h4>
+    ${(pe.exports || []).length ? pe.exports.map(x => `<span class="ioc-pill">${escapeHtml(x)}</span>`).join('') : '<div class="no-ioc">No PE export table entries parsed from available bytes.</div>'}
+    <h4 class="dyn-section-title">Suspicious API strings</h4>
+    ${(pe.suspiciousApiStrings || []).length ? pe.suspiciousApiStrings.map(x => `<span class="ioc-pill hash">${escapeHtml(x)}</span>`).join('') : '<div class="no-ioc">No listed suspicious Windows API strings visible.</div>'}
     <h4 class="dyn-section-title">Packer / compiler hints</h4>
     ${(pe.packedIndicators.length ? pe.packedIndicators.map(x => `<div class="rec-item">• ${escapeHtml(x)}</div>`).join('') : '<div class="no-ioc">No strong packing indicators from local static heuristics.</div>')}
+    ${(pe.warnings || []).length ? `<h4 class="dyn-section-title">Warnings</h4>${pe.warnings.map(x => `<div class="rec-item">• ${escapeHtml(x)}</div>`).join('')}` : ''}
     <p class="field-hint">Static PE Triage is a lightweight browser heuristic, not full binary reverse engineering.</p>`;
 }
 
@@ -922,7 +1113,11 @@ async function runAnalysis() {
   else if (activeTab === 'url') input = $('url-input').value.trim();
   else input = $('input-text').value.trim();
 
-  if (!input) { showToast('Paste content or upload a file first.'); return; }
+  if (!input) { showToast('Paste content or select a local file first.'); return; }
+  if (input.length > MAX_INPUT_CHARS) {
+    showToast('Input is too large for browser safe analysis. Split the artifact or analyze locally in a dedicated lab.');
+    return;
+  }
 
   setStatus('analyzing', 'Running engines...');
   $('btn-analyze').disabled = true;
@@ -944,10 +1139,10 @@ async function runAnalysis() {
   const customHits = buildCustomRules().filter(r => r.rx.test(input));
   const allHits = builtInHits.concat(customHits);
   const entropy = shannonEntropy(input);
-  const deobf = extractEncodedBlobs(input);
+  const deobf = advancedDecode(input, extractEncodedBlobs(input));
   const strings = classifyStrings(input);
   const capabilities = computeCapabilities(behaviors, iocs, builtInHits);
-  const peTriage = analyzePE(input);
+  const peTriage = parsePE(input);
   const scriptFindings = analyzeScripts(input);
   const suspiciousCmds = suspiciousCommands(input);
 
@@ -957,7 +1152,6 @@ async function runAnalysis() {
   const recommendations = computeRecommendations(capabilities, malwareType, behaviors, iocs);
   const confidence = analystConfidence(behaviors, iocs, builtInHits, capabilities);
   const category = likelyCategory(malwareType, capabilities, iocs, behaviors);
-  const timeline = buildBehaviorTimeline(behaviors, scriptFindings, peTriage);
   const reGuidance = buildREGuidance({ peTriage, scriptFindings, capabilities, malwareType, iocs, behaviors });
   const huntingQueries = buildHuntingQueries(iocs, suspiciousCmds);
   const pivotLinks = pivotLinksForIOCs(iocs);
@@ -968,6 +1162,15 @@ async function runAnalysis() {
   behaviors.forEach(b => b.tech && b.tech.split(',').forEach(t => mitreSet.add(t.trim())));
   if (iocs.ips.length || iocs.urls.length || iocs.domains.length) mitreSet.add('T1071');
   const mitreList = [...mitreSet].slice(0, 14);
+  const stringsIntelligence = buildStringsIntelligence(input);
+  const apiRisk = buildApiRisk(peTriage);
+  const attackTable = buildAttackTable(behaviors, mitreList, MITRE_MAP);
+  const timeline = buildAttackTimeline({ input, behaviors, peTriage, apiRisk });
+  const draftYara = generateDraftYara({ iocs, category, apiRisk, stringsIntelligence, behaviors, isDemo });
+  const draftSigma = generateDraftSigma(input, attackTable);
+  const iocActionability = buildIOCActionability(iocs, isDemo, isDocumentationIp, isLocalPrivateIp);
+  const blocklist = blocklistItems(iocs, isDemo);
+  const detectionEngineering = buildDetectionEngineering({ draftYara, draftSigma, huntingQueries, blocklist });
 
   // Reveal panels
   $('static-panel').style.display = 'block';
@@ -982,14 +1185,22 @@ async function runAnalysis() {
   renderBehaviors(behaviors);
   const entropyCat = renderEntropy(entropy);
   renderStrings(strings);
+  renderStringsIntelligence(stringsIntelligence);
   renderPETriage(peTriage);
+  renderApiRisk(apiRisk);
   renderScriptAnalysis(scriptFindings);
   renderYara(allHits);
   renderMitre(mitreList);
+  renderAttackTable(attackTable);
+  renderTimelineTable(timeline);
   renderCapabilities(capabilities, malwareType);
   renderRecommendations(recommendations);
   renderREGuidance(reGuidance);
   renderHuntingQueries(huntingQueries);
+  renderGeneratedRule('draft-yara-body', draftYara, 'YARA');
+  renderGeneratedRule('draft-sigma-body', draftSigma, 'Sigma');
+  renderIOCActionability(iocActionability);
+  renderDetectionEngineering(detectionEngineering);
   renderManualPivots(pivotLinks);
   updateDynamicContextualActions(iocs, behaviors, capabilities, malwareType);
   renderDeobf(deobf);
@@ -999,13 +1210,16 @@ async function runAnalysis() {
     input, total: scores.total, verdict, behaviors, iocs, yaraHits: allHits,
     entropy, entropyCat, mitreList, h256, h1, md5hash, malwareType, capabilities,
     deobf, recommendations, isDemo, confidence, category, timeline, huntingQueries,
-    reGuidance, peTriage, scriptFindings, exportNotes,
+    reGuidance, peTriage, scriptFindings, exportNotes, scores, workflowMode,
+    stringsIntelligence, apiRisk, attackTable, draftYara, draftSigma,
+    iocActionability, detectionEngineering,
   });
   typewrite($('ai-text'), report);
 
   lastReport = {
     timestamp: new Date().toISOString(),
     mode: analysisMode,
+    workflowMode,
     demo: isDemo,
     demoNotice: isDemo ? DEMO_NOTICE : null,
     sha256: h256, sha1: h1, md5: md5hash, entropy,
@@ -1015,8 +1229,10 @@ async function runAnalysis() {
     yaraHits: allHits.map(y => ({ name: y.name, desc: y.desc })),
     mitre: mitreList, capabilities: capabilities.map(c => c.class),
     iocs, deobfuscated: deobf.map(d => ({ type: d.type, decoded: d.decoded.slice(0, 400) })),
-    peTriage, scriptFindings, behaviorTimeline: timeline, huntingQueries, reGuidance,
-    manualReputationPivots: pivotLinks, blocklist: blocklistItems(iocs, isDemo),
+    peTriage, scriptFindings, stringsIntelligence, apiRisk, attackTable,
+    behaviorTimeline: timeline, draftYara, draftSigma, detectionEngineering,
+    iocActionability, huntingQueries, reGuidance,
+    manualReputationPivots: pivotLinks, blocklist,
     actionableExportNotes: exportNotes,
     iocCsvRows: iocRows(iocs, isDemo), recommendations, report,
     dynamicAnalysisNextSteps: buildDynamicAnalysisNextSteps(),
@@ -1100,6 +1316,7 @@ function exportMarkdown() {
 ${r.demo ? '\n> ' + DEMO_NOTICE + '\n' : ''}
 **Date:** ${r.timestamp}
 **Analysis mode:** ${r.mode}
+**Workflow mode:** ${r.workflowMode}
 **Score:** ${r.score}/100 — ${r.verdict}
 **Analyst confidence:** ${r.analystConfidence}
 **Likely malware category:** ${r.likelyCategory}
@@ -1111,6 +1328,14 @@ ${r.demo ? '\n> ' + DEMO_NOTICE + '\n' : ''}
 - SHA-256: \`${r.sha256}\`
 - Entropy: ${r.entropy.toFixed(3)} bits/byte
 
+## Score Explanation
+- Behavior score: ${r.scoreBreakdown.beh}
+- IOC score: ${r.scoreBreakdown.iocScore}
+- YARA score: ${r.scoreBreakdown.yaraScore}
+- Entropy score: ${r.scoreBreakdown.entScore}
+- Deobfuscation score: ${r.scoreBreakdown.deobfScore}
+- Capability score: ${r.scoreBreakdown.capScore}
+
 ## Behavioral Indicators
 ${r.behaviors.map(b => `- [${b.sev}] ${b.label} | ${b.tech}`).join('\n') || '- none'}
 
@@ -1119,6 +1344,9 @@ ${r.yaraHits.map(y => `- ${y.name}: ${y.desc}`).join('\n') || '- none'}
 
 ## MITRE ATT&CK
 ${r.mitre.join(', ') || 'none'}
+
+## MITRE ATT&CK Table
+${r.attackTable.map(x => `- **${x.tactic}** | ${x.techniqueId} ${x.techniqueName} | Evidence: ${x.observedEvidence} | Confidence: ${x.confidence} | Detection: ${x.detectionIdea}`).join('\n') || '- none'}
 
 ## Capabilities
 ${r.capabilities.map(c => `- ${c}`).join('\n') || '- none'}
@@ -1129,9 +1357,18 @@ ${[
   `- DOS header: ${r.peTriage.hasMZ}`,
   `- PE signature: ${r.peTriage.hasPE}`,
   `- Architecture: ${r.peTriage.architecture}`,
-  `- ${r.peTriage.realImportTableParsed ? 'Imports' : 'Suspicious API strings'}: ${(r.peTriage.realImportTableParsed ? r.peTriage.imports : r.peTriage.suspiciousApiStrings).join(', ') || 'none'}`,
+  `- Timestamp: ${r.peTriage.timestamp || 'not available'}`,
+  `- Subsystem: ${r.peTriage.subsystem || 'not available'}`,
+  `- Image base: ${r.peTriage.imageBase || 'not available'}`,
+  `- Entry point RVA: ${r.peTriage.entryPointRva || 'not available'}`,
+  `- Imports: ${(r.peTriage.imports || []).join(', ') || 'none parsed'}`,
+  `- Exports: ${(r.peTriage.exports || []).join(', ') || 'none parsed'}`,
+  `- Suspicious API strings: ${(r.peTriage.suspiciousApiStrings || []).join(', ') || 'none'}`,
   `- Packed indicators: ${r.peTriage.packedIndicators.join('; ') || 'none'}`,
 ].join('\n')}
+
+## API Risk Table
+${r.apiRisk.map(a => `- ${a.api} | ${a.category} | ${a.risk} | ${a.detectedAs} | ${a.why}`).join('\n') || '- none'}
 
 ## Script Analysis
 ${r.scriptFindings.map(s => `- ${s.family}: ${s.hits.join(', ')}`).join('\n') || '- none'}
@@ -1140,11 +1377,37 @@ ${r.scriptFindings.map(s => `- ${s.family}: ${s.hits.join(', ')}`).join('\n') ||
 ${Object.entries(r.iocs).filter(([, v]) => v.length).map(([k, v]) => `### ${k}\n${v.join('\n')}`).join('\n\n') || 'none'}
 ${r.actionableExportNotes.length ? `\n### Actionable export notes\n${r.actionableExportNotes.map(n => `- ${n}`).join('\n')}` : ''}
 
+## IOC Actionability
+${r.iocActionability.map(x => `- ${x.type}: ${x.value} | actionable=${x.actionable ? 'yes' : 'no'} | ${x.reason}`).join('\n') || '- none'}
+
+## Strings Intelligence
+${r.stringsIntelligence.map(c => `- ${c.name} (${c.confidence}): ${c.items.slice(0, 6).join('; ')}`).join('\n') || '- none'}
+
 ## Deobfuscated Content
 ${r.deobfuscated.map(d => `- [${d.type}] ${d.decoded}`).join('\n') || '- none'}
 
 ## Behavior Timeline
-${r.behaviorTimeline.map(x => `- ${x}`).join('\n') || '- none'}
+${r.behaviorTimeline.map(x => `- ${x.stage}: ${x.evidence.join('; ')} | ${x.confidence}${x.technique ? ` | ${x.technique}` : ''} | Validate: ${x.validation}`).join('\n') || '- none'}
+
+## Draft YARA Rule
+\`\`\`yara
+${r.draftYara}
+\`\`\`
+
+## Draft Sigma Rule
+\`\`\`yaml
+${r.draftSigma}
+\`\`\`
+
+## Detection Engineering Output
+### Splunk
+${r.detectionEngineering.splunk.map(x => `- \`${x}\``).join('\n') || '- none'}
+
+### Defender KQL
+${r.detectionEngineering.defender.map(x => `\`\`\`kql\n${x}\n\`\`\``).join('\n') || '- none'}
+
+### Elastic
+${r.detectionEngineering.elastic.map(x => `- \`${x}\``).join('\n') || '- none'}
 
 ## Recommended Containment
 ${r.recommendations.map(x => `- ${x}`).join('\n')}
@@ -1209,10 +1472,14 @@ function exportBlocklist() {
 
 function exportYARA() {
   if (!lastReport) return;
-  const rules = lastReport.yaraHits.map(y =>
-    `rule ${y.name.replace(/[^A-Za-z0-9_]/g, '_')} {\n  meta:\n    description = ${JSON.stringify(y.desc)}\n    source = "ThreatRecon Workbench"\n    date = "${lastReport.timestamp.slice(0, 10)}"\n  strings:\n    // Add concrete strings/bytes from your sample here.\n  condition:\n    any of them\n}\n`).join('\n');
-  download(`threatrecon-rules-${Date.now()}.yar`, rules || '// No YARA-style rules triggered.\n', 'text/plain');
-  showToast('YARA-style rules downloaded');
+  download(`threatrecon-draft-yara-${Date.now()}.yar`, lastReport.draftYara || '// No draft YARA generated.\n', 'text/plain');
+  showToast('Draft YARA downloaded');
+}
+
+function exportSigma() {
+  if (!lastReport) return;
+  download(`threatrecon-draft-sigma-${Date.now()}.yml`, lastReport.draftSigma || '# No draft Sigma generated.\n', 'text/yaml');
+  showToast('Draft Sigma downloaded');
 }
 
 function copyIOCs() {
@@ -1224,6 +1491,55 @@ function copyIOCs() {
 function copyReport() {
   if (!lastReport) return;
   navigator.clipboard.writeText(lastReport.report).then(() => showToast('Report copied to clipboard'));
+}
+
+function runComparison() {
+  const a = $('compare-a')?.value || '';
+  const b = $('compare-b')?.value || '';
+  if (!a.trim() || !b.trim()) { showToast('Paste two samples to compare'); return; }
+  if (a.length > MAX_INPUT_CHARS || b.length > MAX_INPUT_CHARS) {
+    showToast('Comparison input is too large for browser safe analysis.');
+    return;
+  }
+  lastComparison = compareSamples(a, b, BEHAVIOR_RULES, YARA_RULES);
+  renderComparison(lastComparison);
+  showToast('Samples compared locally');
+}
+
+function exportComparisonJSON() {
+  if (!lastComparison) return;
+  download(`threatrecon-comparison-${Date.now()}.json`, JSON.stringify(lastComparison, null, 2), 'application/json');
+  showToast('Comparison JSON downloaded');
+}
+
+function exportComparisonMarkdown() {
+  if (!lastComparison) return;
+  const c = lastComparison;
+  const md = `# ThreatRecon Sample Comparison
+
+**Similarity:** ${c.similarityScore}/100
+**Possible relation:** ${c.possibleRelation}
+
+${c.reasoning}
+
+## Shared IOCs
+${Object.entries(c.sharedIocs).filter(([, v]) => v.length).map(([k, v]) => `### ${k}\n${v.join('\n')}`).join('\n\n') || 'none'}
+
+## Shared Strings
+${c.sharedStrings.map(x => `- ${x}`).join('\n') || '- none'}
+
+## Shared Behaviors
+${c.sharedBehaviors.map(x => `- ${x}`).join('\n') || '- none'}
+
+## Shared YARA-style Hits
+${c.sharedYara.map(x => `- ${x}`).join('\n') || '- none'}
+
+## Shared MITRE Techniques
+${c.sharedMitre.map(x => `- ${x}`).join('\n') || '- none'}
+
+*Generated locally. No upload, no API calls, no execution.*`;
+  download(`threatrecon-comparison-${Date.now()}.md`, md, 'text/markdown');
+  showToast('Comparison Markdown downloaded');
 }
 
 /* ─── Optional Threat Intel Enrichment (client side) ───────────────────────
@@ -1472,9 +1788,13 @@ function wire() {
     $('exp-ioc-csv').addEventListener('click', exportIOCCSV);
     $('exp-blocklist').addEventListener('click', exportBlocklist);
     $('exp-yara').addEventListener('click', exportYARA);
+    if ($('exp-sigma')) $('exp-sigma').addEventListener('click', exportSigma);
     $('exp-copyioc').addEventListener('click', copyIOCs);
     $('exp-copyreport').addEventListener('click', copyReport);
   }
+  if ($('btn-compare')) $('btn-compare').addEventListener('click', runComparison);
+  document.querySelectorAll('.workflow-btn').forEach(b =>
+    b.addEventListener('click', () => setWorkflowMode(b.dataset.workflow)));
 
   // Optional threat-intel enrichment (off by default; manual button only)
   if ($('btn-enrich')) $('btn-enrich').addEventListener('click', enrichIOCs);
@@ -1496,6 +1816,14 @@ function wire() {
     if (handoff) {
       e.preventDefault();
       scrollToDynamicHandoff();
+      return;
+    }
+    const copyBtn = e.target.closest('.copy-generated');
+    if (copyBtn) {
+      e.preventDefault();
+      const target = $(copyBtn.dataset.copyTarget);
+      const text = target ? target.textContent : '';
+      navigator.clipboard.writeText(text || '').then(() => showToast('Copied to clipboard'));
       return;
     }
     const sb = e.target.closest('.dyn-scroll-sandbox');
@@ -1520,6 +1848,8 @@ function wire() {
     renderCheatSheet();
     renderSandboxes();
     setMode('deep');
+    setWorkflowMode('SOC Triage');
+    renderComparison(null);
   }
 
   // Tasteful console easter egg (no secrets, no endpoints).
