@@ -19,7 +19,7 @@ import {
 import { md5 } from './md5.js';
 import {
   BEHAVIOR_RULES, YARA_RULES, MITRE_MAP, DEMO_SAMPLE,
-  KB_DATA, TOOLS_DATA, CS_DATA, SB_DATA,
+  KB_DATA, TOOLS_DATA, CS_DATA, SB_DATA, DYNAMIC_ANALYSIS_CONFIG,
 } from './rules.js';
 
 const $ = (id) => document.getElementById(id);
@@ -41,7 +41,7 @@ const DEMO_NOTICE = 'Demo sample. Safe text-only artifact. Not real malware. Net
 /* Which result sections are shown for each analysis mode. */
 const MODE_SECTIONS = {
   deep: null, // null = show everything
-  quick: new Set(['static', 'score', 'ioc', 'behavior', 'yara', 'mitre', 'entropy', 'capabilities', 'recommendations', 'report', 'enrich']),
+  quick: new Set(['static', 'score', 'ioc', 'behavior', 'yara', 'mitre', 'entropy', 'capabilities', 'recommendations', 'dynamic', 'report', 'enrich']),
   ioc: new Set(['static', 'score', 'ioc', 'enrich']),
   deobf: new Set(['static', 'score', 'deobf', 'strings', 'entropy']),
 };
@@ -221,6 +221,105 @@ function computeRecommendations(caps, malwareType, behaviors, iocs) {
   return rec;
 }
 
+/* ─── Dynamic analysis handoff (external links only — manual analyst step) ─ */
+function buildDynamicAnalysisNextSteps() {
+  const cfg = DYNAMIC_ANALYSIS_CONFIG;
+  return {
+    summary: cfg.summary,
+    warning: cfg.warning,
+    reminder: cfg.reminder,
+    services: cfg.services.map(s => ({
+      name: s.name,
+      url: s.url,
+      category: s.category,
+      bestFor: s.bestFor,
+      useWhen: s.useWhen,
+    })),
+  };
+}
+
+function formatDynamicAnalysisReportText() {
+  const cfg = DYNAMIC_ANALYSIS_CONFIG;
+  const lines = [
+    'NEXT STEP: DYNAMIC ANALYSIS',
+    'ThreatRecon has completed local static triage. To confirm runtime behavior, submit the sample or extracted IOCs to a dedicated malware sandbox or reputation platform.',
+    '',
+    'Recommended external options (manual analyst handoff — ThreatRecon does not submit files or IOCs):',
+  ];
+  cfg.services.forEach(s => {
+    lines.push(`- ${s.name} — ${s.bestFor}`);
+  });
+  lines.push('');
+  lines.push('Reminder:');
+  lines.push(cfg.reminder);
+  return lines.join('\n');
+}
+
+function formatDynamicAnalysisMarkdown() {
+  const cfg = DYNAMIC_ANALYSIS_CONFIG;
+  const svcLines = cfg.services.map(s =>
+    `- **${s.name}** — ${s.bestFor}\n  - Use when: ${s.useWhen}\n  - Link: ${s.url}`).join('\n');
+  return `## Next Step: Dynamic Analysis
+
+${cfg.summary}
+
+> **Warning:** ${cfg.warning}
+
+### Recommended external options (manual handoff)
+${svcLines}
+
+### Reminder
+${cfg.reminder}
+
+*ThreatRecon performs local static triage only. Dynamic analysis is a separate external step initiated by the analyst.*`;
+}
+
+function hasHashIOCs(iocs) {
+  return (iocs.sha256 || []).length + (iocs.sha1 || []).length + (iocs.md5 || []).length > 0;
+}
+
+function hasNetworkIOCs(iocs) {
+  return (iocs.ips || []).length + (iocs.urls || []).length + (iocs.domains || []).length + (iocs.onion || []).length > 0;
+}
+
+function shouldSuggestSandboxSubmit(behaviors, capabilities, malwareType) {
+  if (/ransomware/i.test(malwareType)) return true;
+  const capHit = capabilities.some(c =>
+    /persistence|credential|ransomware|injection/i.test(c.class));
+  if (capHit) return true;
+  return behaviors.some(b =>
+    /injection|persistence|credential|ransomware|LSASS|shadow copy/i.test(b.label));
+}
+
+function scrollToDynamicHandoff() {
+  const el = $('dynamic-analysis-card');
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updateDynamicContextualActions(iocs, behaviors, capabilities, malwareType) {
+  const wrap = $('dyn-context-actions');
+  if (!wrap) return;
+  const parts = [];
+  if (hasHashIOCs(iocs)) {
+    parts.push('<button type="button" class="btn-context dyn-scroll-handoff" data-action="hash">Pivot hash reputation</button>');
+  }
+  if (hasNetworkIOCs(iocs)) {
+    parts.push('<button type="button" class="btn-context dyn-scroll-handoff" data-action="network">Pivot network IOCs</button>');
+  }
+  if (shouldSuggestSandboxSubmit(behaviors, capabilities, malwareType)) {
+    parts.push('<button type="button" class="btn-context dyn-scroll-handoff" data-action="sandbox">Submit sample to sandbox</button>');
+  }
+  parts.push('<button type="button" class="btn-context dyn-scroll-sandbox">View Sandbox Directory</button>');
+  if (!parts.length) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = '<div class="dyn-context-label">Based on this analysis:</div><div class="dyn-context-btns">' + parts.join('') + '</div>';
+  wrap.style.display = 'block';
+}
+
 /* ─── Structured analyst report (local, no API) ─────────────────────────── */
 function generateAnalystReport(ctx) {
   const { input, total, verdict, behaviors, iocs, yaraHits, entropy, entropyCat,
@@ -278,6 +377,8 @@ function generateAnalystReport(ctx) {
   if (isDemo) sections.push('Because this is demo mode, response actions are shown for analyst training only.');
   if ((iocs.localIndicators || []).length) sections.push('Note: loopback/local indicators (e.g. 127.0.0.1) are local-only and must NOT be blocked at the firewall or DNS layer or treated as external IOCs.');
   sections.push(ctx.recommendations.map(r => `- ${r}`).join('\n'));
+
+  sections.push('\n' + formatDynamicAnalysisReportText());
 
   sections.push('\nLIMITATIONS');
   sections.push('This report was generated by local, static, signature-based heuristics with no code execution and no external API calls. ' +
@@ -527,6 +628,7 @@ async function runAnalysis() {
   renderMitre(mitreList);
   renderCapabilities(capabilities, malwareType);
   renderRecommendations(recommendations);
+  updateDynamicContextualActions(iocs, behaviors, capabilities, malwareType);
   renderDeobf(deobf);
 
   // Analyst report (textContent only — never innerHTML)
@@ -548,6 +650,7 @@ async function runAnalysis() {
     mitre: mitreList, capabilities: capabilities.map(c => c.class),
     iocs, deobfuscated: deobf.map(d => ({ type: d.type, decoded: d.decoded.slice(0, 400) })),
     recommendations, report,
+    dynamicAnalysisNextSteps: buildDynamicAnalysisNextSteps(),
   };
 
   applyModeVisibility();
@@ -584,6 +687,8 @@ function clearAll() {
   $('static-panel').style.display = 'none';
   $('score-bar').style.width = '0%';
   $('export-row').style.display = 'none';
+  const dynCtx = $('dyn-context-actions');
+  if (dynCtx) { dynCtx.style.display = 'none'; dynCtx.innerHTML = ''; }
   setStatus('ready', 'All engines ready');
 }
 
@@ -655,6 +760,8 @@ ${r.deobfuscated.map(d => `- [${d.type}] ${d.decoded}`).join('\n') || '- none'}
 
 ## Recommended Response Actions
 ${r.recommendations.map(x => `- ${x}`).join('\n')}
+
+${formatDynamicAnalysisMarkdown()}
 
 ---
 *Generated locally by ThreatRecon Malware Triage Workbench — static analysis only, no sample upload, no API calls.*`;
@@ -870,13 +977,28 @@ function renderCheatSheet() {
 }
 
 function renderSandboxes() {
-  $('sb-grid').innerHTML = SB_DATA.map(s => `
-    <div class="sb-card">
-      <div class="sb-name">${escapeHtml(s.name)}</div>
-      <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="sb-url">${escapeHtml(s.url)}</a>
-      <div class="sb-desc">${escapeHtml(s.desc)}</div>
-      <div class="sb-tags">${s.tags.map(t => `<span class="sb-tag">${escapeHtml(t)}</span>`).join('')}</div>
-    </div>`).join('');
+  const categories = [...new Set(SB_DATA.map(s => s.category))];
+  $('sb-grid').innerHTML = categories.map(cat => {
+    const items = SB_DATA.filter(s => s.category === cat);
+    return `<section class="sb-category">
+      <h3 class="sb-category-title">${escapeHtml(cat)}</h3>
+      <div class="sb-category-grid">
+        ${items.map(s => `
+          <div class="sb-card">
+            <div class="sb-card-top">
+              <div class="sb-name">${escapeHtml(s.name)}</div>
+              <span class="sb-cat-badge">${escapeHtml(s.category)}</span>
+            </div>
+            <div class="sb-meta-row"><span class="sb-meta-key">Best for</span><span class="sb-meta-val">${escapeHtml(s.bestFor)}</span></div>
+            <div class="sb-meta-row"><span class="sb-meta-key">Use when</span><span class="sb-meta-val">${escapeHtml(s.useWhen)}</span></div>
+            <div class="sb-desc">${escapeHtml(s.desc)}</div>
+            <div class="sb-caution">${escapeHtml(s.caution)}</div>
+            <div class="sb-tags">${s.tags.map(t => `<span class="sb-tag">${escapeHtml(t)}</span>`).join('')}</div>
+            <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="sb-open-btn">Open ${escapeHtml(s.name)} <span class="ext-icon" aria-hidden="true">&#8599;</span></a>
+          </div>`).join('')}
+      </div>
+    </section>`;
+  }).join('');
 }
 
 /* ─── Event wiring (replaces every inline on* handler) ──────────────────── */
@@ -923,6 +1045,22 @@ function wire() {
   dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
   dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
   dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+
+  // Dynamic analysis contextual handoff (scroll only — no external auto-submit)
+  document.body.addEventListener('click', (e) => {
+    const handoff = e.target.closest('.dyn-scroll-handoff');
+    if (handoff) {
+      e.preventDefault();
+      scrollToDynamicHandoff();
+      return;
+    }
+    const sb = e.target.closest('.dyn-scroll-sandbox');
+    if (sb) {
+      e.preventDefault();
+      showPage('sandboxes');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
 
   // KB filters
   document.querySelectorAll('.kb-filter').forEach(f =>

@@ -305,15 +305,67 @@ export const CS_DATA = [
   ] },
 ];
 
-/* ─── Free sandbox directory (external pivots — open only on click) ─────── */
+/* ─── Dynamic analysis handoff (manual external links only — no auto-submit) ─ */
+export const DYNAMIC_ANALYSIS_CONFIG = {
+  summary:
+    'ThreatRecon completed local static triage. To observe runtime behavior, detonate the sample in a dedicated malware sandbox.',
+  warning:
+    'Do not execute suspicious files on your own machine. Use an isolated sandbox or a trusted public malware analysis service. External sandbox links open outside ThreatRecon.',
+  reminder:
+    'Do not upload sensitive client files or proprietary samples to public sandboxes unless authorized. Use private mode or an internal sandbox for sensitive investigations.',
+  services: [
+    {
+      name: 'ANY.RUN',
+      url: 'https://app.any.run/',
+      category: 'Interactive Sandbox',
+      bestFor: 'Interactive malware behavior analysis',
+      useWhen: 'You need to click, interact, watch process behavior, or inspect network connections.',
+      caution: 'Public submissions may be visible to other analysts. Use private workspaces when handling sensitive data.',
+    },
+    {
+      name: 'Triage',
+      url: 'https://tria.ge/',
+      category: 'Automated Sandbox',
+      bestFor: 'Fast automated malware reports',
+      useWhen: 'You want a quick detonation report and behavioral summary.',
+      caution: 'Confirm your organization allows uploading the sample to a third-party service.',
+    },
+    {
+      name: 'Hybrid Analysis',
+      url: 'https://www.hybrid-analysis.com/',
+      category: 'Automated Sandbox',
+      bestFor: 'Public sample reputation and behavioral reports',
+      useWhen: 'You want community visibility and existing public reports.',
+      caution: 'Public mode shares samples with the community — avoid for confidential investigations.',
+    },
+    {
+      name: 'Joe Sandbox',
+      url: 'https://www.joesandbox.com/',
+      category: 'Automated Sandbox',
+      bestFor: 'Deep commercial sandbox reports',
+      useWhen: 'You need detailed behavior, network, and anti-evasion reporting.',
+      caution: 'Commercial tiers may apply; verify licensing and data-handling policies.',
+    },
+    {
+      name: 'VirusTotal',
+      url: 'https://www.virustotal.com/gui/home/upload',
+      category: 'Reputation / Multi-engine Scan',
+      bestFor: 'Reputation and multi-engine scanning',
+      useWhen: 'You need hash, URL, domain, or file reputation context.',
+      caution: 'Uploaded files and hashes may be shared with the vendor community unless private options are enabled.',
+    },
+  ],
+};
+
+/* ─── Sandbox directory (external pivots — open only on analyst click) ──── */
 export const SB_DATA = [
-  { name: 'ANY.RUN', url: 'https://app.any.run', desc: 'Interactive sandbox with live browser control. Watch malware execute in real time. Free public tier. Great for phishing and script analysis.', tags: ['Interactive', 'Free tier', 'IOC export'] },
-  { name: 'Hybrid Analysis', url: 'https://hybrid-analysis.com', desc: 'CrowdStrike-backed sandbox. Free submissions. Falcon Sandbox engine with detailed reporting, ATT&CK mapping, and network traffic.', tags: ['CrowdStrike', 'Free', 'ATT&CK mapping'] },
-  { name: 'VirusTotal', url: 'https://virustotal.com', desc: 'Multi-engine AV scan plus behavioral analysis via embedded sandboxes. Hash, URL, domain, and file analysis. Pivot via graph view.', tags: ['70+ AV engines', 'Hash lookup', 'Graph pivot'] },
-  { name: 'Triage (Hatching)', url: 'https://tria.ge', desc: 'Fast, clean sandbox with strong YARA auto-generation and config extraction for common families. Free public submission tier.', tags: ['YARA generation', 'Config extract', 'Fast'] },
-  { name: 'Joe Sandbox (Community)', url: 'https://joesecurity.org/joeboxcommunity', desc: 'Deep behavioral analysis with excellent deobfuscation. Community edition offers a monthly free quota with detailed HTML reports.', tags: ['Deep analysis', 'HTML report', 'API calls'] },
-  { name: 'MalwareBazaar', url: 'https://bazaar.abuse.ch', desc: 'Abuse.ch community malware repository. Free hash lookup, YARA hunting, and sample download. Integrates with URLhaus and ThreatFox.', tags: ['Hash lookup', 'Download samples', 'Community'] },
-  { name: 'URLScan.io', url: 'https://urlscan.io', desc: 'URL and domain scanning with screenshot capture, JavaScript analysis, and DNS history. Invaluable for phishing URL triage.', tags: ['URL analysis', 'Screenshots', 'DNS history'] },
-  { name: 'OTX AlienVault', url: 'https://otx.alienvault.com', desc: 'Community threat intelligence platform. Millions of IOC "pulses". Free API for hash, IP, domain, and URL reputation.', tags: ['Community TI', 'IOC pulses', 'Free API'] },
-  { name: 'Shodan', url: 'https://shodan.io', desc: 'Search engine for internet-connected devices. Essential for C2 server investigation — banner grabbing, SSL certs, port history.', tags: ['C2 hunting', 'Banner grab', 'SSL certs'] },
+  { name: 'ANY.RUN', url: 'https://app.any.run/', category: 'Interactive Sandbox', bestFor: 'Interactive malware behavior analysis', useWhen: 'You need to click, interact, watch process behavior, or inspect network connections.', caution: 'Public submissions may be visible. Use private workspaces for sensitive data.', desc: 'Interactive sandbox with live session control. Useful after static triage to confirm runtime behavior.', tags: ['Interactive', 'Live session'] },
+  { name: 'Triage', url: 'https://tria.ge/', category: 'Automated Sandbox', bestFor: 'Fast automated malware reports', useWhen: 'You want a quick detonation report and behavioral summary.', caution: 'Verify authorization before uploading client samples.', desc: 'Automated detonation with clean reports and strong config extraction for common families.', tags: ['Automated', 'Fast reports'] },
+  { name: 'Hybrid Analysis', url: 'https://www.hybrid-analysis.com/', category: 'Automated Sandbox', bestFor: 'Public sample reputation and behavioral reports', useWhen: 'You want community visibility and existing public reports.', caution: 'Avoid public mode for confidential investigations.', desc: 'Community and enterprise sandbox with behavioral reports and ATT&CK-aligned output.', tags: ['Community reports', 'ATT&CK'] },
+  { name: 'Joe Sandbox', url: 'https://www.joesandbox.com/', category: 'Automated Sandbox', bestFor: 'Deep commercial sandbox reports', useWhen: 'You need detailed behavior, network, and anti-evasion reporting.', caution: 'Check commercial licensing and data-handling policies.', desc: 'Deep behavioral analysis with detailed HTML reports and anti-evasion insight.', tags: ['Deep analysis', 'Commercial'] },
+  { name: 'VirusTotal', url: 'https://www.virustotal.com/gui/home/upload', category: 'Reputation / Multi-engine Scan', bestFor: 'Reputation and multi-engine scanning', useWhen: 'You need hash, URL, domain, or file reputation context.', caution: 'Hashes and files may be shared unless private options are enabled.', desc: 'Multi-engine scanning and reputation context for files, hashes, URLs, and domains.', tags: ['Multi-engine', 'Reputation'] },
+  { name: 'MalwareBazaar', url: 'https://bazaar.abuse.ch', category: 'Threat Intelligence Pivot', bestFor: 'Hash and sample correlation', useWhen: 'You need related samples, tags, or family context for a hash.', caution: 'Downloading live samples requires a controlled analysis environment.', desc: 'Abuse.ch malware repository for hash lookup, YARA hunting, and sample correlation.', tags: ['Hash lookup', 'abuse.ch'] },
+  { name: 'URLScan.io', url: 'https://urlscan.io', category: 'Threat Intelligence Pivot', bestFor: 'URL and domain investigation', useWhen: 'You need screenshots, redirects, and JavaScript behavior for a URL.', caution: 'Scanning may notify the target site — use only when appropriate for your investigation.', desc: 'URL and domain scanning with screenshots, DNS, and page resource analysis.', tags: ['URL analysis', 'Phishing'] },
+  { name: 'OTX AlienVault', url: 'https://otx.alienvault.com', category: 'Threat Intelligence Pivot', bestFor: 'Community IOC pulses', useWhen: 'You want pulses and related indicators for a hash, IP, or domain.', caution: 'Community-sourced intelligence requires corroboration.', desc: 'Community threat intelligence with IOC pulses and indicator pages.', tags: ['IOC pulses', 'Community TI'] },
+  { name: 'Shodan', url: 'https://shodan.io', category: 'Threat Intelligence Pivot', bestFor: 'Internet-facing host reconnaissance', useWhen: 'You need banners, ports, or certificates for an external IP.', caution: 'Passive recon only — do not probe systems you are not authorized to assess.', desc: 'Search engine for internet-connected devices — useful for C2 and infrastructure pivoting.', tags: ['C2 hunting', 'Banners'] },
 ];

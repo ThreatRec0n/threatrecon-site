@@ -211,6 +211,85 @@ const BODY = `
       </div>
     </div>
 
+    <div class="panel panel-dynamic" data-section="dynamic" id="dynamic-analysis-card">
+      <div class="panel-head">
+        <div class="dot dot-blue"></div>
+        <div class="panel-head-text">
+          <span class="panel-head-title">Next Step: Dynamic Analysis</span>
+          <span class="panel-head-desc">ThreatRecon completed local static triage. To observe runtime behavior, detonate the sample in a dedicated malware sandbox.</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="dyn-context-actions" class="dyn-context-actions" style="display:none"></div>
+        <p class="dyn-lead">Static analysis can identify suspicious strings, IOCs, encoded payloads, and ATT&amp;CK-aligned behaviors. Dynamic analysis helps confirm what the sample actually does when executed, including process activity, network connections, file writes, registry changes, persistence, and evasion behavior.</p>
+        <div class="dyn-warning">
+          <strong>Important:</strong> Do not execute suspicious files on your own machine. Use an isolated sandbox or a trusted public malware analysis service. External sandbox links open outside ThreatRecon. ThreatRecon does not detonate samples, upload files, or submit IOCs automatically.
+        </div>
+        <div class="dyn-sandbox-btns">
+          <a class="dyn-sandbox-btn" href="https://app.any.run/" target="_blank" rel="noopener noreferrer">Open ANY.RUN <span class="ext-icon" aria-hidden="true">&#8599;</span></a>
+          <a class="dyn-sandbox-btn" href="https://www.hybrid-analysis.com/" target="_blank" rel="noopener noreferrer">Open Hybrid Analysis <span class="ext-icon" aria-hidden="true">&#8599;</span></a>
+          <a class="dyn-sandbox-btn" href="https://tria.ge/" target="_blank" rel="noopener noreferrer">Open Triage <span class="ext-icon" aria-hidden="true">&#8599;</span></a>
+          <a class="dyn-sandbox-btn" href="https://www.joesandbox.com/" target="_blank" rel="noopener noreferrer">Open Joe Sandbox <span class="ext-icon" aria-hidden="true">&#8599;</span></a>
+          <a class="dyn-sandbox-btn" href="https://www.virustotal.com/gui/home/upload" target="_blank" rel="noopener noreferrer">Open VirusTotal <span class="ext-icon" aria-hidden="true">&#8599;</span></a>
+        </div>
+        <h4 class="dyn-section-title">What to submit next</h4>
+        <div class="dyn-checklist-grid">
+          <div class="dyn-checklist">
+            <h5 class="dyn-checklist-head">If you have a file</h5>
+            <ul>
+              <li>Submit the file to a sandbox only if you are allowed to share it.</li>
+              <li>Use private analysis mode when dealing with sensitive client or company data.</li>
+              <li>Record process tree, network activity, dropped files, registry changes, and screenshots.</li>
+            </ul>
+          </div>
+          <div class="dyn-checklist">
+            <h5 class="dyn-checklist-head">If you only have IOCs</h5>
+            <ul>
+              <li>Pivot hashes, domains, IPs, and URLs in VirusTotal, OTX, MalwareBazaar, ThreatFox, or URLhaus.</li>
+              <li>Compare sandbox output against ThreatRecon&rsquo;s static findings.</li>
+              <li>Add confirmed IOCs to the incident report.</li>
+            </ul>
+          </div>
+          <div class="dyn-checklist">
+            <h5 class="dyn-checklist-head">If the sample looks like ransomware</h5>
+            <ul>
+              <li>Check for shadow copy deletion, encryption behavior, ransom note creation, and C2 callback.</li>
+              <li>Do not reconnect affected hosts until containment is complete.</li>
+            </ul>
+          </div>
+        </div>
+        <h4 class="dyn-section-title">Recommended sandbox by use case</h4>
+        <p class="field-hint">General workflow recommendations — not product endorsements.</p>
+        <div class="dyn-service-table">
+          <div class="dyn-service-row">
+            <div class="dyn-service-name">ANY.RUN</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Best for:</span> Interactive malware behavior analysis</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Use when:</span> You need to click, interact, watch process behavior, or inspect network connections.</div>
+          </div>
+          <div class="dyn-service-row">
+            <div class="dyn-service-name">Triage</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Best for:</span> Fast automated malware reports</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Use when:</span> You want a quick detonation report and behavioral summary.</div>
+          </div>
+          <div class="dyn-service-row">
+            <div class="dyn-service-name">Hybrid Analysis</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Best for:</span> Public sample reputation and behavioral reports</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Use when:</span> You want community visibility and existing public reports.</div>
+          </div>
+          <div class="dyn-service-row">
+            <div class="dyn-service-name">Joe Sandbox</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Best for:</span> Deep commercial sandbox reports</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Use when:</span> You need detailed behavior, network, and anti-evasion reporting.</div>
+          </div>
+          <div class="dyn-service-row">
+            <div class="dyn-service-name">VirusTotal</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Best for:</span> Reputation and multi-engine scanning</div>
+            <div class="dyn-service-detail"><span class="dyn-svc-key">Use when:</span> You need hash, URL, domain, or file reputation context.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="analyzer-grid analyzer-grid--stack">
       <div class="panel" data-section="deobf">
         <div class="panel-head"><div class="dot dot-blue"></div><div class="panel-head-text"><span class="panel-head-title">Deobfuscated Content</span><span class="panel-head-desc">Inert display only — never executed</span></div></div>
@@ -276,8 +355,9 @@ const BODY = `
 
 <!-- ============ SANDBOXES ============ -->
 <div class="page" id="page-sandboxes">
-  <div class="page-title">Free Sandbox Directory</div>
-  <div class="page-sub">External dynamic-analysis platforms. These links only open when you click them — nothing is auto-fetched.</div>
+  <div class="page-title">Dynamic Analysis &amp; Sandbox Handoff</div>
+  <div class="page-sub">External dynamic-analysis and reputation platforms for the step after local static triage.</div>
+  <p class="page-lead">ThreatRecon does local static triage first. If the static results show suspicious behavior, use the services below to validate runtime behavior in an isolated environment. Links open only when you click them — ThreatRecon does not upload samples or call external APIs.</p>
   <div class="sb-grid" id="sb-grid"></div>
 </div>
 
