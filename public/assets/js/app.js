@@ -60,8 +60,8 @@ const DEMO_NOTICE = 'Demo sample. Safe text-only artifact. Not real malware. Net
 /* Which result sections are shown for each analysis mode. */
 const MODE_SECTIONS = {
   deep: null, // null = show everything
-  quick: new Set(['static', 'score', 'score-explain', 'ioc', 'ioc-action', 'behavior', 'script', 'pe', 'api-risk', 'yara', 'draft-yara', 'draft-sigma', 'mitre', 'attack-table', 'timeline', 'entropy', 'capabilities', 're-guidance', 'hunting', 'detection', 'reputation', 'recommendations', 'dynamic', 'report', 'enrich']),
-  ioc: new Set(['static', 'score', 'ioc', 'ioc-action', 'hunting', 'detection', 'reputation', 'enrich']),
+  quick: new Set(['static', 'score', 'score-explain', 'ioc', 'ioc-action', 'behavior', 'script', 'pe', 'api-risk', 'yara', 'draft-yara', 'draft-sigma', 'mitre', 'attack-table', 'timeline', 'entropy', 'capabilities', 're-guidance', 'hunting', 'detection', 'reputation', 'recommendations', 'dynamic', 'report']),
+  ioc: new Set(['static', 'score', 'ioc', 'ioc-action', 'hunting', 'detection', 'reputation']),
   deobf: new Set(['static', 'score', 'deobf', 'strings', 'strings-intel', 'entropy', 'script']),
 };
 
@@ -235,7 +235,7 @@ function computeRecommendations(caps, malwareType, behaviors, iocs) {
   rec.push('Triage in an isolated VM or trusted dynamic sandbox (e.g. ANY.RUN or Triage) for full behavioral analysis — never on production hosts.');
   if (iocs.ips.length || iocs.domains.length || iocs.onion.length) rec.push('Block extracted IPs, domains, and onion addresses at the firewall and DNS layer to cut C2/exfiltration.');
   if (caps.some(c => c.class === 'Credential Access') || /Harvester/.test(malwareType)) {
-    rec.push('Assume credentials on affected hosts are compromised; force password resets and revoke active sessions.');
+    rec.push('Assume credentials on affected hosts are compromised; force credential rotation and revoke active sessions.');
     rec.push('Enforce MFA and review authentication logs for anomalous access.');
   }
   if (caps.some(c => c.class === 'Ransomware Behavior') || malwareType === 'Ransomware') {
@@ -1049,7 +1049,7 @@ function renderManualPivots(links) {
   const body = $('reputation-body');
   if (!body) return;
   body.innerHTML = links.length
-    ? `<div class="enrich-label">External links are manual analyst pivots. Do not submit sensitive samples or proprietary data to public services unless authorized.</div>` +
+    ? `<div class="field-hint">External links are manual analyst pivots. Do not submit sensitive samples or proprietary data to public services unless authorized.</div>` +
       links.map(l => `<a class="ioc-pill" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.label)}: ${escapeHtml(l.value)} ↗</a>`).join('')
     : '<div class="no-ioc">No manual reputation pivot links generated yet.</div>';
 }
@@ -1240,7 +1240,6 @@ async function runAnalysis() {
 
   applyModeVisibility();
   $('export-row').style.display = 'flex';
-  if ($('enrich-panel')) { $('enrich-panel').style.display = ''; resetEnrichPanel(); }
   setStatus('ready', 'Analysis complete');
   $('btn-analyze').disabled = false;
 }
@@ -1542,155 +1541,6 @@ ${c.sharedMitre.map(x => `- ${x}`).join('\n') || '- none'}
   showToast('Comparison Markdown downloaded');
 }
 
-/* ─── Optional Threat Intel Enrichment (client side) ───────────────────────
-   This NEVER runs automatically. It only fires when the user clicks
-   "Enrich IOCs". It sends ONLY allowlisted, extracted IOC values to a
-   same-origin serverless proxy (/enrich) — never the sample, decoded
-   payloads, uploaded files, private IPs, registry keys, file paths, or
-   emails. API keys live only on the server; the browser never sees them. */
-
-const ENRICH_ENDPOINT = '/enrich';
-
-function isPrivateOrReservedIp(ip) {
-  // IPv6 loopback/link-local/unique-local
-  if (ip.includes(':')) return /^(::1|fe80:|fc|fd)/i.test(ip);
-  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!m) return true;
-  const [a, b] = [Number(m[1]), Number(m[2])];
-  if (a === 10 || a === 127 || a === 0) return true;            // 10/8, loopback, this-host
-  if (a === 172 && b >= 16 && b <= 31) return true;             // 172.16/12
-  if (a === 192 && b === 168) return true;                      // 192.168/16
-  if (a === 169 && b === 254) return true;                      // link-local
-  return false;
-}
-
-function isTestNetIp(ip) {
-  // RFC 5737 documentation/test ranges — used by the demo, safe to never enrich.
-  return /^192\.0\.2\.|^198\.51\.100\.|^203\.0\.113\./.test(ip);
-}
-
-function isExampleDomain(d) {
-  return /(^|\.)example\.(com|net|org)$/i.test(d) || /^localhost$/i.test(d) || /\.(test|invalid|localhost)$/i.test(d);
-}
-
-/* Build the allowlisted IOC payload + a list of locally-skipped items. */
-function buildEnrichPayload(demoMode) {
-  const iocs = (lastReport && lastReport.iocs) || {};
-  const payload = { sha256: [], sha1: [], md5: [], urls: [], domains: [], ips: [], cves: [], onion: [] };
-  const skipped = [];
-  const add = (k, v) => { if (!payload[k].includes(v)) payload[k].push(v); };
-
-  (iocs.sha256 || []).forEach(v => add('sha256', v));
-  (iocs.sha1 || []).forEach(v => add('sha1', v));
-  (iocs.md5 || []).forEach(v => add('md5', v));
-  (iocs.urls || []).forEach(v => add('urls', v));
-  (iocs.cve || []).forEach(v => add('cves', v));
-  (iocs.onion || []).forEach(v => add('onion', v));
-
-  (iocs.domains || []).forEach(v => {
-    if (isExampleDomain(v) && !demoMode) skipped.push({ ioc: v, reason: 'reserved/example domain' });
-    else add('domains', v);
-  });
-
-  (iocs.ips || []).forEach(v => {
-    if (isPrivateOrReservedIp(v)) skipped.push({ ioc: v, reason: 'private/reserved IP — never sent' });
-    else if (isTestNetIp(v) && !demoMode) skipped.push({ ioc: v, reason: 'documentation/test-range IP' });
-    else add('ips', v);
-  });
-
-  // Deliberately NOT sent: emails, registry keys, file paths, BTC, full sample text.
-  const sendCount = Object.values(payload).reduce((n, a) => n + a.length, 0);
-  return { payload, skipped, sendCount };
-}
-
-function resetEnrichPanel() {
-  const body = $('enrich-body');
-  if (body) body.innerHTML = '<div class="no-ioc">Enrichment not run yet. Click \u201CEnrich IOCs\u201D to query configured providers (optional).</div>';
-}
-
-function enrichCard({ provider, ioc, status, summary, family, severity, confidence, firstSeen, lastSeen, link, source, timestamp }) {
-  const cls = status === 'hit' ? 'red' : status === 'error' ? 'orange' : status === 'skipped' ? '' : 'domain';
-  const rows = [];
-  if (summary) rows.push(['Result', summary]);
-  if (family) rows.push(['Malware family', family]);
-  if (severity) rows.push(['Severity', severity]);
-  if (confidence) rows.push(['Confidence', confidence]);
-  if (firstSeen) rows.push(['First seen', firstSeen]);
-  if (lastSeen) rows.push(['Last seen', lastSeen]);
-  const linkHtml = link ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">source \u2197</a>` : '';
-  return `<div class="enrich-card">
-    <div class="enrich-card-head">
-      <span class="ioc-pill ${cls}">${escapeHtml(ioc)}</span>
-      <span class="enrich-prov">${escapeHtml(provider)}</span>
-      <span class="enrich-status enrich-${escapeHtml(status)}">${escapeHtml(status)}</span>
-    </div>
-    <div class="enrich-card-body">
-      ${rows.map(([k, v]) => `<div class="meta-row"><span class="meta-key">${escapeHtml(k)}</span><span class="meta-val">${escapeHtml(String(v))}</span></div>`).join('')}
-      <div class="enrich-foot">${escapeHtml(source || provider)}${timestamp ? ' \u00B7 ' + escapeHtml(timestamp) : ''} ${linkHtml}</div>
-    </div>
-  </div>`;
-}
-
-async function enrichIOCs() {
-  if (!lastReport) { showToast('Run an analysis first'); return; }
-  const body = $('enrich-body');
-  const btn = $('btn-enrich');
-  const demoMode = !!lastReport.demo;
-  const { payload, skipped, sendCount } = buildEnrichPayload(demoMode);
-
-  btn.disabled = true;
-  body.innerHTML = '<div class="no-ioc">Querying configured threat-intel providers\u2026 (only extracted IOCs are sent)</div>';
-
-  let cards = '';
-  skipped.forEach(s => { cards += enrichCard({ provider: 'local', ioc: s.ioc, status: 'skipped', summary: s.reason, source: 'Not sent (policy)' }); });
-
-  if (sendCount === 0) {
-    body.innerHTML = (cards || '') + '<div class="no-ioc">No enrichable IOCs (everything was private/reserved or skipped by policy). Local analysis still completed.</div>';
-    btn.disabled = false;
-    return;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-    const res = await fetch(ENRICH_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ iocs: payload, demoMode }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      // 404 on static hosts (GitHub Pages), 429 rate limit, etc.
-      body.innerHTML = (cards || '') +
-        `<div class="no-ioc">Threat intel enrichment unavailable (HTTP ${res.status}). Local analysis still completed.</div>`;
-      btn.disabled = false;
-      return;
-    }
-
-    const data = await res.json();
-    if (!data.ok) {
-      body.innerHTML = (cards || '') +
-        `<div class="no-ioc">${escapeHtml(data.message || 'Threat intel enrichment unavailable. Local analysis still completed.')}</div>`;
-      btn.disabled = false;
-      return;
-    }
-
-    (data.results || []).forEach(r => { cards += enrichCard(r); });
-    const provNote = data.enabledProviders && data.enabledProviders.length
-      ? `Providers queried: ${escapeHtml(data.enabledProviders.join(', '))}.`
-      : '';
-    body.innerHTML = (cards || '<div class="no-ioc">No results returned.</div>') +
-      `<div class="enrich-note">Third-party intelligence. Not absolute truth. ${provNote}</div>`;
-  } catch (err) {
-    body.innerHTML = (cards || '') +
-      '<div class="no-ioc">Threat intel enrichment unavailable (network/timeout, or static-only deployment). Local analysis still completed.</div>';
-  } finally {
-    btn.disabled = false;
-  }
-}
-
 /* ─── Static content renderers (KB / Tools / Cheat sheet / Sandboxes) ───── */
 function renderKB(filter) {
   const data = filter === 'all' ? KB_DATA : KB_DATA.filter(d => d.type === filter);
@@ -1795,9 +1645,6 @@ function wire() {
   if ($('btn-compare')) $('btn-compare').addEventListener('click', runComparison);
   document.querySelectorAll('.workflow-btn').forEach(b =>
     b.addEventListener('click', () => setWorkflowMode(b.dataset.workflow)));
-
-  // Optional threat-intel enrichment (off by default; manual button only)
-  if ($('btn-enrich')) $('btn-enrich').addEventListener('click', enrichIOCs);
 
   // File upload + drag/drop (File Safety Gate)
   const fileInput = $('file-input');

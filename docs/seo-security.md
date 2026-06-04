@@ -18,13 +18,13 @@ ThreatRecon.io includes static JSON-LD for:
 - `SoftwareApplication`
 - `WebSite`
 
-The structured data describes ThreatRecon.io as a browser based static malware triage, detection engineering, and reverse engineering support workbench. It does not include contact details or background information.
+The structured data describes ThreatRecon.io as a browser based static malware triage, detection engineering, and reverse engineering support workbench.
 
 ## Privacy Choices
 
 ThreatRecon.io does not add Google Analytics, tracking pixels, marketing tags, or new third party scripts. Existing Vercel Web Analytics and Speed Insights remain limited to site usage and performance telemetry.
 
-No personal contact details or additional background details are included. The only creator attribution is the approved creator name where required for site attribution and structured data.
+No personal details are included beyond the approved creator line shown on the site.
 
 ## Sitemap Submission
 
@@ -50,7 +50,7 @@ Use Bing Webmaster Tools:
 
 ## Social Preview Testing
 
-Use LinkedIn Post Inspector and general Open Graph preview tools to verify:
+Use general Open Graph preview tools to verify:
 
 - title
 - description

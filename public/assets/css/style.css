@@ -1878,7 +1878,6 @@ textarea.textarea-sm { min-height: 80px; }
 .type-loader { background: rgba(255, 204, 0, 0.1); color: var(--yellow); border: 1px solid var(--yellow2); }
 .type-botnet { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent2); }
 .type-wiper { background: rgba(100, 120, 255, 0.1); color: #8899ff; border: 1px solid #445599; }
-.type-ai-malware { background: rgba(0, 255, 136, 0.08); color: var(--green); border: 1px solid var(--green2); }
 .type-apt { background: rgba(200, 150, 255, 0.08); color: #cc99ff; border: 1px solid #7744aa; }
 
 .kb-card-body {
@@ -2275,79 +2274,6 @@ textarea.textarea-sm { min-height: 80px; }
 }
 
 .toast.show { transform: translateX(0); }
-
-/* ── Enrichment ───────────────────────────────────────────────────────── */
-.enrich-label {
-  font-size: 11px;
-  color: var(--text3);
-  line-height: 1.6;
-  margin-bottom: 14px;
-  border-left: 3px solid var(--accent);
-  padding-left: 12px;
-}
-
-.enrich-attrib {
-  font-size: 9px;
-  color: var(--text3);
-  margin-top: 14px;
-  opacity: 0.85;
-  line-height: 1.5;
-}
-
-.enrich-note {
-  font-size: 10px;
-  color: var(--text3);
-  margin-top: 12px;
-  font-family: var(--term);
-}
-
-.enrich-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  margin-bottom: 10px;
-  overflow: hidden;
-}
-
-.enrich-card-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--bg3);
-  flex-wrap: wrap;
-}
-
-.enrich-prov {
-  font-size: 10px;
-  color: var(--text2);
-  font-family: var(--term);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.enrich-status {
-  margin-left: auto;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 20px;
-  text-transform: uppercase;
-}
-
-.enrich-hit { background: var(--red-dim); color: var(--red); }
-.enrich-not_found { background: rgba(120, 140, 160, 0.15); color: var(--text2); }
-.enrich-error { background: rgba(255, 165, 0, 0.15); color: var(--orange); }
-.enrich-skipped { background: rgba(120, 140, 160, 0.1); color: var(--text3); }
-
-.enrich-card-body { padding: 10px 12px; }
-
-.enrich-foot {
-  font-size: 9px;
-  color: var(--text3);
-  margin-top: 8px;
-}
-
-.enrich-foot a { margin-left: 8px; }
 
 /* ── Subtle scanline (very light) ───────────────────────────────────── */
 body::after {

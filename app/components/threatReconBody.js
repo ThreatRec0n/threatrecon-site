@@ -32,8 +32,8 @@ export const THREATRECON_BODY = `
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-tag">Browser based analysis &middot; static analysis &middot; SOC analyst training</div>
-      <h1>Browser Based Malware Triage Workbench</h1>
-      <p class="hero-sub">ThreatRecon.io helps analysts perform static malware triage, IOC extraction, MITRE ATT&amp;CK mapping, YARA style rule drafting, Sigma style detection drafting, and analyst reporting without uploads, accounts, or unnecessary tracking.</p>
+      <h1>Analyze suspicious files locally in your browser.</h1>
+      <p class="hero-sub">ThreatRecon.io helps analysts perform static malware triage, IOC extraction, MITRE ATT&amp;CK mapping, YARA style rule drafting, Sigma style detection drafting, and analyst reporting without sample uploads or account requirements.</p>
       <ul class="trust-badges">
         <li>malware triage</li>
         <li>threat hunting</li>
@@ -61,7 +61,7 @@ export const THREATRECON_BODY = `
   <section class="landing-section seo-overview">
     <div class="section-kicker">ThreatRecon.io</div>
     <h2>Static Malware Analysis</h2>
-    <p>ThreatRecon.io is a browser based static malware triage workbench built for safe first pass analysis of suspicious scripts, logs, IOCs, command lines, and text artifacts. It helps analysts extract indicators, identify suspicious behaviors, map findings to MITRE ATT&amp;CK, decode obfuscated content, generate draft YARA and Sigma rules, and prepare analyst ready reports.</p>
+    <p>ThreatRecon.io is a browser based static malware triage workbench built for safe first pass analysis of suspicious scripts, logs, IOCs, command lines, and text artifacts. It helps analysts perform local file analysis, extract indicators, identify suspicious behaviors, map findings to MITRE ATT&amp;CK, decode obfuscated content, generate draft YARA and Sigma rules, and prepare analyst reporting for review.</p>
     <p>All analysis is performed locally in the browser. ThreatRecon does not upload samples, execute files, detonate malware, or submit artifacts to third party services automatically. External sandbox and reputation links are manual analyst pivots only.</p>
     <div class="seo-topic-grid">
       <div><h2>IOC Extraction and Threat Hunting</h2><p>Extract indicators and generate safe threat hunting output for Splunk, Defender KQL, Elastic, DNS, firewall, and EDR workflows.</p></div>
@@ -90,7 +90,7 @@ export const THREATRECON_BODY = `
     </div>
     <div class="trust-panel">
       <div class="section-kicker">Responsible Use</div>
-      <h2>Defensive use only</h2>
+      <h2>Defensive use disclaimer</h2>
       <p>ThreatRecon.io is built for defensive security education, malware triage practice, and analyst workflow training. Users are responsible for using the platform legally and ethically.</p>
     </div>
   </section>
@@ -110,15 +110,21 @@ export const THREATRECON_BODY = `
 
   <section class="landing-section">
     <div class="section-kicker">Output Preview</div>
-    <h2>Visual Proof Placeholders</h2>
+    <h2>Visual proof placeholders</h2>
     <div class="proof-grid">
-      <div class="proof-card"><div class="proof-bar"></div><h3>Analyzer Dashboard</h3><p>Score, verdict, static metadata, and workflow summary.</p></div>
+      <div class="proof-card"><div class="proof-bar"></div><h3>Analyzer Overview</h3><p>Score, verdict, static metadata, and workflow summary.</p></div>
       <div class="proof-card"><div class="proof-bar"></div><h3>IOC Extraction</h3><p>Structured indicators with actionability and hunt context.</p></div>
       <div class="proof-card"><div class="proof-bar"></div><h3>MITRE ATT&amp;CK Mapping</h3><p>Tactics, techniques, evidence, confidence, and detection ideas.</p></div>
       <div class="proof-card"><div class="proof-bar"></div><h3>YARA Draft</h3><p>Analyst-reviewed draft rule generated from static findings.</p></div>
       <div class="proof-card"><div class="proof-bar"></div><h3>Sigma Draft</h3><p>Experimental detection logic for command line and registry behavior.</p></div>
       <div class="proof-card"><div class="proof-bar"></div><h3>Analyst Report Export</h3><p>Markdown, JSON, IOC CSV, blocklist, YARA, and Sigma outputs.</p></div>
     </div>
+  </section>
+
+  <section class="landing-section">
+    <div class="section-kicker">Trust Boundary</div>
+    <h2>Known Limitations</h2>
+    <p>ThreatRecon.io provides static analysis assistance and analyst training workflows. Static analysis can identify suspicious indicators, strings, file traits, and behavior patterns, but results should be reviewed by a human analyst and should not be treated as a complete malware verdict by themselves.</p>
   </section>
 </div>
 
@@ -457,15 +463,6 @@ export const THREATRECON_BODY = `
       <p class="field-hint">Reports may contain sensitive IOCs, paths, hashes, or investigation notes. Store and share responsibly.</p>
     </div>
 
-    <!-- ===== Optional Threat Intel Enrichment (off by default, manual only) ===== -->
-    <div class="panel" data-section="enrich" id="enrich-panel" style="display:none">
-      <div class="panel-head"><div class="dot dot-blue"></div><div class="panel-head-text"><span class="panel-head-title">Threat Intel Enrichment</span><span class="panel-head-desc">Optional &middot; third-party data</span></div><button class="btn-export btn-export--head" id="btn-enrich">&#8635; Enrich IOCs</button></div>
-      <div class="panel-body">
-        <div class="enrich-label">Optional. Sends only extracted IOCs (hashes, URLs, domains, public IPs, CVEs, onion addresses) to a configured same-origin enrichment proxy. Does not send files, full sample content, decoded payloads, private IPs, registry keys, file paths, or emails. Requires a serverless deployment with API keys; on static-only hosting it will report "unavailable". Results are third-party intelligence and are not absolute truth.</div>
-        <div id="enrich-body"><div class="no-ioc">Enrichment not run yet. Click &ldquo;Enrich IOCs&rdquo; to query configured providers (optional).</div></div>
-        <div class="enrich-attrib">This product uses data from the NVD API but is not endorsed or certified by the NVD. Other results may come from MalwareBazaar, ThreatFox, URLhaus (abuse.ch), VirusTotal, and OTX AlienVault when configured.</div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -482,7 +479,6 @@ export const THREATRECON_BODY = `
     <button class="kb-filter" data-filter="loader">Loader / Dropper</button>
     <button class="kb-filter" data-filter="botnet">Botnet</button>
     <button class="kb-filter" data-filter="wiper">Wiper</button>
-    <button class="kb-filter" data-filter="ai-malware">AI Malware</button>
   </div>
   <div class="kb-grid" id="kb-grid"></div>
 </div>
@@ -548,7 +544,7 @@ export const THREATRECON_BODY = `
     <div class="panel"><div class="panel-body">
       <p>ThreatRecon is an independent browser-based malware triage workbench built for safe static analysis, IOC extraction, ATT&amp;CK mapping, and analyst workflow support. It performs static analysis, behavior mapping, YARA-style local regex rules, deobfuscation, and report generation entirely in your browser, with no sample upload and no API calls by default.</p>
       <h3 style="margin-top:14px">Why static + browser-only?</h3>
-      <p>Keeping everything client-side means there is no server to attack, no sample storage to leak, and no API bills. The smallest attack surface is the one that never executes the sample and never phones home.</p>
+      <p>Keeping analysis local avoids server side sample upload workflows, server side malware sample storage, and required malware-analysis APIs. The smallest sample-handling surface is the one that never executes the sample and never uploads it for analysis.</p>
       <h3 style="margin-top:14px">Limitations</h3>
       <p>Static heuristics cannot observe runtime behavior, unpack encrypted payloads, resolve dynamically built strings, or attribute threat actors with confidence. Always validate findings with a dedicated dynamic sandbox.</p>
       <h3 style="margin-top:14px">Responsible use</h3>

@@ -53,6 +53,3 @@ Governance aligned with NIST SSDF-style secure development: define requirements,
 5. Confirm footer has no GitHub or personal attribution
 6. Deploy to Vercel; verify response headers in production
 
-## Legal limitation
-
-Policy pages reduce risk but do not replace counsel. Have an attorney review Terms, Privacy, and Responsible Use language for commercial or regulated use.

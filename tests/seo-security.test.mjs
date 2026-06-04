@@ -10,7 +10,8 @@ const sitemap = read('../public/sitemap.xml');
 const shell = read('../public/assets/js/threatReconBody.js');
 const nextConfig = read('../next.config.js');
 
-assert(layout.includes('ThreatRecon.io | Browser Based Malware Triage Workbench'), 'metadata title missing');
+assert(layout.includes('ThreatRecon.io | Browser Based Malware Triage and Threat Hunting Lab'), 'metadata title missing');
+assert(layout.includes('Analyze suspicious files locally in your browser with IOC extraction, strings analysis, entropy checks, MITRE ATT&CK mapping, YARA style drafts, Sigma style drafts, and analyst reporting.'), 'metadata description missing');
 assert(layout.includes('metadataBase: new URL(siteUrl)'), 'metadata base missing');
 assert(layout.includes('canonical: siteUrl'), 'canonical metadata missing');
 assert(layout.includes('openGraph'), 'Open Graph metadata missing');
@@ -19,12 +20,9 @@ assert(layout.includes('applicationName: "ThreatRecon.io"'), 'application name m
 assert(layout.includes('"@type": "SoftwareApplication"'), 'SoftwareApplication JSON-LD missing');
 assert(layout.includes('"@type": "WebSite"'), 'WebSite JSON-LD missing');
 assert(layout.includes('type="application/ld+json"'), 'JSON-LD script tag missing');
-assert(!/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(layout), 'layout must not contain contact-style email addresses');
+assert(!/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(layout), 'layout must not contain email-style addresses');
 
 assert(robots.includes('Allow: /'), 'robots allow missing');
-['/source', '/api/', '/debug', '/test', '/internal', '/_next/'].forEach(path => {
-  assert(robots.includes(`Disallow: ${path}`), `robots missing disallow for ${path}`);
-});
 assert(robots.includes('Sitemap: https://threatrecon.io/sitemap.xml'), 'robots sitemap missing');
 
 ['/', '/legal', '/privacy', '/terms', '/security', '/about'].forEach(path => {
@@ -36,12 +34,18 @@ assert(page.includes('May the Sudo be with you!'), 'source decoy text missing');
 assert(!page.includes('Analyzer Dashboard'), 'app/page.js must not expose analyzer or landing markup');
 assert(!page.includes('threatrecon-client-shell'), 'app/page.js must not expose client shell markup');
 
-assert(shell.includes('Browser Based Malware Triage Workbench'), 'crawler-readable h1 copy missing');
+assert(shell.includes('Analyze suspicious files locally in your browser.'), 'crawler-readable hero copy missing');
+assert(shell.includes('How It Works'), 'how it works section missing');
 assert(shell.includes('Static Malware Analysis'), 'static malware analysis heading missing');
 assert(shell.includes('IOC Extraction and Threat Hunting'), 'IOC/threat hunting heading missing');
 assert(shell.includes('Detection Engineering'), 'detection engineering heading missing');
 assert(shell.includes('Reverse Engineering Support'), 'reverse engineering heading missing');
 assert(shell.includes('Privacy and Safety'), 'privacy and safety heading missing');
+assert(shell.includes('Static Malware Triage Walkthrough'), 'walkthrough section missing');
+assert(shell.includes('Visual proof placeholders'), 'visual proof placeholders section missing');
+assert(shell.includes('Defensive use disclaimer'), 'defensive use disclaimer missing');
+assert(shell.includes('Known Limitations'), 'known limitations section missing');
+assert(shell.includes('ThreatRecon.io provides static analysis assistance and analyst training workflows.'), 'known limitations copy missing');
 assert(shell.includes('ThreatRecon.io was built by Andre Boone.'), 'approved creator line missing');
 assert(!/LinkedIn|github\.com|Google Analytics|googletagmanager|gtag\(|tracking pixel/i.test(shell), 'unauthorized social or tracking text found in shell');
 

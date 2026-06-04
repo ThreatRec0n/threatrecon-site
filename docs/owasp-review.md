@@ -93,4 +93,4 @@ ThreatRecon is a browser-only static malware triage workbench deployed on Vercel
 
 - Re-run this checklist on major releases.
 - Run `npm run security:audit` and `npm run security:grep`.
-- Update `/legal` and `/privacy` if behavior changes (e.g. optional enrichment).
+- Update `/legal` and `/privacy` if site behavior changes.

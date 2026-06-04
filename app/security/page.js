@@ -13,24 +13,42 @@ export default function SecurityPage() {
   return (
     <LegalPageLayout
       title="Security Model"
-      subtitle="How ThreatRecon.io keeps malware triage local, static, and privacy conscious."
+      subtitle="Current security model for ThreatRecon.io browser based static analysis."
     >
       <div className="panel">
-        <div className="panel-head"><div className="dot dot-green"></div>Local static analysis</div>
+        <div className="panel-head"><div className="dot dot-green"></div>Security Model</div>
         <div className="panel-body">
-          <p>ThreatRecon.io performs browser based static analysis for suspicious scripts, logs, IOCs, command lines, and text artifacts. Files are not uploaded to ThreatRecon.io and are not executed.</p>
+          <p>ThreatRecon.io is a browser based static analysis and analyst training platform. The current design reduces exposure by avoiding server side sample upload workflows.</p>
         </div>
       </div>
       <div className="panel">
-        <div className="panel-head"><div className="dot dot-blue"></div>Network boundaries</div>
+        <div className="panel-head"><div className="dot dot-blue"></div>Local File Analysis</div>
         <div className="panel-body">
-          <p>ThreatRecon.io does not add malware-analysis API calls. External sandbox and reputation links are manual analyst pivots only. Site telemetry is limited to Vercel Web Analytics and Speed Insights for usage and performance metrics.</p>
+          <p>Files are processed locally in the browser during local analysis workflows. ThreatRecon.io does not intentionally collect submitted samples and does not provide server side malware sample storage.</p>
         </div>
       </div>
       <div className="panel">
-        <div className="panel-head"><div className="dot dot-yellow"></div>What ThreatRecon is not</div>
+        <div className="panel-head"><div className="dot dot-purple"></div>No Account Requirement</div>
         <div className="panel-body">
-          <p>ThreatRecon.io is not a sandbox, malware detonation platform, debugger, full disassembler, unpacker, emulator, or live threat intelligence platform.</p>
+          <p>The site does not require user accounts. The site does not require login.</p>
+        </div>
+      </div>
+      <div className="panel">
+        <div className="panel-head"><div className="dot dot-orange"></div>Responsible Use</div>
+        <div className="panel-body">
+          <p>Users should only analyze files they are authorized to inspect. ThreatRecon.io is intended for defensive security education, malware triage practice, and analyst workflow training.</p>
+        </div>
+      </div>
+      <div className="panel">
+        <div className="panel-head"><div className="dot dot-yellow"></div>Limitations</div>
+        <div className="panel-body">
+          <p>ThreatRecon.io provides static analysis assistance and analyst training workflows. Static analysis results should be reviewed by a human analyst and should not be treated as a complete malware verdict by themselves.</p>
+        </div>
+      </div>
+      <div className="panel">
+        <div className="panel-head"><div className="dot dot-red"></div>Contact</div>
+        <div className="panel-body">
+          <p>Contact options will be added when official ThreatRecon.io support channels are available.</p>
         </div>
       </div>
     </LegalPageLayout>

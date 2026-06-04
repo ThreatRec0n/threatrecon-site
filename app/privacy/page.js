@@ -12,17 +12,17 @@ export default function PrivacyPage() {
   return (
     <LegalPageLayout
       title="Privacy"
-      subtitle="How ThreatRecon handles data in the browser and on hosting infrastructure."
+      subtitle="How ThreatRecon.io handles local analysis and site telemetry."
     >
       <div className="panel">
-        <div className="panel-head"><div className="dot dot-green"></div>Browser-only analysis</div>
+        <div className="panel-head"><div className="dot dot-green"></div>Local analysis</div>
         <div className="panel-body">
           <ul>
-            <li>ThreatRecon does not upload samples by default.</li>
-            <li>ThreatRecon does not make malware-analysis API calls by default. Network access is limited to site telemetry and user-initiated external links.</li>
-            <li>ThreatRecon does not intentionally collect pasted samples, uploaded files, decoded payloads, or generated reports.</li>
-            <li>Analysis occurs locally in your browser.</li>
-            <li>Exported reports are saved by you locally when you choose to download or copy them.</li>
+            <li>ThreatRecon.io is designed for browser based static analysis.</li>
+            <li>Files are not uploaded to ThreatRecon.io during local analysis workflows.</li>
+            <li>The platform does not require accounts.</li>
+            <li>The platform does not require login.</li>
+            <li>The platform does not collect submitted samples.</li>
           </ul>
         </div>
       </div>
@@ -35,13 +35,13 @@ export default function PrivacyPage() {
       <div className="panel">
         <div className="panel-head"><div className="dot dot-yellow"></div>Hosting logs</div>
         <div className="panel-body">
-          <p>ThreatRecon does not intentionally collect analysis content. Standard hosting infrastructure (for example Vercel) may process access logs, IP addresses, user agents, timestamps, and request metadata as part of normal web hosting.</p>
+          <p>Standard hosting infrastructure may process access logs, IP addresses, user agents, timestamps, and request metadata as part of normal web hosting.</p>
         </div>
       </div>
       <div className="panel">
         <div className="panel-head"><div className="dot dot-blue"></div>Vercel Analytics</div>
         <div className="panel-body">
-          <p>ThreatRecon uses Vercel Web Analytics and Speed Insights for anonymized site usage and performance metrics. ThreatRecon does not collect pasted samples, uploaded local file contents, decoded payloads, reports, or malware analysis content.</p>
+          <p>ThreatRecon.io uses Vercel Web Analytics and Speed Insights for site usage and performance metrics. These telemetry tools are not used to collect submitted samples, decoded payloads, or generated reports.</p>
         </div>
       </div>
       <div className="panel">
@@ -52,7 +52,6 @@ export default function PrivacyPage() {
             <li>ThreatRecon does not use advertising trackers.</li>
             <li>ThreatRecon does not use Google Analytics, ad trackers, or marketing pixels.</li>
           </ul>
-          <p>If optional server-side enrichment is ever enabled, this privacy page will be updated before that feature is turned on.</p>
         </div>
       </div>
     </LegalPageLayout>

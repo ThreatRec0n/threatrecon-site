@@ -2,9 +2,15 @@ import "./globals.css";
 import VercelTelemetry from "./components/VercelTelemetry";
 
 const siteUrl = "https://threatrecon.io";
-const siteTitle = "ThreatRecon.io | Browser Based Malware Triage Workbench";
+const siteTitle = "ThreatRecon.io | Browser Based Malware Triage and Threat Hunting Lab";
 const siteDescription =
-  "ThreatRecon.io is a browser based static malware triage workbench for IOC extraction, MITRE ATT&CK mapping, deobfuscation, YARA and Sigma rule generation, detection engineering, and analyst reporting. Files are analyzed locally in the browser and are not uploaded or executed.";
+  "Analyze suspicious files locally in your browser with IOC extraction, strings analysis, entropy checks, MITRE ATT&CK mapping, YARA style drafts, Sigma style drafts, and analyst reporting.";
+const structuredDataDescription =
+  "Browser based static malware triage and threat hunting training platform.";
+const ogDescription =
+  "Browser based static malware triage, IOC extraction, MITRE ATT&CK mapping, YARA style drafts, Sigma style drafts, and analyst reporting without sample uploads.";
+const twitterDescription =
+  "Analyze suspicious files locally in your browser with static malware triage, IOC extraction, MITRE ATT&CK mapping, YARA style drafts, Sigma style drafts, and analyst reporting.";
 const ogImage = "/og-threatrecon.svg";
 
 export const metadata = {
@@ -25,13 +31,11 @@ export const metadata = {
     "SOC analyst tools",
     "reverse engineering support",
     "browser based malware analysis",
-    "cybersecurity portfolio",
     "threat hunting",
     "PowerShell analysis",
     "malware report generator",
   ],
   applicationName: "ThreatRecon.io",
-  creator: "Andre Boone",
   publisher: "ThreatRecon.io",
   category: "SecurityApplication",
   referrer: "no-referrer",
@@ -52,10 +56,10 @@ export const metadata = {
   },
   openGraph: {
     type: "website",
-    url: siteUrl,
+    url: `${siteUrl}/`,
     siteName: "ThreatRecon.io",
     title: siteTitle,
-    description: siteDescription,
+    description: ogDescription,
     images: [
       {
         url: ogImage,
@@ -68,7 +72,7 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     title: siteTitle,
-    description: siteDescription,
+    description: twitterDescription,
     images: [ogImage],
   },
 };
@@ -84,24 +88,20 @@ const structuredData = [
     name: "ThreatRecon.io",
     applicationCategory: "SecurityApplication",
     operatingSystem: "Web browser",
-    description: siteDescription,
-    url: siteUrl,
+    description: structuredDataDescription,
+    url: `${siteUrl}/`,
     offers: {
       "@type": "Offer",
       price: "0",
       priceCurrency: "USD",
-    },
-    creator: {
-      "@type": "Person",
-      name: "Andre Boone",
     },
   },
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "ThreatRecon.io",
-    url: siteUrl,
-    description: siteDescription,
+    url: `${siteUrl}/`,
+    description: structuredDataDescription,
   },
 ];
 

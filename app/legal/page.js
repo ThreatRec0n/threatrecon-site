@@ -2,7 +2,7 @@ import LegalPageLayout from "../../components/LegalPageLayout";
 
 export const metadata = {
   title: "ThreatRecon Legal Notice | Defensive Static Malware Triage",
-  description: "Legal notice, responsible use, and acceptable use terms for ThreatRecon.io defensive static malware triage.",
+  description: "Legal notice and responsible use language for ThreatRecon.io defensive static malware triage.",
   alternates: {
     canonical: "https://threatrecon.io/legal",
   },
@@ -17,19 +17,13 @@ export default function LegalPage() {
       <div className="panel">
         <div className="panel-head"><div className="dot dot-green"></div>Educational and defensive use</div>
         <div className="panel-body">
-          <p>ThreatRecon is provided for educational, research, defensive security, malware triage, and incident-response support. It must not be used to develop, deploy, conceal, or improve malware or unauthorized activity.</p>
+          <p>ThreatRecon.io is built for defensive security education, malware triage practice, and analyst workflow training. Users are responsible for using the platform legally and ethically.</p>
         </div>
       </div>
       <div className="panel">
         <div className="panel-head"><div className="dot dot-blue"></div>Static-analysis limitation</div>
         <div className="panel-body">
           <p>ThreatRecon performs <strong>local static analysis only</strong>. It does not execute samples, detonate malware, upload files, or guarantee detection of malicious behavior.</p>
-        </div>
-      </div>
-      <div className="panel">
-        <div className="panel-head"><div className="dot dot-yellow"></div>No professional or legal advice</div>
-        <div className="panel-body">
-          <p>Reports and outputs are informational. They are not legal advice, compliance advice, forensic certification, or a substitute for professional incident response.</p>
         </div>
       </div>
       <div className="panel">
@@ -63,12 +57,6 @@ export default function LegalPage() {
         </div>
       </div>
       <div className="panel">
-        <div className="panel-head"><div className="dot dot-blue"></div>No endorsement</div>
-        <div className="panel-body">
-          <p>References to third-party services (for example ANY.RUN, Triage, Hybrid Analysis, Joe Sandbox, VirusTotal, MalwareBazaar, ThreatFox, URLhaus, or OTX) are general workflow references and do not imply endorsement, affiliation, or guarantee.</p>
-        </div>
-      </div>
-      <div className="panel">
         <div className="panel-head"><div className="dot dot-red"></div>Acceptable use</div>
         <div className="panel-body">
           <p>You must not use ThreatRecon to:</p>
@@ -82,7 +70,6 @@ export default function LegalPage() {
           </ul>
         </div>
       </div>
-      <p className="legal-footer-note">This page does not constitute legal advice. For commercial or regulated use, have qualified counsel review your Terms, Privacy, and responsible-use language.</p>
     </LegalPageLayout>
   );
 }

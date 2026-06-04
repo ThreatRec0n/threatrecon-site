@@ -273,7 +273,7 @@ export function extractIOCs(text) {
   const domains = rawDomains.filter(d => !urls.some(u => u.includes(d))).slice(0, 12);
 
   // Separate loopback/private/reserved IPs into a local-only bucket so they are
-  // NOT treated as external IOCs (not enriched, not recommended for blocking).
+  // NOT treated as external IOCs or recommended for blocking.
   const allIps = [...new Set(text.match(ipRx) || [])];
   const ips = [];
   const localIndicators = [];
