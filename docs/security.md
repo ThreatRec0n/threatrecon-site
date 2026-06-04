@@ -88,11 +88,10 @@ upgrade-insecure-requests
 
 Notes:
 
-- `connect-src 'self'` permits **only** the same-origin enrichment proxy (`/enrich`).
-  The browser can never contact a third-party API directly. Local analysis still
-  makes zero network calls; enrichment is manual-only (a button). For a pure static
-  GitHub Pages deployment you may tighten this to `connect-src 'none'` — enrichment
-  will then simply report "unavailable" and local analysis is unaffected.
+- `connect-src` is limited to exact Vercel Web Analytics and Speed Insights
+  endpoints. The analyzer does not contact malware-analysis APIs, upload samples,
+  or send pasted/decoded/report content. Manual reputation pivots are ordinary links
+  opened by the analyst.
 - `style-src` allows `'unsafe-inline'` because the UI uses some inline `style`
   attributes for dynamic bars/colors. No inline **scripts** or inline event handlers
   are used, so `script-src 'self'` (without `'unsafe-inline'`) is sufficient and strict.
@@ -127,10 +126,11 @@ Enrichment is **opt-in and off by default**. The local analyzer works 100% witho
 
 ### 9.1 Two modes
 
-- **Local-only mode (default):** No network calls. All hashing, IOC extraction,
+- **Local analyzer mode (default):** No malware-analysis network calls. All hashing, IOC extraction,
   behavior/YARA-style matching, scoring, and reporting happen in the browser. This is
   *local static analysis* / *browser-only analysis* — it does not query any external
-  threat-intelligence service.
+  threat-intelligence service. Vercel Web Analytics and Speed Insights may collect
+  anonymized site usage and performance telemetry only.
 - **Enrichment mode (optional):** Only when the user clicks **"Enrich IOCs"**, the
   browser POSTs a small JSON payload of *extracted IOCs* to a **same-origin** serverless
   proxy (`/enrich`). The proxy holds the API keys and queries allowlisted providers

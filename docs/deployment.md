@@ -56,8 +56,9 @@ Transform Rule / Workers.
 > **GitHub Pages = static-only mode.** There is no serverless runtime, so the
 > `functions/enrich.js` proxy does not run and threat-intel enrichment is disabled.
 > The client handles the missing endpoint gracefully ("enrichment unavailable;
-> local analysis still completed"). For a maximally locked-down static deploy you may
-> change `connect-src 'self'` to `connect-src 'none'` in `index.html`.
+> local analysis still completed"). Current Vercel deployments keep `connect-src`
+> limited to exact Vercel Analytics / Speed Insights endpoints; local analyzer content
+> is not sent to telemetry.
 
 ---
 

@@ -16,7 +16,7 @@ export default function PrivacyPage() {
         <div className="panel-body">
           <ul>
             <li>ThreatRecon does not upload samples by default.</li>
-            <li>ThreatRecon does not make API calls by default (<code>connect-src &apos;none&apos;</code>).</li>
+            <li>ThreatRecon does not make malware-analysis API calls by default. Network access is limited to site telemetry and user-initiated external links.</li>
             <li>ThreatRecon does not intentionally collect pasted samples, uploaded files, decoded payloads, or generated reports.</li>
             <li>Analysis occurs locally in your browser.</li>
             <li>Exported reports are saved by you locally when you choose to download or copy them.</li>
@@ -36,12 +36,18 @@ export default function PrivacyPage() {
         </div>
       </div>
       <div className="panel">
+        <div className="panel-head"><div className="dot dot-blue"></div>Vercel Analytics</div>
+        <div className="panel-body">
+          <p>ThreatRecon uses Vercel Web Analytics and Speed Insights for anonymized site usage and performance metrics. ThreatRecon does not collect pasted samples, uploaded local file contents, decoded payloads, reports, or malware analysis content.</p>
+        </div>
+      </div>
+      <div className="panel">
         <div className="panel-head"><div className="dot dot-green"></div>What we do not do</div>
         <div className="panel-body">
           <ul>
             <li>ThreatRecon does not sell user data.</li>
             <li>ThreatRecon does not use advertising trackers.</li>
-            <li>ThreatRecon does not use analytics unless explicitly disclosed and enabled in the future.</li>
+            <li>ThreatRecon does not use Google Analytics, ad trackers, or marketing pixels.</li>
           </ul>
           <p>If optional server-side enrichment is ever enabled, this privacy page will be updated before that feature is turned on.</p>
         </div>

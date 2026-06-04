@@ -392,7 +392,7 @@ export const THREATRECON_BODY = `
       <ul>
         <li><span class="ok">Static analysis only.</span> It inspects text patterns; it does not run or detonate anything.</li>
         <li><span class="ok">100% in-browser.</span> Hashing, entropy, IOC extraction, rule matching, and decoding all run client-side.</li>
-        <li><span class="ok">No network calls.</span> The Content-Security-Policy sets <code>connect-src 'none'</code> — there is no fetch, XHR, or WebSocket.</li>
+        <li><span class="ok">No analysis network calls.</span> Analytics are limited to site usage and performance telemetry. Analysis content remains local in the browser.</li>
         <li><span class="ok">No upload, no storage.</span> Files you choose are read locally with FileReader and never sent anywhere or persisted server-side.</li>
       </ul>
     </div></div>

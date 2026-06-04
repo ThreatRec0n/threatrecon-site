@@ -6,7 +6,7 @@ Governance aligned with NIST SSDF-style secure development: define requirements,
 
 - Browser-only static analysis by default; no sample execution; no backend analysis.
 - No secrets in frontend code, HTML, or client bundles.
-- CSP `connect-src 'none'` — no network calls from the analyzer by default.
+- CSP `connect-src` is limited to exact Vercel Analytics / Speed Insights endpoints; no malware-analysis API calls are permitted by default.
 - Privacy-conscious: no intentional collection of pasted samples or reports (see `/privacy`).
 
 ## Dependency management
@@ -26,7 +26,7 @@ Governance aligned with NIST SSDF-style secure development: define requirements,
 
 - [ ] `npm audit` — no unmitigated high/critical in production deps
 - [ ] `npm run security:grep` — review any matches (document false positives)
-- [ ] CSP unchanged or stricter (`connect-src 'none'` preserved)
+- [ ] CSP unchanged or stricter (only exact Vercel telemetry endpoints in `connect-src`)
 - [ ] No new `eval`, `Function`, or unsafe HTML injection of user content
 - [ ] File upload gate still local-only with size/extension limits
 - [ ] Demo still scores 100/100 CRITICAL (regression check)

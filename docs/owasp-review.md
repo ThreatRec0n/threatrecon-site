@@ -45,7 +45,7 @@ ThreatRecon is a browser-only static malware triage workbench deployed on Vercel
 | Check | Status |
 |-------|--------|
 | Strict CSP and security headers in `next.config.js` | Yes |
-| `connect-src 'none'` | Yes |
+| `connect-src` limited to exact Vercel Analytics / Speed Insights endpoints | Yes |
 | `productionBrowserSourceMaps: false` | Yes |
 | No debug endpoints or exposed `.env` in frontend | Yes |
 
@@ -87,7 +87,7 @@ ThreatRecon is a browser-only static malware triage workbench deployed on Vercel
 | No server-side fetch of user-supplied URLs | Yes |
 | No API routes processing user URLs | Yes |
 | External links are user-initiated navigation only | Yes |
-| CSP `connect-src 'none'` blocks browser fetch to third parties | Yes |
+| CSP `connect-src` does not allow user-supplied URLs or third-party malware-analysis APIs | Yes |
 
 ## Review cadence
 

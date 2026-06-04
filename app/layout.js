@@ -1,4 +1,5 @@
 import "./globals.css";
+import VercelTelemetry from "./components/VercelTelemetry";
 
 export const metadata = {
   title: "ThreatRecon Malware Triage Workbench",
@@ -15,7 +16,11 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <VercelTelemetry />
+        <script type="module" src="/assets/js/vercel-telemetry.js" />
+      </body>
     </html>
   );
 }
