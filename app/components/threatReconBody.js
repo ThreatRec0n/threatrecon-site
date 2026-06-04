@@ -1,4 +1,6 @@
-// Static trusted template — client-only render (not in SSR View Source).
+// Static trusted application shell only (build-time constant).
+// Never interpolate user paste, uploads, decoded payloads, IOCs, or analysis output here.
+// All dynamic results are rendered by public/assets/js/app.js via escapeHtml / textContent.
 export const THREATRECON_BODY = `
 <div class="topbar">
   <div class="logo-wrap">

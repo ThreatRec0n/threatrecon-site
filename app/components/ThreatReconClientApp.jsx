@@ -16,6 +16,7 @@ export default function ThreatReconClientApp() {
     }
   }, []);
 
+  // Static trusted application shell only. Never insert user-controlled analysis content here.
   return (
     <div
       id="tr-root"

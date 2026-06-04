@@ -28,7 +28,7 @@ ThreatRecon is a browser-only static malware triage workbench deployed on Vercel
 |-------|--------|
 | No `eval` or `Function` constructor | Yes |
 | User/decoded content rendered via `escapeHtml` / `textContent` in `app.js` | Yes |
-| Static shell uses `dangerouslySetInnerHTML` for fixed template only (`app/(main)/page.js`) | Documented |
+| Static shell uses `dangerouslySetInnerHTML` for fixed template only (`threatReconBody.js` → `ThreatReconClientApp.jsx`; SSR decoy is separate) | Documented |
 | Custom regex errors shown as text | Yes |
 
 ## A04 — Insecure Design

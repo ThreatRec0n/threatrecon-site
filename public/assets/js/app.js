@@ -316,6 +316,7 @@ function updateDynamicContextualActions(iocs, behaviors, capabilities, malwareTy
     wrap.innerHTML = '';
     return;
   }
+  // Static button markup only — parts are hardcoded strings, never user/analysis data.
   wrap.innerHTML = '<div class="dyn-context-label">Based on this analysis:</div><div class="dyn-context-btns">' + parts.join('') + '</div>';
   wrap.style.display = 'block';
 }
@@ -482,7 +483,10 @@ function renderEntropy(entropy) {
 function renderStrings(strings) {
   $('strings-body').innerHTML = strings.length === 0
     ? '<div class="no-ioc">No classified strings extracted.</div>'
-    : strings.map(s => `<div class="string-item"><span class="str-type ${s.type}">${escapeHtml(s.type.toUpperCase())}</span><span class="str-val">${escapeHtml(s.val)}</span></div>`).join('');
+    : strings.map(s => {
+      const t = ['network', 'crypto', 'evasion', 'suspicious'].includes(s.type) ? s.type : 'suspicious';
+      return `<div class="string-item"><span class="str-type ${t}">${escapeHtml(t.toUpperCase())}</span><span class="str-val">${escapeHtml(s.val)}</span></div>`;
+    }).join('');
 }
 
 function renderYara(allHits) {
@@ -536,10 +540,11 @@ function renderScore(scores, verdict) {
     'POTENTIALLY UNWANTED': ['vb-low', '\u2139 POTENTIALLY UNWANTED', 'var(--green)'],
     'LIKELY BENIGN': ['vb-clean', '\u2713 LIKELY BENIGN', 'var(--accent)'],
   };
-  const [cls, text, color] = map[verdict];
+  const [cls, text, color] = map[verdict] || map['LIKELY BENIGN'];
   $('score-num').style.color = color;
   $('score-bar').style.background = color;
   setTimeout(() => { $('score-bar').style.width = total + '%'; }, 80);
+  // cls/text come from fixed verdict map only — never from user input.
   $('verdict-wrap').innerHTML = `<span class="verdict-badge ${cls}">${escapeHtml(text)}</span>`;
   $('score-breakdown').textContent =
     `Behavioral +${beh}  |  IOC +${iocScore}  |  YARA +${yaraScore}  |  Entropy +${entScore}  |  Deobfuscation +${deobfScore}  |  Capability +${capScore}`;
