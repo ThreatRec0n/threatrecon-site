@@ -1,11 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
-
-const ThreatReconClientApp = dynamic(
-  () => import("./ThreatReconClientApp"),
-  { ssr: false }
-);
+import ThreatReconClientApp from "./ThreatReconClientApp";
 
 export default function HomeClientMount() {
   return <ThreatReconClientApp />;

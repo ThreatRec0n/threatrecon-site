@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { THREATRECON_BODY } from "./threatReconBody";
 
 export default function ThreatReconClientApp() {
-  useLayoutEffect(() => {
-    document.documentElement.classList.add("tr-hydrated");
-  }, []);
-
   useEffect(() => {
+    document.documentElement.classList.add("tr-hydrated");
+
     const existing = document.querySelector('script[data-threatrecon-app="true"]');
     if (!existing) {
       const script = document.createElement("script");

@@ -2575,8 +2575,8 @@ body::after {
 
 /* Home page: SSR decoy for View Page Source; hidden after client hydration */
 #source-decoy {
+  display: none !important;
   min-height: 100vh;
-  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -2600,22 +2600,7 @@ body::after {
   opacity: 0.85;
 }
 
-html.tr-hydrated #source-decoy {
-  display: none !important;
-}
-
-#client-app,
 #threatrecon-client-shell {
   display: block;
   min-height: 100vh;
-}
-
-html:not(.tr-hydrated) #client-app {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  pointer-events: none;
 }
