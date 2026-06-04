@@ -183,7 +183,7 @@ export const THREATRECON_BODY = `
 
     <div class="analyzer-grid analyzer-grid--stack">
       <div class="panel" data-section="pe">
-        <div class="panel-head"><div class="dot dot-purple"></div><div class="panel-head-text"><span class="panel-head-title">Static PE Triage</span><span class="panel-head-desc">MZ/PE headers, sections, imports, entropy, and packer hints when visible locally</span></div></div>
+        <div class="panel-head"><div class="dot dot-purple"></div><div class="panel-head-text"><span class="panel-head-title">Static PE Triage</span><span class="panel-head-desc">MZ/PE headers, sections, API strings, entropy, and packer hints when visible locally</span></div></div>
         <div class="panel-body" id="pe-body"></div>
       </div>
       <div class="panel" data-section="script">

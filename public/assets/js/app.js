@@ -285,7 +285,7 @@ function analyzePE(input) {
     const entropy = entropyOfSlice(input, rawPtr, Math.min(rawSize, 128 * 1024));
     sections.push({ name, rawSize, entropy });
   }
-  const visibleImports = PE_IMPORTS.filter(api => new RegExp(api.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(input));
+  const suspiciousApiStrings = PE_IMPORTS.filter(api => new RegExp(api.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(input));
   const packerHints = PACKER_HINTS.filter(h => new RegExp(h, 'i').test(input));
   const packedSectionHits = sections.filter(s => PACKED_SECTIONS.some(p => s.name.toLowerCase().includes(p)));
   const highEntropySections = sections.filter(s => s.entropy >= 7.2);
@@ -297,13 +297,15 @@ function analyzePE(input) {
   if (packedSectionHits.length) packedIndicators.push(`Packed section names: ${packedSectionHits.map(s => s.name).join(', ')}`);
   if (highEntropySections.length) packedIndicators.push(`High-entropy sections: ${highEntropySections.map(s => `${s.name} (${s.entropy.toFixed(2)})`).join(', ')}`);
   return {
-    detected: hasMZ || hasPE || visibleImports.length > 2 || sections.length > 0,
+    detected: hasMZ || hasPE || sections.length > 0,
     hasMZ,
     hasPE,
     fileType: hasPE ? 'Windows PE executable or DLL-like content' : hasMZ ? 'MZ/DOS executable-like content' : 'No PE structure detected',
     architecture: hasPE ? (archMap[machine] || `Unknown machine 0x${machine.toString(16)}`) : 'Not available',
     sections,
-    visibleImports,
+    realImportTableParsed: false,
+    imports: [],
+    suspiciousApiStrings,
     packerHints,
     packedIndicators,
   };
@@ -355,7 +357,7 @@ function buildBehaviorTimeline(behaviors, scriptFindings, peTriage) {
   if (behaviors.some(b => /persistence|scheduled|registry|service/i.test(b.label))) lines.push('Persistence mechanism indicated.');
   if (behaviors.some(b => /credential|lsass|mimikatz/i.test(b.label))) lines.push('Credential access behavior indicated.');
   if (behaviors.some(b => /shadow|ransom|backup/i.test(b.label))) lines.push('Impact / ransomware preparation indicated.');
-  if (peTriage.detected) lines.push('PE-like binary artifact should be reviewed for imports, sections, and packing.');
+  if (peTriage.detected) lines.push('PE-like binary artifact should be reviewed for sections, packing, API strings, and imports if an import table is available.');
   return lines.length ? lines : ['No clear multi-stage behavior timeline inferred from static evidence.'];
 }
 
@@ -364,7 +366,7 @@ function buildREGuidance(ctx) {
   const out = [];
   if (peTriage.detected) {
     out.push('Open the sample in PEStudio, Detect It Easy, or PE-bear for header/import review.');
-    out.push('Review imports for process injection, networking, persistence, crypto, and anti-debug APIs.');
+    out.push('Review parsed imports when available, and compare suspicious API strings against process injection, networking, persistence, crypto, and anti-debug patterns.');
     out.push('Check section entropy and section names for packing before deeper disassembly.');
     out.push('Extract strings and compare them with ThreatRecon IOCs.');
     out.push('Use Ghidra or Cutter for deeper code review only in an authorized lab.');
@@ -385,7 +387,7 @@ function buildREGuidance(ctx) {
     out.push('Pivot extracted IOCs manually in reputation tools, then add confirmed IOCs to SIEM, EDR, firewall, DNS, or proxy hunts.');
   }
   if (behaviors.length && !out.length) out.push('Use the behavior list as a triage checklist and confirm with controlled dynamic analysis if authorized.');
-  return out.length ? out : ['No specific reverse-engineering guidance beyond standard strings, imports, entropy, and IOC review.'];
+  return out.length ? out : ['No specific reverse-engineering guidance beyond standard strings, suspicious API strings, entropy, and IOC review.'];
 }
 
 function suspiciousCommands(input) {
@@ -408,23 +410,47 @@ function buildHuntingQueries(iocs, commands) {
   }));
 }
 
-function isBlockableIp(ip) {
-  return !isLocalPrivateIp(ip) && !/^192\.0\.2\.|^198\.51\.100\.|^203\.0\.113\./.test(ip);
+function isDocumentationIp(ip) {
+  return /^192\.0\.2\.|^198\.51\.100\.|^203\.0\.113\./.test(ip);
 }
 
-function blocklistItems(iocs) {
+function isBlockableIp(ip) {
+  return !isLocalPrivateIp(ip) && !isDocumentationIp(ip);
+}
+
+function urlUsesDocumentationIp(url) {
+  try {
+    const host = new URL(url).hostname;
+    return isDocumentationIp(host);
+  } catch {
+    return false;
+  }
+}
+
+function actionableExportNotes(iocs, isDemo) {
+  const notes = [];
+  if (isDemo && ((iocs.ips || []).some(isDocumentationIp) || (iocs.urls || []).some(urlUsesDocumentationIp))) {
+    notes.push('Demo/documentation IP ranges were excluded from the actionable blocklist.');
+  }
+  if ((iocs.localIndicators || []).length) {
+    notes.push('Local/private IP indicators were kept separate from actionable network IOCs.');
+  }
+  return notes;
+}
+
+function blocklistItems(iocs, isDemo) {
   return [
     ...(iocs.ips || []).filter(isBlockableIp),
     ...(iocs.domains || []),
-    ...(iocs.urls || []),
+    ...(iocs.urls || []).filter(u => !(isDemo && urlUsesDocumentationIp(u))),
     ...(iocs.md5 || []), ...(iocs.sha1 || []), ...(iocs.sha256 || []),
   ];
 }
 
-function iocRows(iocs) {
+function iocRows(iocs, isDemo) {
   const rows = [];
   const add = (type, values, notes = '') => (values || []).forEach(value => rows.push({ type, value, source: 'ThreatRecon local extraction', confidence: 'medium', notes }));
-  add('ip', (iocs.ips || []).filter(isBlockableIp), 'External IP');
+  add('ip', (iocs.ips || []).filter(isBlockableIp), isDemo ? 'External public IP; demo/documentation ranges excluded from actionable exports' : 'External public IP');
   add('domain', iocs.domains, 'Domain indicator');
   add('url', iocs.urls, 'URL indicator');
   add('email', iocs.emails, 'Email indicator; do not block without context');
@@ -562,7 +588,8 @@ function updateDynamicContextualActions(iocs, behaviors, capabilities, malwareTy
 function generateAnalystReport(ctx) {
   const { input, total, verdict, behaviors, iocs, yaraHits, entropy, entropyCat,
     mitreList, h256, malwareType, capabilities, deobf, isDemo, confidence,
-    category, timeline, huntingQueries, reGuidance, peTriage, scriptFindings } = ctx;
+    category, timeline, huntingQueries, reGuidance, peTriage, scriptFindings,
+    exportNotes } = ctx;
   const criticals = behaviors.filter(b => b.sev === 'CRITICAL');
   const highs = behaviors.filter(b => b.sev === 'HIGH');
   const meds = behaviors.filter(b => b.sev === 'MED');
@@ -589,7 +616,7 @@ function generateAnalystReport(ctx) {
   if (highs.length) sections.push('High: ' + highs.slice(0, 6).map(b => b.label).join('; ') + '.');
   if (meds.length) sections.push('Medium: ' + meds.slice(0, 6).map(b => b.label).join('; ') + '.');
   if (scriptFindings.length) sections.push('Script indicators: ' + scriptFindings.map(s => `${s.family} (${s.hits.join(', ')})`).join('; ') + '.');
-  if (peTriage.detected) sections.push(`Static PE triage: ${peTriage.fileType}; architecture ${peTriage.architecture}; suspicious imports: ${peTriage.visibleImports.join(', ') || 'none visible'}.`);
+  sections.push(`Static PE triage: ${peTriage.fileType}; architecture ${peTriage.architecture}; suspicious API strings: ${(peTriage.suspiciousApiStrings || []).join(', ') || 'none visible'}.`);
 
   sections.push('\nLIKELY MALWARE CATEGORY');
   sections.push(category);
@@ -617,6 +644,7 @@ function generateAnalystReport(ctx) {
   sections.push('\nINDICATORS OF COMPROMISE');
   const iocLines = Object.entries(iocs).filter(([, v]) => v.length).map(([k, v]) => `${k}: ${v.join(', ')}`);
   sections.push(iocLines.length ? iocLines.join('\n') : 'No IOCs extracted.');
+  if (exportNotes.length) sections.push('\nActionable export notes:\n' + exportNotes.map(n => `- ${n}`).join('\n'));
 
   sections.push('\nBEHAVIOR TIMELINE');
   sections.push(timeline.map(x => `- ${x}`).join('\n'));
@@ -780,21 +808,17 @@ function renderRecommendations(rec) {
 function renderPETriage(pe) {
   const body = $('pe-body');
   if (!body) return;
-  if (!pe.detected) {
-    body.innerHTML = '<div class="no-ioc">No PE-like structure detected. Static PE Triage appears when MZ/PE headers, sections, imports, or PE strings are visible.</div>';
-    return;
-  }
   const sectionRows = pe.sections.length
     ? pe.sections.map(s => `<div class="meta-row"><span class="meta-key">${escapeHtml(s.name)}</span><span class="meta-val">raw ${Number(s.rawSize).toLocaleString()} bytes · entropy ${s.entropy.toFixed(2)}${s.entropy >= 7.2 ? ' · packed?' : ''}</span></div>`).join('')
-    : '<div class="meta-row"><span class="meta-val">Section table not parsable from available text/bytes.</span></div>';
+    : `<div class="meta-row"><span class="meta-val">${pe.detected ? 'Section table not parsable from available text/bytes.' : 'No section table parsed because no MZ/PE structure was detected.'}</span></div>`;
   body.innerHTML = `
     <div class="meta-row"><span class="meta-key">Type guess</span><span class="meta-val">${escapeHtml(pe.fileType)}</span></div>
-    <div class="meta-row"><span class="meta-key">DOS header</span><span class="meta-val">${pe.hasMZ ? 'MZ header present' : 'Not detected'}</span></div>
-    <div class="meta-row"><span class="meta-key">PE signature</span><span class="meta-val">${pe.hasPE ? 'PE signature present' : 'Not detected'}</span></div>
+    <div class="meta-row"><span class="meta-key">DOS header</span><span class="meta-val">${pe.hasMZ ? 'true' : 'false'}</span></div>
+    <div class="meta-row"><span class="meta-key">PE signature</span><span class="meta-val">${pe.hasPE ? 'true' : 'false'}</span></div>
     <div class="meta-row"><span class="meta-key">Architecture</span><span class="meta-val">${escapeHtml(pe.architecture)}</span></div>
     <h4 class="dyn-section-title">Sections</h4>${sectionRows}
-    <h4 class="dyn-section-title">Suspicious visible imports</h4>
-    ${(pe.visibleImports.length ? pe.visibleImports.map(x => `<span class="ioc-pill hash">${escapeHtml(x)}</span>`).join('') : '<div class="no-ioc">No listed suspicious Windows APIs visible in strings.</div>')}
+    <h4 class="dyn-section-title">${pe.realImportTableParsed ? 'Imports' : 'Suspicious API strings'}</h4>
+    ${((pe.realImportTableParsed ? pe.imports : pe.suspiciousApiStrings).length ? (pe.realImportTableParsed ? pe.imports : pe.suspiciousApiStrings).map(x => `<span class="ioc-pill hash">${escapeHtml(x)}</span>`).join('') : '<div class="no-ioc">No listed suspicious Windows API strings visible.</div>')}
     <h4 class="dyn-section-title">Packer / compiler hints</h4>
     ${(pe.packedIndicators.length ? pe.packedIndicators.map(x => `<div class="rec-item">• ${escapeHtml(x)}</div>`).join('') : '<div class="no-ioc">No strong packing indicators from local static heuristics.</div>')}
     <p class="field-hint">Static PE Triage is a lightweight browser heuristic, not full binary reverse engineering.</p>`;
@@ -937,6 +961,7 @@ async function runAnalysis() {
   const reGuidance = buildREGuidance({ peTriage, scriptFindings, capabilities, malwareType, iocs, behaviors });
   const huntingQueries = buildHuntingQueries(iocs, suspiciousCmds);
   const pivotLinks = pivotLinksForIOCs(iocs);
+  const exportNotes = actionableExportNotes(iocs, isDemo);
 
   // MITRE technique set
   const mitreSet = new Set();
@@ -974,7 +999,7 @@ async function runAnalysis() {
     input, total: scores.total, verdict, behaviors, iocs, yaraHits: allHits,
     entropy, entropyCat, mitreList, h256, h1, md5hash, malwareType, capabilities,
     deobf, recommendations, isDemo, confidence, category, timeline, huntingQueries,
-    reGuidance, peTriage, scriptFindings,
+    reGuidance, peTriage, scriptFindings, exportNotes,
   });
   typewrite($('ai-text'), report);
 
@@ -991,8 +1016,9 @@ async function runAnalysis() {
     mitre: mitreList, capabilities: capabilities.map(c => c.class),
     iocs, deobfuscated: deobf.map(d => ({ type: d.type, decoded: d.decoded.slice(0, 400) })),
     peTriage, scriptFindings, behaviorTimeline: timeline, huntingQueries, reGuidance,
-    manualReputationPivots: pivotLinks, blocklist: blocklistItems(iocs),
-    iocCsvRows: iocRows(iocs), recommendations, report,
+    manualReputationPivots: pivotLinks, blocklist: blocklistItems(iocs, isDemo),
+    actionableExportNotes: exportNotes,
+    iocCsvRows: iocRows(iocs, isDemo), recommendations, report,
     dynamicAnalysisNextSteps: buildDynamicAnalysisNextSteps(),
   };
 
@@ -1098,20 +1124,21 @@ ${r.mitre.join(', ') || 'none'}
 ${r.capabilities.map(c => `- ${c}`).join('\n') || '- none'}
 
 ## Static PE Triage
-${r.peTriage.detected ? [
+${[
   `- Type guess: ${r.peTriage.fileType}`,
   `- DOS header: ${r.peTriage.hasMZ}`,
   `- PE signature: ${r.peTriage.hasPE}`,
   `- Architecture: ${r.peTriage.architecture}`,
-  `- Suspicious visible imports: ${r.peTriage.visibleImports.join(', ') || 'none'}`,
+  `- ${r.peTriage.realImportTableParsed ? 'Imports' : 'Suspicious API strings'}: ${(r.peTriage.realImportTableParsed ? r.peTriage.imports : r.peTriage.suspiciousApiStrings).join(', ') || 'none'}`,
   `- Packed indicators: ${r.peTriage.packedIndicators.join('; ') || 'none'}`,
-].join('\n') : '- No PE-like structure detected'}
+].join('\n')}
 
 ## Script Analysis
 ${r.scriptFindings.map(s => `- ${s.family}: ${s.hits.join(', ')}`).join('\n') || '- none'}
 
 ## IOCs
 ${Object.entries(r.iocs).filter(([, v]) => v.length).map(([k, v]) => `### ${k}\n${v.join('\n')}`).join('\n\n') || 'none'}
+${r.actionableExportNotes.length ? `\n### Actionable export notes\n${r.actionableExportNotes.map(n => `- ${n}`).join('\n')}` : ''}
 
 ## Deobfuscated Content
 ${r.deobfuscated.map(d => `- [${d.type}] ${d.decoded}`).join('\n') || '- none'}
@@ -1144,7 +1171,14 @@ function csvEscape(v) {
 function exportIOCCSV() {
   if (!lastReport) return;
   const header = ['type', 'value', 'source', 'confidence', 'notes'];
-  const rows = [header.join(',')].concat(lastReport.iocCsvRows.map(r =>
+  const noteRows = (lastReport.actionableExportNotes || []).map(n => ({
+    type: 'note',
+    value: n,
+    source: 'ThreatRecon export policy',
+    confidence: 'informational',
+    notes: n,
+  }));
+  const rows = [header.join(',')].concat(noteRows.concat(lastReport.iocCsvRows).map(r =>
     [r.type, r.value, r.source, r.confidence, r.notes].map(csvEscape).join(',')
   ));
   download(`threatrecon-iocs-${Date.now()}.csv`, rows.join('\n'), 'text/csv');
@@ -1153,7 +1187,14 @@ function exportIOCCSV() {
 
 function exportBlocklist() {
   if (!lastReport) return;
-  const plain = ['# ThreatRecon blocklist export', '# IPs, domains, URLs, and hashes only', ...lastReport.blocklist].join('\n');
+  const notes = lastReport.actionableExportNotes || [];
+  const plain = [
+    '# ThreatRecon blocklist export',
+    '# Actionable public IPs, domains, URLs, and hashes only',
+    '# Local/private IPs are excluded.',
+    ...notes.map(n => `# ${n}`),
+    ...lastReport.blocklist,
+  ].join('\n');
   const csv = ['type,value'].concat(lastReport.blocklist.map(v => {
     const type = /^[0-9a-f]{32}$/i.test(v) ? 'hash_md5'
       : /^[0-9a-f]{40}$/i.test(v) ? 'hash_sha1'
