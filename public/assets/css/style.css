@@ -2573,7 +2573,7 @@ body::after {
   opacity: 0.85;
 }
 
-/* Home page: SSR decoy for View Page Source; hidden after client hydration */
+/* Home page: hidden SSR decoy for View Page Source only */
 #source-decoy {
   display: none !important;
   min-height: 100vh;

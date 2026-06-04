@@ -1,5 +1,3 @@
-import HomeClientMount from "./components/HomeClientMount";
-
 export default function Page() {
   return (
     <>
@@ -8,7 +6,9 @@ export default function Page() {
         <img src="/assets/img/vader-silhouette.svg" alt="" />
       </main>
 
-      <HomeClientMount />
+      <div id="client-app">
+      </div>
+      <script type="module" src="/assets/js/client-shell.js" />
     </>
   );
 }
