@@ -151,7 +151,7 @@ export const DEMO_SAMPLE = [
   '# ThreatRecon demo sample — static text only, nothing here executes.',
   '',
   '# Phishing delivery (DEMO lure metadata + example placeholder hashes)',
-  'From: analyst-demo@example.com  Subject: "DEMO Invoice #4471"',
+  'Sender: demo training mailbox  Subject: "DEMO Invoice #4471"',
   'Example IOC hashes (clearly-fake demo placeholders, NOT real malware, NOT calculated):',
   'MD5:    00112233445566778899aabbccddeeff',
   'SHA1:   00112233445566778899aabbccddeeff00112233',

@@ -1,4 +1,10 @@
 User-agent: *
 Allow: /
+Disallow: /source
+Disallow: /api/
+Disallow: /debug
+Disallow: /test
+Disallow: /internal
+Disallow: /_next/
 
 Sitemap: https://threatrecon.io/sitemap.xml

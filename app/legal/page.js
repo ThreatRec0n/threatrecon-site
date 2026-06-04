@@ -1,8 +1,11 @@
 import LegalPageLayout from "../../components/LegalPageLayout";
 
 export const metadata = {
-  title: "Legal & Responsible Use — ThreatRecon",
-  description: "Legal disclaimers, acceptable use, and responsible-use policy for ThreatRecon.io.",
+  title: "ThreatRecon Legal Notice | Defensive Static Malware Triage",
+  description: "Legal notice, responsible use, and acceptable use terms for ThreatRecon.io defensive static malware triage.",
+  alternates: {
+    canonical: "https://threatrecon.io/legal",
+  },
 };
 
 export default function LegalPage() {
@@ -63,13 +66,6 @@ export default function LegalPage() {
         <div className="panel-head"><div className="dot dot-blue"></div>No endorsement</div>
         <div className="panel-body">
           <p>References to third-party services (for example ANY.RUN, Triage, Hybrid Analysis, Joe Sandbox, VirusTotal, MalwareBazaar, ThreatFox, URLhaus, or OTX) are general workflow references and do not imply endorsement, affiliation, or guarantee.</p>
-        </div>
-      </div>
-      <div className="panel">
-        <div className="panel-head"><div className="dot dot-green"></div>Responsible disclosure</div>
-        <div className="panel-body">
-          <p>Security issues: report through the contact method provided by ThreatRecon.io when available.</p>
-          <p>Security contact will be published when available. Do not rely on personal contact channels published elsewhere.</p>
         </div>
       </div>
       <div className="panel">

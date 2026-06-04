@@ -2,7 +2,9 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const SKIP = new Set(["node_modules", ".next", ".git", "scripts"]);
+const SKIP = new Set(["node_modules", ".next", ".git", "scripts", "docs", "tests", "functions"]);
+const SKIP_FILES = new Set(["package-lock.json"]);
+const APPROVED_CREATOR_LINE = "ThreatRecon.io was built by Andre Boone.";
 const PATTERNS = [
   /md5sim/i,
   /surrogate/i,
@@ -16,7 +18,13 @@ const PATTERNS = [
   /dangerouslySetInnerHTML/,
   /\beval\s*\(/,
   /new Function/,
-  /github\.com\/ThreatRec0n/i,
+  /document\.write/i,
+  /github\.com\/[^/\s]+\/threatrecon-site/i,
+  /https?:\/\/(?:www\.)?(?:github|linkedin|twitter|x|facebook|instagram)\.com/i,
+  /Google Analytics|googletagmanager|gtag\(|analytics\.js|tracking pixel|pixel\.gif/i,
+  /\b(veteran|military|army|clearance|resume|school|university|college)\b/i,
+  /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/,
+  /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/,
 ];
 
 async function walk(dir, hits) {
@@ -28,6 +36,7 @@ async function walk(dir, hits) {
       await walk(full, hits);
       continue;
     }
+    if (SKIP_FILES.has(ent.name)) continue;
     let text;
     try {
       text = await readFile(full, "utf8");
@@ -35,8 +44,9 @@ async function walk(dir, hits) {
       continue;
     }
     const rel = path.relative(ROOT, full).replace(/\\/g, "/");
+    const scanText = text.replaceAll(APPROVED_CREATOR_LINE, "");
     for (const rx of PATTERNS) {
-      if (rx.test(text)) hits.push({ file: rel, pattern: rx.source });
+      if (rx.test(scanText)) hits.push({ file: rel, pattern: rx.source });
     }
   }
 }

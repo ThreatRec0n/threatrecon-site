@@ -2,6 +2,7 @@
 // Never interpolate user paste, uploads, decoded payloads, IOCs, or analysis output here.
 // All dynamic results are rendered by public/assets/js/app.js via escapeHtml / textContent.
 export const THREATRECON_BODY = `
+<a class="skip-link" href="#page-home">Skip to content</a>
 <div class="topbar">
   <div class="logo-wrap">
     <svg class="logo-mark" width="24" height="24" viewBox="0 0 22 22" fill="none" aria-hidden="true"><polygon points="11,1 21,6 21,16 11,21 1,16 1,6" stroke="#00d4ff" stroke-width="1.2" fill="none"/><polygon points="11,5 17,8 17,14 11,17 5,14 5,8" stroke="#00d4ff" stroke-width=".6" fill="rgba(0,212,255,.08)"/><circle cx="11" cy="11" r="2" fill="#00d4ff"/></svg>
@@ -30,29 +31,93 @@ export const THREATRECON_BODY = `
 <div class="page active" id="page-home">
   <section class="hero">
     <div class="hero-inner">
-      <div class="hero-tag">Threat Intelligence Platform</div>
-      <h1>Browser-Based Malware Triage Workbench</h1>
-      <p class="hero-sub">Analyze suspicious scripts, logs, IOCs, and text artifacts locally with static detection, deobfuscation, MITRE ATT&amp;CK mapping, and analyst-ready reporting.</p>
+      <div class="hero-tag">Browser based analysis &middot; static analysis &middot; SOC analyst training</div>
+      <h1>Browser Based Malware Triage Workbench</h1>
+      <p class="hero-sub">ThreatRecon.io helps analysts perform static malware triage, IOC extraction, MITRE ATT&amp;CK mapping, YARA style rule drafting, Sigma style detection drafting, and analyst reporting without uploads, accounts, or unnecessary tracking.</p>
       <ul class="trust-badges">
-        <li>Local static analysis</li>
-        <li>No sample upload</li>
-        <li>No API calls by default</li>
-        <li>Real hash calculation</li>
-        <li>ATT&amp;CK mapped output</li>
+        <li>malware triage</li>
+        <li>threat hunting</li>
+        <li>IOC extraction</li>
+        <li>YARA drafts</li>
+        <li>Sigma drafts</li>
       </ul>
       <div class="cta-row">
         <a class="cta cta-primary" data-nav="analyzer" href="#analyzer">&#9654; Open Analyzer</a>
         <a class="cta" id="cta-demo" href="#analyzer">Load Demo</a>
         <a class="cta" data-nav="security" href="#security">Read Security Model</a>
       </div>
+      <div class="creator-line">ThreatRecon.io was built by Andre Boone.</div>
     </div>
     <div class="feature-grid">
-      <div class="feature-card"><h3>Static Analysis</h3><p>SHA-1/SHA-256 hashing, Shannon entropy, and string classification — no execution, ever.</p></div>
-      <div class="feature-card"><h3>IOC Extraction</h3><p>IPs, URLs, domains, onion services, hashes, registry keys, paths, BTC, and CVEs with safe pivot links.</p></div>
-      <div class="feature-card"><h3>Behavior &amp; YARA</h3><p>50+ behavioral rules and YARA-style signatures across persistence, evasion, C2, and impact.</p></div>
-      <div class="feature-card"><h3>ATT&amp;CK Mapping</h3><p>Findings mapped to MITRE ATT&amp;CK techniques with direct links to the knowledge base.</p></div>
-      <div class="feature-card"><h3>Deobfuscation</h3><p>Base64, ROT13, hex, URL, and PowerShell EncodedCommand decoding with multi-layer detection — decoded inert, never run.</p></div>
-      <div class="feature-card"><h3>Analyst Reports</h3><p>Structured report with exec summary, findings, capabilities, IOCs, and response actions. Export JSON / Markdown / YARA.</p></div>
+      <div class="feature-card"><h3>Static Analysis</h3><p>Review headers, strings, entropy, imports, sections, suspicious APIs, and local hashes without executing the artifact.</p></div>
+      <div class="feature-card"><h3>IOC Extraction</h3><p>Extract domains, URLs, IPs, hashes, registry keys, file paths, mutexes, and other analyst indicators for validation.</p></div>
+      <div class="feature-card"><h3>Detection Drafting</h3><p>Create YARA and Sigma style drafts from local findings, then review and tune them before production use.</p></div>
+      <div class="feature-card"><h3>Threat Hunting</h3><p>Generate Splunk, Defender KQL, Elastic, blocklist, and EDR hunt outputs from the same browser based analysis.</p></div>
+      <div class="feature-card"><h3>MITRE ATT&amp;CK</h3><p>Map static evidence to MITRE ATT&amp;CK tactics and techniques with detection ideas for SOC analyst training.</p></div>
+      <div class="feature-card"><h3>Analyst Reports</h3><p>Export concise reports, IOCs, YARA drafts, Sigma drafts, and comparison notes for authorized defensive workflows.</p></div>
+    </div>
+  </section>
+
+  <section class="landing-section seo-overview">
+    <div class="section-kicker">ThreatRecon.io</div>
+    <h2>Static Malware Analysis</h2>
+    <p>ThreatRecon.io is a browser based static malware triage workbench built for safe first pass analysis of suspicious scripts, logs, IOCs, command lines, and text artifacts. It helps analysts extract indicators, identify suspicious behaviors, map findings to MITRE ATT&amp;CK, decode obfuscated content, generate draft YARA and Sigma rules, and prepare analyst ready reports.</p>
+    <p>All analysis is performed locally in the browser. ThreatRecon does not upload samples, execute files, detonate malware, or submit artifacts to third party services automatically. External sandbox and reputation links are manual analyst pivots only.</p>
+    <div class="seo-topic-grid">
+      <div><h2>IOC Extraction and Threat Hunting</h2><p>Extract indicators and generate safe threat hunting output for Splunk, Defender KQL, Elastic, DNS, firewall, and EDR workflows.</p></div>
+      <div><h2>Detection Engineering</h2><p>Create draft YARA and Sigma content from local evidence, then review and tune the output before operational use.</p></div>
+      <div><h2>Reverse Engineering Support</h2><p>Review strings, entropy, PE headers, imports, sections, suspicious APIs, deobfuscation output, and tool guidance for authorized analysis.</p></div>
+      <div><h2>Privacy and Safety</h2><p>Files stay in the browser. ThreatRecon does not require accounts, logins, sample uploads, or automatic artifact submission.</p></div>
+    </div>
+  </section>
+
+  <section class="landing-section">
+    <div class="section-kicker">Workflow</div>
+    <h2>How It Works</h2>
+    <div class="step-grid">
+      <div class="step-card"><span>01</span><p>Drop a suspicious file locally</p></div>
+      <div class="step-card"><span>02</span><p>Review headers, strings, entropy, imports, sections, and suspicious APIs</p></div>
+      <div class="step-card"><span>03</span><p>Map evidence to MITRE ATT&amp;CK behavior</p></div>
+      <div class="step-card"><span>04</span><p>Export analyst notes, IOCs, YARA drafts, Sigma drafts, and reports</p></div>
+    </div>
+  </section>
+
+  <section class="landing-section landing-split">
+    <div class="trust-panel">
+      <div class="section-kicker">Privacy and Safety</div>
+      <h2>Browser based static analysis</h2>
+      <p>ThreatRecon.io is designed for browser based static analysis. Files are not uploaded to ThreatRecon.io. The platform does not require an account, does not require a login, and does not collect submitted samples.</p>
+    </div>
+    <div class="trust-panel">
+      <div class="section-kicker">Responsible Use</div>
+      <h2>Defensive use only</h2>
+      <p>ThreatRecon.io is built for defensive security education, malware triage practice, and analyst workflow training. Users are responsible for using the platform legally and ethically.</p>
+    </div>
+  </section>
+
+  <section class="landing-section walkthrough-card">
+    <div class="walkthrough-copy">
+      <div class="section-kicker">Walkthrough</div>
+      <h2>Static Malware Triage Walkthrough</h2>
+      <p>The safe sample <code>invoice_update.exe</code> demonstrates how an analyst reviews strings, suspicious APIs, IOCs, entropy, MITRE ATT&amp;CK behavior, and final reporting. It uses placeholder training content only, with no real malware names, live infrastructure, victim data, or sensitive identifiers.</p>
+    </div>
+    <div class="walkthrough-art" aria-hidden="true">
+      <div class="walk-row"><span>sample</span><strong>invoice_update.exe</strong></div>
+      <div class="walk-row"><span>mode</span><strong>static triage</strong></div>
+      <div class="walk-row"><span>output</span><strong>analyst report</strong></div>
+    </div>
+  </section>
+
+  <section class="landing-section">
+    <div class="section-kicker">Output Preview</div>
+    <h2>Visual Proof Placeholders</h2>
+    <div class="proof-grid">
+      <div class="proof-card"><div class="proof-bar"></div><h3>Analyzer Dashboard</h3><p>Score, verdict, static metadata, and workflow summary.</p></div>
+      <div class="proof-card"><div class="proof-bar"></div><h3>IOC Extraction</h3><p>Structured indicators with actionability and hunt context.</p></div>
+      <div class="proof-card"><div class="proof-bar"></div><h3>MITRE ATT&amp;CK Mapping</h3><p>Tactics, techniques, evidence, confidence, and detection ideas.</p></div>
+      <div class="proof-card"><div class="proof-bar"></div><h3>YARA Draft</h3><p>Analyst-reviewed draft rule generated from static findings.</p></div>
+      <div class="proof-card"><div class="proof-bar"></div><h3>Sigma Draft</h3><p>Experimental detection logic for command line and registry behavior.</p></div>
+      <div class="proof-card"><div class="proof-bar"></div><h3>Analyst Report Export</h3><p>Markdown, JSON, IOC CSV, blocklist, YARA, and Sigma outputs.</p></div>
     </div>
   </section>
 </div>
@@ -68,7 +133,7 @@ export const THREATRECON_BODY = `
       <div class="page-title">Malware Triage Workbench</div>
       <div class="page-sub">Static &middot; Behavioral &middot; IOC &middot; YARA &middot; Entropy &middot; Deobfuscation &middot; ATT&amp;CK — local browser analysis only.</div>
       <div class="safety-gate">
-        <strong>File Safety Gate:</strong> This tool performs <strong>static analysis only</strong>. Files are parsed locally in your browser; they are not uploaded. Never executed. Never stored on a server. Max upload 1&nbsp;MB. Binary/archive types are blocked.
+        <strong>File Safety Gate:</strong> Files are processed locally in your browser and are not uploaded to ThreatRecon.io. Static analysis only. Never executed. Never stored on a server.
       </div>
     </div>
     <div class="analyzer-stats">
@@ -94,11 +159,11 @@ export const THREATRECON_BODY = `
         <textarea id="custom-yara" class="textarea-sm" placeholder="mimikatz&#10;sekurlsa&#10;stratum\\+tcp"></textarea>
       </div>
       <div class="ipane" id="ipane-upload">
-        <div class="safety-gate safety-gate--compact">Allowed: text/script/log files and PE-like binaries up to the browser-safe size cap. Archives and Office macro containers remain blocked. <strong>Files are read locally in your browser. Nothing is uploaded, stored, or executed.</strong></div>
+        <div class="safety-gate safety-gate--compact">Files are processed locally in your browser and are not uploaded to ThreatRecon.io. Allowed: text/script/log files and PE-like binaries up to the browser-safe size cap. Archives and Office macro containers remain blocked. <strong>Nothing is uploaded, stored, or executed.</strong></div>
         <div class="drop-zone" id="drop-zone">
           <div class="drop-icon">&#8679;</div>
           <div class="drop-txt">Drop a text file here or click to select local file</div>
-          <div class="drop-sub">Local browser analysis only &middot; no upload &middot; read as text only</div>
+          <div class="drop-sub">Local browser analysis only &middot; no upload &middot; no execution</div>
         </div>
         <div class="file-loaded" id="file-loaded" style="display:none"></div>
         <div class="file-blocked" id="file-blocked" style="display:none"></div>
@@ -500,8 +565,8 @@ export const THREATRECON_BODY = `
     </div>
     <div class="footer-links">
       <a data-nav="analyzer" href="#analyzer">Analyzer</a>
-      <a data-nav="security" href="#security">Security</a>
-      <a data-nav="about" href="#about">About</a>
+      <a href="/security">Security</a>
+      <a href="/about">About</a>
       <a href="/legal">Legal</a>
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>

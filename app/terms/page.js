@@ -1,8 +1,11 @@
 import LegalPageLayout from "../../components/LegalPageLayout";
 
 export const metadata = {
-  title: "Terms of Use — ThreatRecon",
-  description: "Terms of use for ThreatRecon.io.",
+  title: "ThreatRecon Terms of Use",
+  description: "Terms of use for ThreatRecon.io browser based static malware triage and analyst workflow support.",
+  alternates: {
+    canonical: "https://threatrecon.io/terms",
+  },
 };
 
 export default function TermsPage() {

@@ -13,7 +13,8 @@ export default function SiteFooter() {
         <div className="footer-links">
           <Link href="/">Home</Link>
           <Link href="/#analyzer">Analyzer</Link>
-          <Link href="/#security">Security</Link>
+          <Link href="/security">Security</Link>
+          <Link href="/about">About</Link>
           <Link href="/legal">Legal</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
