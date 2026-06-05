@@ -640,32 +640,118 @@ export function compareSamples(inputA, inputB, behaviorRules = [], yaraRules = [
   };
 }
 
-export function buildIOCActionability(iocs, isDemo, isDocumentationIp, isLocalPrivateIp) {
+const SAFE_PUBLIC_RESOLVERS = new Set(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1', '9.9.9.9']);
+const RESERVED_DEMO_DOMAINS = ['example.com', 'example.org', 'example.net', 'example.edu'];
+const RESERVED_DEMO_TLDS = ['example', 'test', 'invalid', 'localhost'];
+const RESERVED_SINGLE_LABELS = new Set(['test', 'localhost', 'invalid', 'local']);
+
+function ipv4Parts(value) {
+  const m = String(value || '').match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return null;
+  const parts = m.slice(1).map(Number);
+  return parts.every(p => Number.isInteger(p) && p >= 0 && p <= 255) ? parts : null;
+}
+
+function hostFromValue(value) {
+  const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
+  if (!raw) return '';
+  try {
+    return new URL(raw).hostname.toLowerCase().replace(/\.$/, '');
+  } catch {
+    return raw.replace(/^\[|\]$/g, '').split('/')[0].split(':')[0].replace(/\.$/, '');
+  }
+}
+
+export function isDocumentationIp(ip) {
+  const parts = ipv4Parts(ip);
+  if (!parts) return false;
+  const [a, b, c] = parts;
+  return (a === 192 && b === 0 && c === 2) ||
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113);
+}
+
+export function isKnownPublicResolverIp(ip) {
+  return SAFE_PUBLIC_RESOLVERS.has(String(ip || '').trim());
+}
+
+export function isReservedDemoDomain(value) {
+  const host = hostFromValue(value);
+  if (!host) return false;
+  if (RESERVED_SINGLE_LABELS.has(host)) return true;
+  if (RESERVED_DEMO_DOMAINS.some(d => host === d || host.endsWith(`.${d}`))) return true;
+  const tld = host.split('.').pop();
+  return RESERVED_DEMO_TLDS.includes(tld);
+}
+
+function networkActionability(type, value, isLocalPrivateIp) {
+  const host = type === 'url' ? hostFromValue(value) : String(value || '').trim().toLowerCase();
+  const ipHost = ipv4Parts(host) ? host : null;
+
+  if (ipHost && isLocalPrivateIp && isLocalPrivateIp(ipHost)) {
+    return {
+      actionable: false,
+      reason: 'Local/private/special IP is local context only.',
+      recommendedAction: 'Use for host triage or lab context; do not add to network blocklists.',
+    };
+  }
+  if (ipHost && isDocumentationIp(ipHost)) {
+    return {
+      actionable: false,
+      reason: 'Reserved documentation IP range; training/demo indicator only.',
+      recommendedAction: 'Keep for report context; do not block.',
+    };
+  }
+  if (ipHost && isKnownPublicResolverIp(ipHost)) {
+    return {
+      actionable: false,
+      reason: 'Known public DNS resolver; do not block from demo/static context.',
+      recommendedAction: 'Validate surrounding behavior instead of blocking shared resolver infrastructure.',
+    };
+  }
+  if (!ipHost && isReservedDemoDomain(host)) {
+    return {
+      actionable: false,
+      reason: 'Reserved documentation, local, or test domain; training/demo indicator only.',
+      recommendedAction: 'Keep for analyst context; do not add to DNS or URL blocklists.',
+    };
+  }
+  return {
+    actionable: true,
+    reason: type === 'ip' ? 'Public routable IP indicator requiring validation.' : `${type === 'url' ? 'URL' : 'Domain'} indicator requiring validation.`,
+    recommendedAction: type === 'ip' ? 'Validate reputation and consider firewall/proxy/EDR block only if confirmed malicious.' : 'Validate reputation and consider DNS/proxy/URL block only if confirmed malicious.',
+  };
+}
+
+export function buildActionableBlocklist(iocActionability) {
+  return (iocActionability || [])
+    .filter(r => r.actionable && ['ip', 'domain', 'url', 'hash'].includes(r.type))
+    .map(r => r.value);
+}
+
+export function buildIOCActionability(iocs, _isDemo, _isDocumentationIp, isLocalPrivateIp) {
   const rows = [];
   const add = (type, values, confidence, actionable, reason, recommendedAction) => {
     (values || []).forEach(value => rows.push({ type, value, confidence, actionable, reason, recommendedAction }));
   };
-  add('ip', iocs.ips, 'High', true, 'Public routable IP indicator', 'Validate and consider firewall/proxy/EDR block if confirmed.');
-  add('local_ip', iocs.localIndicators, 'High', false, 'Loopback/private/reserved IP is local context only', 'Use for host triage, not network blocklists.');
-  add('domain', iocs.domains, 'Medium', true, 'Domain indicator', 'Pivot reputation and consider DNS/proxy block if confirmed.');
-  add('url', iocs.urls, 'Medium', true, 'URL indicator', 'Hunt and block URL only after validation.');
+  (iocs.ips || []).forEach(value => {
+    const verdict = networkActionability('ip', value, isLocalPrivateIp);
+    rows.push({ type: 'ip', value, confidence: 'High', ...verdict });
+  });
+  add('local_ip', iocs.localIndicators, 'High', false, 'Local/private/special IP is local context only.', 'Use for host triage, not network blocklists.');
+  (iocs.domains || []).forEach(value => {
+    const verdict = networkActionability('domain', value, isLocalPrivateIp);
+    rows.push({ type: 'domain', value, confidence: 'Medium', ...verdict });
+  });
+  (iocs.urls || []).forEach(value => {
+    const verdict = networkActionability('url', value, isLocalPrivateIp);
+    rows.push({ type: 'url', value, confidence: 'Medium', ...verdict });
+  });
   add('email', iocs.emails, 'Low', false, 'Email is context unless tied to phishing or ransom', 'Use in mail-flow and case context searches.');
   add('registry_key', iocs.registry, 'High', false, 'Registry path is a host hunt indicator', 'Hunt endpoint telemetry and autoruns.');
   add('file_path', iocs.paths, 'Medium', false, 'File path is a host hunt indicator', 'Hunt endpoint file/process telemetry.');
   add('mutex', iocs.mutex, 'Medium', false, 'Mutex is a host hunt indicator', 'Hunt process telemetry or memory artifacts.');
   add('hash', [...(iocs.md5 || []), ...(iocs.sha1 || []), ...(iocs.sha256 || [])], 'High', true, 'Hash indicator', 'Use for EDR hash hunts; block only after validation.');
-  rows.forEach(r => {
-    if (isDemo && (/example\.(com|org|net)$/i.test(r.value) || (isDocumentationIp && isDocumentationIp(r.value)))) {
-      r.actionable = false;
-      r.reason = 'Demo/documentation indicator is not actionable.';
-      r.recommendedAction = 'Training only; do not block.';
-    }
-    if (isLocalPrivateIp && isLocalPrivateIp(r.value)) {
-      r.actionable = false;
-      r.reason = 'Local/private IP is not an external IOC.';
-      r.recommendedAction = 'Keep as local context only.';
-    }
-  });
   return rows;
 }
 

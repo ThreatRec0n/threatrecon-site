@@ -22,6 +22,7 @@ import {
   buildApiRisk,
   buildAttackTable,
   buildAttackTimeline,
+  buildActionableBlocklist,
   buildDetectionEngineering,
   buildIOCActionability,
   buildStringsIntelligence,
@@ -233,7 +234,9 @@ function computeMalwareType(behaviors, iocs, yaraHits, score) {
 function computeRecommendations(caps, malwareType, behaviors, iocs) {
   const rec = [];
   rec.push('Triage in an isolated VM or trusted dynamic sandbox (e.g. ANY.RUN or Triage) for full behavioral analysis — never on production hosts.');
-  if (iocs.ips.length || iocs.domains.length || iocs.onion.length) rec.push('Block extracted IPs, domains, and onion addresses at the firewall and DNS layer to cut C2/exfiltration.');
+  if (iocs.ips.length || iocs.domains.length || iocs.urls.length || iocs.onion.length) {
+    rec.push('Validate extracted IOCs before blocking. Only block confirmed malicious public IPs, domains, URLs, or hashes. Do not block reserved, local, documentation, or known public resolver indicators from demo/static context.');
+  }
   if (caps.some(c => c.class === 'Credential Access') || /Harvester/.test(malwareType)) {
     rec.push('Assume credentials on affected hosts are compromised; force credential rotation and revoke active sessions.');
     rec.push('Enforce MFA and review authentication logs for anomalous access.');
@@ -445,57 +448,31 @@ function buildHuntingQueries(iocs, commands) {
   }));
 }
 
-function isDocumentationIp(ip) {
-  return /^192\.0\.2\.|^198\.51\.100\.|^203\.0\.113\./.test(ip);
-}
-
-function isBlockableIp(ip) {
-  return !isLocalPrivateIp(ip) && !isDocumentationIp(ip);
-}
-
-function urlUsesDocumentationIp(url) {
-  try {
-    const host = new URL(url).hostname;
-    return isDocumentationIp(host);
-  } catch {
-    return false;
-  }
-}
-
-function actionableExportNotes(iocs, isDemo) {
+function actionableExportNotes(iocActionability, blocklist) {
   const notes = [];
-  if (isDemo && ((iocs.ips || []).some(isDocumentationIp) || (iocs.urls || []).some(urlUsesDocumentationIp))) {
-    notes.push('Demo/documentation IP ranges were excluded from the actionable blocklist.');
+  const excluded = (iocActionability || []).filter(r => !r.actionable && ['ip', 'local_ip', 'domain', 'url'].includes(r.type));
+  if (excluded.length) {
+    const reasons = [...new Set(excluded.map(r => r.reason))].slice(0, 4);
+    notes.push(`Excluded ${excluded.length} non-actionable network indicator(s) from blocklists: ${reasons.join('; ')}`);
   }
-  if ((iocs.localIndicators || []).length) {
-    notes.push('Local/private IP indicators were kept separate from actionable network IOCs.');
+  if (!blocklist.length) {
+    notes.push('No actionable blocklist entries were produced; extracted indicators were local, reserved, documentation, demo, or analyst-validation-only.');
   }
   return notes;
 }
 
-function blocklistItems(iocs, isDemo) {
-  return [
-    ...(iocs.ips || []).filter(isBlockableIp),
-    ...(iocs.domains || []),
-    ...(iocs.urls || []).filter(u => !(isDemo && urlUsesDocumentationIp(u))),
-    ...(iocs.md5 || []), ...(iocs.sha1 || []), ...(iocs.sha256 || []),
-  ];
+function blocklistItems(iocActionability) {
+  return buildActionableBlocklist(iocActionability);
 }
 
-function iocRows(iocs, isDemo) {
-  const rows = [];
-  const add = (type, values, notes = '') => (values || []).forEach(value => rows.push({ type, value, source: 'ThreatRecon local extraction', confidence: 'medium', notes }));
-  add('ip', (iocs.ips || []).filter(isBlockableIp), isDemo ? 'External public IP; demo/documentation ranges excluded from actionable exports' : 'External public IP');
-  add('domain', iocs.domains, 'Domain indicator');
-  add('url', iocs.urls, 'URL indicator');
-  add('email', iocs.emails, 'Email indicator; do not block without context');
-  add('hash_md5', iocs.md5, 'Hash indicator');
-  add('hash_sha1', iocs.sha1, 'Hash indicator');
-  add('hash_sha256', iocs.sha256, 'Hash indicator');
-  add('file_path', iocs.paths, 'Local file path');
-  add('registry_key', iocs.registry, 'Registry artifact');
-  add('mutex', iocs.mutex, 'Mutex / mutant indicator');
-  return rows;
+function iocRows(iocActionability) {
+  return (iocActionability || []).map(row => ({
+    type: row.type,
+    value: row.value,
+    source: 'ThreatRecon local extraction',
+    confidence: row.confidence,
+    notes: `actionable=${row.actionable ? 'yes' : 'no'} | ${row.reason} | ${row.recommendedAction}`,
+  }));
 }
 
 function pivotLinksForIOCs(iocs) {
@@ -511,7 +488,7 @@ function pivotLinksForIOCs(iocs) {
     add('URLhaus URL search', `https://urlhaus.abuse.ch/browse.php?search=${encodeURIComponent(u)}`, u);
     add('OTX URL search', `https://otx.alienvault.com/indicator/url/${encodeURIComponent(u)}`, u);
   });
-  [...(iocs.domains || []), ...(iocs.ips || []).filter(isBlockableIp)].slice(0, 8).forEach(v => {
+  [...(iocs.domains || []), ...(iocs.ips || []).filter(ip => !isLocalPrivateIp(ip))].slice(0, 8).forEach(v => {
     add('VirusTotal indicator search', `https://www.virustotal.com/gui/search/${encodeURIComponent(v)}`, v);
     add('OTX indicator search', `https://otx.alienvault.com/indicator/domain/${encodeURIComponent(v)}`, v);
     add('ThreatFox search', 'https://threatfox.abuse.ch/browse/', v);
@@ -1183,7 +1160,6 @@ async function runAnalysisPipeline() {
   const reGuidance = buildREGuidance({ peTriage, scriptFindings, capabilities, malwareType, iocs, behaviors });
   const huntingQueries = buildHuntingQueries(iocs, suspiciousCmds);
   const pivotLinks = pivotLinksForIOCs(iocs);
-  const exportNotes = actionableExportNotes(iocs, isDemo);
 
   // MITRE technique set
   const mitreSet = new Set();
@@ -1196,8 +1172,9 @@ async function runAnalysisPipeline() {
   const timeline = buildAttackTimeline({ input, behaviors, peTriage, apiRisk });
   const draftYara = generateDraftYara({ iocs, category, apiRisk, stringsIntelligence, behaviors, isDemo });
   const draftSigma = generateDraftSigma(input, attackTable);
-  const iocActionability = buildIOCActionability(iocs, isDemo, isDocumentationIp, isLocalPrivateIp);
-  const blocklist = blocklistItems(iocs, isDemo);
+  const iocActionability = buildIOCActionability(iocs, isDemo, undefined, isLocalPrivateIp);
+  const blocklist = blocklistItems(iocActionability);
+  const exportNotes = actionableExportNotes(iocActionability, blocklist);
   const detectionEngineering = buildDetectionEngineering({ draftYara, draftSigma, huntingQueries, blocklist });
 
   // Reveal panels
@@ -1262,7 +1239,7 @@ async function runAnalysisPipeline() {
     iocActionability, huntingQueries, reGuidance,
     manualReputationPivots: pivotLinks, blocklist,
     actionableExportNotes: exportNotes,
-    iocCsvRows: iocRows(iocs, isDemo), recommendations, report,
+    iocCsvRows: iocRows(iocActionability), recommendations, report,
     dynamicAnalysisNextSteps: buildDynamicAnalysisNextSteps(),
   };
 
@@ -1479,21 +1456,27 @@ function exportIOCCSV() {
 function exportBlocklist() {
   if (!lastReport) return;
   const notes = lastReport.actionableExportNotes || [];
+  const entries = lastReport.blocklist || [];
+  const entryLines = entries.length ? entries : [
+    '# No actionable IOCs found.',
+    '# Extracted indicators were local, reserved, documentation, demo, or analyst-validation-only.',
+  ];
   const plain = [
     '# ThreatRecon blocklist export',
     '# Actionable public IPs, domains, URLs, and hashes only',
-    '# Local/private IPs are excluded.',
+    '# Local/private, reserved documentation, demo/test, and known public resolver indicators are excluded.',
     ...notes.map(n => `# ${n}`),
-    ...lastReport.blocklist,
+    ...entryLines,
   ].join('\n');
-  const csv = ['type,value'].concat(lastReport.blocklist.map(v => {
+  const csvRows = entries.length ? entries.map(v => {
     const type = /^[0-9a-f]{32}$/i.test(v) ? 'hash_md5'
       : /^[0-9a-f]{40}$/i.test(v) ? 'hash_sha1'
         : /^[0-9a-f]{64}$/i.test(v) ? 'hash_sha256'
           : /^https?:\/\//i.test(v) ? 'url'
             : /^\d{1,3}(\.\d{1,3}){3}$/.test(v) ? 'ip' : 'domain';
     return [type, v].map(csvEscape).join(',');
-  })).join('\n');
+  }) : ['note,no actionable IOCs found'];
+  const csv = ['type,value'].concat(csvRows).join('\n');
   download(`threatrecon-blocklist-${Date.now()}.txt`, plain + '\n\n# CSV\n' + csv + '\n', 'text/plain');
   showToast('Blocklist downloaded');
 }

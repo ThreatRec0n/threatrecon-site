@@ -248,6 +248,7 @@ export function isPrivateOrReservedIp(ip) {
   if (a === 172 && b >= 16 && b <= 31) return true;
   if (a === 192 && b === 168) return true;
   if (a === 169 && b === 254) return true;
+  if (a === 255 && b === 255 && +m[3] === 255 && +m[4] === 255) return true;
   return false;
 }
 
@@ -256,7 +257,8 @@ export function extractIOCs(text) {
   const ipRx = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
   const urlRx = /https?:\/\/[^\s"'<>\]]+/gi;
   const onionRx = /\b[a-z2-7][a-z2-7-]{14,54}[a-z2-7]\.onion\b/gi;
-  const domainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|io|ru|cn|tk|xyz|top|cc|pw|onion|info|biz|co|me|us|uk|de|fr|to|site|club)\b/gi;
+  const domainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|edu|io|ru|cn|tk|xyz|top|cc|pw|onion|info|biz|co|me|us|uk|de|fr|to|site|club|test|example|invalid|localhost|tld)\b/gi;
+  const reservedSingleLabelRx = /(?:^|[^A-Za-z0-9.-])(localhost|local|invalid|test)(?=$|[^A-Za-z0-9.-])/gi;
   const md5Rx = /\b[a-fA-F0-9]{32}\b/g;
   const sha1Rx = /\b[a-fA-F0-9]{40}\b/g;
   const sha256Rx = /\b[a-fA-F0-9]{64}\b/g;
@@ -269,8 +271,18 @@ export function extractIOCs(text) {
   const mutexRx = /(?:mutex|mutant|CreateMutex(?:A|W)?)\s*[:=]?\s*["']?([A-Za-z0-9_.\\-{}]{6,80})/gi;
 
   const urls = [...new Set(text.match(urlRx) || [])].slice(0, 12);
-  const rawDomains = [...new Set(text.match(domainRx) || [])];
-  const domains = rawDomains.filter(d => !urls.some(u => u.includes(d))).slice(0, 12);
+  const reservedSingleLabels = [];
+  let singleLabelMatch;
+  while ((singleLabelMatch = reservedSingleLabelRx.exec(text)) !== null) reservedSingleLabels.push(singleLabelMatch[1]);
+  const rawDomains = [...new Set([...(text.match(domainRx) || []), ...reservedSingleLabels])];
+  const urlHosts = new Set(urls.map(u => {
+    try {
+      return new URL(u).hostname.toLowerCase();
+    } catch {
+      return '';
+    }
+  }).filter(Boolean));
+  const domains = rawDomains.filter(d => !urlHosts.has(String(d).toLowerCase())).slice(0, 24);
 
   // Separate loopback/private/reserved IPs into a local-only bucket so they are
   // NOT treated as external IOCs or recommended for blocking.

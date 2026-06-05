@@ -1,13 +1,16 @@
 import assert from 'node:assert';
 import {
   advancedDecode,
+  buildActionableBlocklist,
   buildApiRisk,
+  buildDetectionEngineering,
   buildIOCActionability,
   compareSamples,
   generateDraftSigma,
   generateDraftYara,
   parsePE,
 } from '../public/assets/js/advanced-analysis.js';
+import { extractIOCs, isPrivateOrReservedIp } from '../public/assets/js/utils.js';
 
 const noPe = parsePE('VirtualAllocEx WriteProcessMemory CreateRemoteThread');
 assert.strictEqual(noPe.detected, false, 'API strings must not imply PE detection');
@@ -36,11 +39,62 @@ const iocRows = buildIOCActionability(
   { ips: ['8.8.8.8', '203.0.113.10'], localIndicators: ['127.0.0.1'], domains: ['example.com'], urls: [], emails: [], registry: [], paths: [], mutex: [], md5: [], sha1: [], sha256: [] },
   true,
   ip => /^203\.0\.113\./.test(ip),
-  ip => ip === '127.0.0.1',
+  isPrivateOrReservedIp,
 );
-assert(iocRows.find(r => r.value === '8.8.8.8')?.actionable, 'public IP should be actionable');
+assert.strictEqual(iocRows.find(r => r.value === '8.8.8.8')?.actionable, false, 'known public resolver should not be actionable');
 assert.strictEqual(iocRows.find(r => r.value === '203.0.113.10')?.actionable, false, 'demo documentation IP should not be actionable');
 assert.strictEqual(iocRows.find(r => r.value === '127.0.0.1')?.actionable, false, 'loopback should not be actionable');
+
+const safeDemoInput = [
+  'powershell -enc SQBFAFgAOwA=',
+  'http://example.com/payload.exe',
+  'http://billing-docs.example.com/files/update.dat',
+  'http://203.0.113.44/update',
+  '8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1 9.9.9.9',
+  '203.0.113.44 198.51.100.27 192.0.2.55',
+  'localhost 127.0.0.1 10.0.0.9 172.16.5.4 192.168.1.20 169.254.1.2 0.0.0.0 255.255.255.255',
+  'example.org example.net sub.example.com internal.test docs.example bad.invalid service.localhost',
+].join('\n');
+const safeIocs = extractIOCs(safeDemoInput);
+const safeRows = buildIOCActionability(safeIocs, false, undefined, isPrivateOrReservedIp);
+const rowFor = value => safeRows.find(r => r.value === value);
+assert(safeIocs.ips.includes('8.8.8.8'), '8.8.8.8 should still be extracted');
+assert.strictEqual(rowFor('8.8.8.8')?.actionable, false, '8.8.8.8 should not be actionable');
+assert(safeIocs.urls.includes('http://example.com/payload.exe'), 'example.com URL should still be extracted');
+assert.strictEqual(rowFor('http://example.com/payload.exe')?.actionable, false, 'example.com URL should not be actionable');
+assert(safeIocs.ips.includes('203.0.113.44'), '203.0.113.44 should still be extracted');
+assert.strictEqual(rowFor('203.0.113.44')?.actionable, false, '203.0.113.44 should not be actionable');
+assert.strictEqual(rowFor('http://203.0.113.44/update')?.actionable, false, 'URL hosted on documentation IP should not be actionable');
+assert(safeIocs.localIndicators.includes('127.0.0.1'), '127.0.0.1 should be extracted as local context');
+assert.strictEqual(rowFor('127.0.0.1')?.actionable, false, '127.0.0.1 should not be actionable');
+['10.0.0.9', '172.16.5.4', '192.168.1.20', '169.254.1.2', '0.0.0.0', '255.255.255.255'].forEach(ip => {
+  assert(safeIocs.localIndicators.includes(ip), `${ip} should be local context`);
+});
+['example.org', 'example.net', 'sub.example.com', 'internal.test', 'docs.example', 'bad.invalid', 'service.localhost', 'localhost'].forEach(domain => {
+  assert.strictEqual(rowFor(domain)?.actionable, false, `${domain} should not be actionable`);
+});
+const safeBlocklist = buildActionableBlocklist(safeRows);
+['8.8.8.8', 'http://example.com/payload.exe', '203.0.113.44', 'http://203.0.113.44/update', 'localhost', 'example.org', 'example.net', 'sub.example.com', 'internal.test', 'docs.example', 'bad.invalid', 'service.localhost'].forEach(value => {
+  assert(!safeBlocklist.includes(value), `${value} should be excluded from blocklist`);
+});
+const huntingOutput = buildDetectionEngineering({
+  draftYara: 'rule demo { condition: true }',
+  draftSigma: 'title: demo',
+  huntingQueries: [{ value: '8.8.8.8', splunk: 'index=* "8.8.8.8"', defender: 'DeviceNetworkEvents | where RemoteIP == "8.8.8.8"', elastic: 'destination.ip: "8.8.8.8"' }],
+  blocklist: safeBlocklist,
+});
+assert(huntingOutput.splunk.some(q => q.includes('8.8.8.8')), 'hunting queries may include extracted safe/demo indicators');
+assert(!huntingOutput.firewallBlocklist.includes('8.8.8.8'), 'firewall blocklist must not include safe resolver');
+assert(!huntingOutput.dnsBlocklist.includes('example.com'), 'DNS blocklist must not include reserved demo domains');
+
+const actionableInput = 'powershell -enc SQBFAFgAOwA=\nhttp://suspicious-domain.invalid-example-not-real.tld/payload.exe\n45.67.89.123';
+const actionableIocs = extractIOCs(actionableInput);
+const actionableRows = buildIOCActionability(actionableIocs, false, undefined, isPrivateOrReservedIp);
+const actionableBlocklist = buildActionableBlocklist(actionableRows);
+assert.strictEqual(actionableRows.find(r => r.value === '45.67.89.123')?.actionable, true, 'public non-reserved IP should remain actionable');
+assert.strictEqual(actionableRows.find(r => r.value === 'http://suspicious-domain.invalid-example-not-real.tld/payload.exe')?.actionable, true, 'non-reserved URL should remain actionable');
+assert(actionableBlocklist.includes('45.67.89.123'), 'actionable public IP should appear in blocklist');
+assert(actionableBlocklist.includes('http://suspicious-domain.invalid-example-not-real.tld/payload.exe'), 'actionable non-reserved URL should appear in blocklist');
 
 const cmp = compareSamples(
   'powershell -enc AAAA http://one.example.com mimikatz',
