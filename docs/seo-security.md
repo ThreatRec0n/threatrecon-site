@@ -9,7 +9,7 @@
 - Open Graph metadata for link previews.
 - Twitter card metadata for large preview cards.
 - Native `app/sitemap.js` entries for the public home, analyzer, Threat KB, RE tools, cheat sheet, sandboxes, about, policy pages, and starter Threat KB article routes.
-- Native `app/robots.js` rules for public indexing with API, admin, internal, private, debug, test, and framework asset paths excluded.
+- Native `app/robots.js` rules for public indexing with API, admin, internal, private, debug, test, staging, preview, draft, and source-map paths excluded.
 
 ## Structured Data Added
 

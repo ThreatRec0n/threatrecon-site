@@ -34,7 +34,22 @@ assert(articlePage.includes('StructuredData data={structuredData}'), 'article st
 
 assert(robots.includes('userAgent: "*"'), 'native robots user agent missing');
 assert(robots.includes('allow: "/"'), 'native robots allow missing');
-assert(robots.includes('disallow: ["/api/", "/admin/", "/_next/", "/private/", "/internal/", "/debug/", "/test/"]'), 'native robots internal disallows missing');
+[
+  '"/api/"',
+  '"/admin/"',
+  '"/private/"',
+  '"/debug/"',
+  '"/dev/"',
+  '"/test/"',
+  '"/internal/"',
+  '"/staging/"',
+  '"/preview/"',
+  '"/drafts/"',
+  '"/*.map$"',
+].forEach(rule => {
+  assert(robots.includes(rule), `native robots disallow missing ${rule}`);
+});
+assert(!robots.includes('"/_next/"'), 'robots must not block required Next.js static assets');
 assert(robots.includes('sitemap: `${SITE_URL}/sitemap.xml`'), 'native robots sitemap missing');
 assert(robots.includes('host: SITE_URL'), 'native robots host missing');
 assert(sitemap.includes('publicRoutes'), 'sitemap must use shared public route registry');
