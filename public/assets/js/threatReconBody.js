@@ -158,27 +158,27 @@ export const THREATRECON_BODY = `
         <button class="itab" data-tab="url">URL / Hash</button>
       </div>
       <div class="ipane active" id="ipane-paste">
-        <p class="field-hint">Paste suspicious script, IOC list, command output, or log content.</p>
-        <textarea id="input-text" placeholder="Paste a script (.ps1 .bat .sh .py .js .vbs .php), log output, IOC list, Base64 blob, hex shellcode, command line, or any suspicious text artifact..."></textarea>
+        <label class="field-hint" for="input-text">Paste suspicious script, IOC list, command output, or log content.</label>
+        <textarea id="input-text" aria-label="Suspicious artifact input" placeholder="Paste a script (.ps1 .bat .sh .py .js .vbs .php), log output, IOC list, Base64 blob, hex shellcode, command line, or any suspicious text artifact..."></textarea>
         <div class="field-hint field-hint--spaced">Custom YARA / Regex Patterns (optional, one per line, case-insensitive)</div>
         <p class="field-hint">YARA-style local regex rules are heuristic matches, not a full YARA engine.</p>
-        <textarea id="custom-yara" class="textarea-sm" placeholder="mimikatz&#10;sekurlsa&#10;stratum\\+tcp"></textarea>
+        <textarea id="custom-yara" class="textarea-sm" aria-label="Custom YARA or regex patterns" placeholder="mimikatz&#10;sekurlsa&#10;stratum\\+tcp"></textarea>
       </div>
       <div class="ipane" id="ipane-upload">
         <div class="safety-gate safety-gate--compact">Files are processed locally in your browser and are not uploaded to ThreatRecon.io. Allowed: text/script/log files and PE-like binaries up to the browser-safe size cap. Archives and Office macro containers remain blocked. <strong>Nothing is uploaded, stored, or executed.</strong></div>
-        <div class="drop-zone" id="drop-zone">
+        <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Select a local text file for browser-only static analysis">
           <div class="drop-icon">&#8679;</div>
           <div class="drop-txt">Drop a text file here or click to select local file</div>
           <div class="drop-sub">Local browser analysis only &middot; no upload &middot; no execution</div>
         </div>
-        <div class="file-loaded" id="file-loaded" style="display:none"></div>
-        <div class="file-blocked" id="file-blocked" style="display:none"></div>
-        <input type="file" id="file-input" class="file-input-hidden" />
+        <div class="file-loaded" id="file-loaded" role="status" aria-live="polite" style="display:none"></div>
+        <div class="file-blocked" id="file-blocked" role="alert" aria-live="assertive" style="display:none"></div>
+        <input type="file" id="file-input" class="file-input-hidden" aria-label="Local file input for static analysis" />
       </div>
       <div class="ipane" id="ipane-url">
-        <p class="field-hint">IOC lookup — paste an indicator; it becomes the analysis input and renders safe pivot links.</p>
+        <label class="field-hint" for="url-input">IOC lookup — paste an indicator; it becomes the analysis input and renders safe pivot links.</label>
         <div class="url-row">
-          <input type="text" class="url-input" id="url-input" placeholder="IP, domain, URL, MD5, SHA-1, or SHA-256 hash..." />
+          <input type="text" class="url-input" id="url-input" aria-label="IOC lookup input" placeholder="IP, domain, URL, MD5, SHA-1, or SHA-256 hash..." />
           <button class="btn-small" id="btn-loadioc">LOAD</button>
         </div>
       </div>
@@ -204,7 +204,7 @@ export const THREATRECON_BODY = `
         <button class="btn-analyze" id="btn-analyze">&#9654; ANALYZE</button>
         <button class="btn-clear" id="btn-clear">CLEAR</button>
         <button class="btn-demo" id="btn-demo">DEMO</button>
-        <div class="engine-status">
+        <div class="engine-status" role="status" aria-live="polite">
           <div class="status-led" id="status-led"></div>
           <span id="status-txt">All engines ready</span>
         </div>
@@ -449,7 +449,7 @@ export const THREATRECON_BODY = `
 
     <div class="panel panel-report" data-section="report">
       <div class="panel-head"><div class="dot dot-green"></div><div class="panel-head-text"><span class="panel-head-title">Local Analyst Report</span><span class="panel-head-desc panel-head-meta">Local rules engine &middot; FOR610/GREM-style structure &middot; no AI, no cloud</span></div><span class="panel-head-badge">Offline only</span></div>
-      <div class="panel-body"><div class="ai-streaming" id="ai-text"></div></div>
+      <div class="panel-body"><div class="ai-streaming" id="ai-text" role="status" aria-live="polite"></div></div>
       <div class="export-row" id="export-row" style="display:none">
         <button class="btn-export" id="exp-json">&#8659; JSON Report</button>
         <button class="btn-export" id="exp-md">&#8659; Markdown Report</button>
@@ -574,5 +574,5 @@ export const THREATRECON_BODY = `
   </div>
 </footer>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 `;

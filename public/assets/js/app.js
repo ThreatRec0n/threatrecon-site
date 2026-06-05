@@ -1105,22 +1105,50 @@ function buildCustomRules() {
   return rules;
 }
 
+function showAnalysisError(message, error) {
+  if (error) console.error('ThreatRecon analysis failed:', error);
+  if ($('spinner')) $('spinner').classList.remove('show');
+  if ($('btn-analyze')) {
+    $('btn-analyze').disabled = false;
+    $('btn-analyze').removeAttribute('aria-busy');
+  }
+  if ($('ai-text')) $('ai-text').textContent = message;
+  setStatus('ready', message);
+  showToast(message);
+}
+
 /* ─── Main analysis pipeline ────────────────────────────────────────────── */
 async function runAnalysis() {
+  try {
+    await runAnalysisPipeline();
+  } catch (error) {
+    showAnalysisError('Analysis could not complete. Try a smaller artifact, clear the input, or reload the page.', error);
+  }
+}
+
+async function runAnalysisPipeline() {
   const activeTab = document.querySelector('.itab.active')?.dataset.tab || 'paste';
   let input = '';
   if (activeTab === 'upload') input = fileContent;
   else if (activeTab === 'url') input = $('url-input').value.trim();
   else input = $('input-text').value.trim();
 
-  if (!input) { showToast('Paste content or select a local file first.'); return; }
+  if (!input) {
+    const msg = 'Paste content, enter an IOC, or select a local file first.';
+    setStatus('ready', msg);
+    showToast(msg);
+    return;
+  }
   if (input.length > MAX_INPUT_CHARS) {
-    showToast('Input is too large for browser safe analysis. Split the artifact or analyze locally in a dedicated lab.');
+    const msg = 'Input is too large for browser safe analysis. Split the artifact or analyze locally in a dedicated lab.';
+    setStatus('ready', msg);
+    showToast(msg);
     return;
   }
 
   setStatus('analyzing', 'Running engines...');
   $('btn-analyze').disabled = true;
+  $('btn-analyze').setAttribute('aria-busy', 'true');
   $('results-wrap').classList.remove('show');
   $('spinner').classList.add('show');
   $('score-panel').style.display = 'none';
@@ -1242,6 +1270,7 @@ async function runAnalysis() {
   $('export-row').style.display = 'flex';
   setStatus('ready', 'Analysis complete');
   $('btn-analyze').disabled = false;
+  $('btn-analyze').removeAttribute('aria-busy');
 }
 
 /* Cosmetic typewriter that only ever uses textContent (no HTML parsing). */
@@ -1652,6 +1681,12 @@ function wire() {
   if (fileInput && dz) {
     fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
     dz.addEventListener('click', () => fileInput.click());
+    dz.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
     dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
     dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
