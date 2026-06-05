@@ -1611,7 +1611,7 @@ function wire() {
 
   // Navigation tabs + any element with data-nav (CTAs, footer links)
   document.querySelectorAll('.nav-tab[data-page]').forEach(t =>
-    t.addEventListener('click', () => showPage(t.dataset.page)));
+    t.addEventListener('click', (e) => { e.preventDefault(); showPage(t.dataset.page); }));
   document.querySelectorAll('[data-nav]').forEach(el =>
     el.addEventListener('click', (e) => { e.preventDefault(); showPage(el.dataset.nav); }));
 

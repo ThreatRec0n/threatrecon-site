@@ -1,6 +1,15 @@
+import StructuredData from "../components/StructuredData";
+import { websiteStructuredData } from "./structured-data";
+import { publicRoutes } from "./site";
+
 export default function Page() {
+  const linkedRoutes = publicRoutes.filter(route =>
+    ["/analyzer", "/threat-kb", "/re-tools", "/cheat-sheet", "/sandboxes", "/about", "/security"].includes(route.path)
+  );
+
   return (
     <>
+      <StructuredData data={websiteStructuredData} />
       <main id="crawler-home" className="page active" aria-labelledby="crawler-title">
         <section className="hero">
           <div className="hero-inner">
@@ -19,7 +28,7 @@ export default function Page() {
               <li>Sigma drafts</li>
             </ul>
             <div className="cta-row">
-              <a className="cta cta-primary" href="#analyzer">Open Analyzer</a>
+              <a className="cta cta-primary" href="/analyzer">Open Analyzer</a>
               <a className="cta" href="/security">Read Security Model</a>
             </div>
             <div className="creator-line">ThreatRecon.io was built by Andre Boone.</div>
@@ -41,6 +50,19 @@ export default function Page() {
               <h2>Threat Hunting</h2>
               <p>Generate Splunk, Defender KQL, Elastic, blocklist, and EDR hunt outputs from the same browser based analysis.</p>
             </div>
+          </div>
+        </section>
+
+        <section className="landing-section">
+          <div className="section-kicker">Public Sections</div>
+          <h2>Explore ThreatRecon.io</h2>
+          <div className="seo-topic-grid">
+            {linkedRoutes.map(route => (
+              <div key={route.path}>
+                <h2><a href={route.path}>{route.label}</a></h2>
+                <p>{route.description}</p>
+              </div>
+            ))}
           </div>
         </section>
 

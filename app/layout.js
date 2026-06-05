@@ -5,8 +5,6 @@ const siteUrl = "https://www.threatrecon.io";
 const siteTitle = "ThreatRecon.io | Browser Based Malware Triage and Threat Hunting Lab";
 const siteDescription =
   "Analyze suspicious files locally in your browser with IOC extraction, strings analysis, entropy checks, MITRE ATT&CK mapping, YARA style drafts, Sigma style drafts, and analyst reporting.";
-const structuredDataDescription =
-  "Browser based static malware triage and threat hunting training platform.";
 const ogDescription =
   "Browser based static malware triage, IOC extraction, MITRE ATT&CK mapping, YARA style drafts, Sigma style drafts, and analyst reporting without sample uploads.";
 const twitterDescription =
@@ -81,29 +79,10 @@ export const viewport = {
   themeColor: "#0a0c0f",
 };
 
-const structuredData = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: "ThreatRecon.io",
-  url: `${siteUrl}/`,
-  description: structuredDataDescription,
-  applicationCategory: "SecurityApplication",
-  operatingSystem: "Web browser",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
-};
-
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-        />
         {children}
         <VercelTelemetry />
         <script type="module" src="/assets/js/vercel-telemetry.js" />

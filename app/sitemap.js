@@ -1,27 +1,19 @@
-const baseUrl = "https://www.threatrecon.io";
-const lastModified = new Date("2026-06-04");
+import { SITE_URL, publicRoutes } from "./site";
+import { threatKbArticles } from "./threat-kb/articles";
+
+const lastModified = new Date();
 
 export default function sitemap() {
-  return [
-    {
-      url: `${baseUrl}/`,
-      lastModified,
-      changeFrequency: "weekly",
-    },
-    {
-      url: `${baseUrl}/security`,
-      lastModified,
-      changeFrequency: "monthly",
-    },
-    {
-      url: `${baseUrl}/privacy`,
-      lastModified,
-      changeFrequency: "monthly",
-    },
-    {
-      url: `${baseUrl}/legal`,
-      lastModified,
-      changeFrequency: "monthly",
-    },
-  ];
+  const articleRoutes = threatKbArticles.map(article => ({
+    path: `/threat-kb/${article.slug}`,
+    changeFrequency: "monthly",
+    priority: 0.7,
+  }));
+
+  return [...publicRoutes, ...articleRoutes].map(route => ({
+    url: `${SITE_URL}${route.path === "/" ? "/" : route.path}`,
+    lastModified,
+    changeFrequency: route.changeFrequency,
+    priority: route.priority,
+  }));
 }

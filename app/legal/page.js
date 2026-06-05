@@ -1,12 +1,9 @@
 import LegalPageLayout from "../../components/LegalPageLayout";
+import { routeByPath, routeMetadata } from "../site";
 
-export const metadata = {
-  title: "Legal",
-  description: "ThreatRecon.io legal and acceptable use terms for defensive security education, malware triage practice, and analyst workflow training.",
-  alternates: {
-    canonical: "https://www.threatrecon.io/legal",
-  },
-};
+const route = routeByPath("/legal");
+
+export const metadata = routeMetadata(route);
 
 export default function LegalPage() {
   return (

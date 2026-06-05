@@ -15,14 +15,14 @@ export const THREATRECON_BODY = `
   <input type="checkbox" id="nav-toggle" class="nav-toggle" tabindex="-1" aria-hidden="true" />
   <label for="nav-toggle" class="nav-menu-btn" aria-label="Open navigation menu"><span></span><span></span><span></span></label>
   <nav class="nav-tabs" role="navigation" aria-label="Main">
-    <button class="nav-tab active" data-page="home">Home</button>
-    <button class="nav-tab" data-page="analyzer">Analyzer</button>
-    <button class="nav-tab" data-page="kb">Threat KB</button>
-    <button class="nav-tab" data-page="tools">RE Tools</button>
-    <button class="nav-tab" data-page="cheatsheet">Cheat Sheet</button>
-    <button class="nav-tab" data-page="sandboxes">Sandboxes</button>
-    <button class="nav-tab" data-page="security">Security</button>
-    <button class="nav-tab" data-page="about">About</button>
+    <a class="nav-tab active" data-page="home" href="/">Home</a>
+    <a class="nav-tab" data-page="analyzer" href="/analyzer">Analyzer</a>
+    <a class="nav-tab" data-page="kb" href="/threat-kb">Threat KB</a>
+    <a class="nav-tab" data-page="tools" href="/re-tools">RE Tools</a>
+    <a class="nav-tab" data-page="cheatsheet" href="/cheat-sheet">Cheat Sheet</a>
+    <a class="nav-tab" data-page="sandboxes" href="/sandboxes">Sandboxes</a>
+    <a class="nav-tab" data-page="security" href="/security">Security</a>
+    <a class="nav-tab" data-page="about" href="/about">About</a>
   </nav>
   <span class="version">v3.0</span>
 </div>
@@ -42,9 +42,9 @@ export const THREATRECON_BODY = `
         <li>Sigma drafts</li>
       </ul>
       <div class="cta-row">
-        <a class="cta cta-primary" data-nav="analyzer" href="#analyzer">&#9654; Open Analyzer</a>
+        <a class="cta cta-primary" data-nav="analyzer" href="/analyzer">&#9654; Open Analyzer</a>
         <a class="cta" id="cta-demo" href="#analyzer">Load Demo</a>
-        <a class="cta" data-nav="security" href="#security">Read Security Model</a>
+        <a class="cta" data-nav="security" href="/security">Read Security Model</a>
       </div>
       <div class="creator-line">ThreatRecon.io was built by Andre Boone.</div>
     </div>
@@ -560,7 +560,11 @@ export const THREATRECON_BODY = `
       <div class="footer-meta">ThreatRecon.io &middot; Browser-only static malware triage &middot; No sample upload &middot; No API calls by default</div>
     </div>
     <div class="footer-links">
-      <a data-nav="analyzer" href="#analyzer">Analyzer</a>
+      <a data-nav="analyzer" href="/analyzer">Analyzer</a>
+      <a data-nav="kb" href="/threat-kb">Threat KB</a>
+      <a data-nav="tools" href="/re-tools">RE Tools</a>
+      <a data-nav="cheatsheet" href="/cheat-sheet">Cheat Sheet</a>
+      <a data-nav="sandboxes" href="/sandboxes">Sandboxes</a>
       <a href="/security">Security</a>
       <a href="/about">About</a>
       <a href="/legal">Legal</a>

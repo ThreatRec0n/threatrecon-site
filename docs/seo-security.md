@@ -8,16 +8,18 @@
 - Keyword metadata for malware triage, IOC extraction, MITRE ATT&CK, YARA, Sigma, detection engineering, reverse engineering support, and threat hunting.
 - Open Graph metadata for link previews.
 - Twitter card metadata for large preview cards.
-- Native `app/sitemap.js` entries for the public home, security, privacy, and legal routes.
-- Native `app/robots.js` rules for public indexing.
+- Native `app/sitemap.js` entries for the public home, analyzer, Threat KB, RE tools, cheat sheet, sandboxes, about, policy pages, and starter Threat KB article routes.
+- Native `app/robots.js` rules for public indexing with API, admin, internal, private, debug, test, and framework asset paths excluded.
 
 ## Structured Data Added
 
 ThreatRecon.io includes static JSON-LD for:
 
-- `WebApplication`
+- `WebSite` on the homepage
+- `SoftwareApplication` on the analyzer route
+- `Article` and `BreadcrumbList` on Threat KB article routes
 
-The structured data describes ThreatRecon.io as a browser based static malware triage and threat hunting training platform.
+The structured data describes ThreatRecon.io public pages with safe product, article, and breadcrumb information only.
 
 ## Privacy Choices
 

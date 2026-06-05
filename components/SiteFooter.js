@@ -12,7 +12,11 @@ export default function SiteFooter() {
         </div>
         <div className="footer-links">
           <Link href="/">Home</Link>
-          <Link href="/#analyzer">Analyzer</Link>
+          <Link href="/analyzer">Analyzer</Link>
+          <Link href="/threat-kb">Threat KB</Link>
+          <Link href="/re-tools">RE Tools</Link>
+          <Link href="/cheat-sheet">Cheat Sheet</Link>
+          <Link href="/sandboxes">Sandboxes</Link>
           <Link href="/security">Security</Link>
           <Link href="/about">About</Link>
           <Link href="/legal">Legal</Link>

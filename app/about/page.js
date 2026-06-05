@@ -1,13 +1,9 @@
 import LegalPageLayout from "../../components/LegalPageLayout";
+import { routeByPath, routeMetadata } from "../site";
 
-export const metadata = {
-  title: "About ThreatRecon.io | Malware Triage and Detection Engineering Workbench",
-  description:
-    "About ThreatRecon.io, an advanced browser based static malware triage, detection engineering, and reverse engineering support workbench.",
-  alternates: {
-    canonical: "https://threatrecon.io/about",
-  },
-};
+const route = routeByPath("/about");
+
+export const metadata = routeMetadata(route);
 
 export default function AboutPage() {
   return (

@@ -1,12 +1,9 @@
 import LegalPageLayout from "../../components/LegalPageLayout";
+import { routeByPath, routeMetadata } from "../site";
 
-export const metadata = {
-  title: "Privacy",
-  description: "ThreatRecon.io privacy practices for browser based static analysis, local file workflows, no account requirement, and submitted sample handling.",
-  alternates: {
-    canonical: "https://www.threatrecon.io/privacy",
-  },
-};
+const route = routeByPath("/privacy");
+
+export const metadata = routeMetadata(route);
 
 export default function PrivacyPage() {
   return (
