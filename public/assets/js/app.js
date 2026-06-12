@@ -39,7 +39,9 @@ import {
 import {
   buildThreatIntelPivotRows,
   flattenThreatIntelPivots,
+  flattenSkippedThreatIntelPivots,
   NON_ACTIONABLE_PIVOT_REASON,
+  SKIPPED_PIVOT_SECTION_NOTE,
   THREAT_INTEL_PIVOT_PRIVACY_NOTE,
 } from './threat-intel-pivots.js';
 
@@ -484,21 +486,25 @@ function iocRows(iocActionability) {
 function formatThreatIntelPivotsText(rows) {
   const flattened = flattenThreatIntelPivots(rows);
   if (!flattened.length) return 'No threat-intelligence pivots generated.';
-  return flattened.map(p => {
-    if (!p.url) return `- ${p.ioc} | ${p.type} | actionable=no | ${p.reason || NON_ACTIONABLE_PIVOT_REASON}`;
-    return `- ${p.ioc} | ${p.type} | ${p.provider} | ${p.url} | ${p.note}`;
-  }).join('\n');
+  return flattened.map(p => `- ${p.ioc} | ${p.type} | ${p.provider} | ${p.url} | ${p.note}`).join('\n');
 }
 
 function formatThreatIntelPivotsMarkdown(rows) {
   const flattened = flattenThreatIntelPivots(rows);
   if (!flattened.length) return '- none';
-  return flattened.map(p => {
-    if (!p.url) {
-      return `- IOC: \`${p.ioc}\` | Type: ${p.type} | Provider: none | URL: none | Note: ${p.reason || NON_ACTIONABLE_PIVOT_REASON}`;
-    }
-    return `- IOC: \`${p.ioc}\` | Type: ${p.type} | Provider: ${p.provider} | URL: ${p.url} | Note: ${p.note}`;
-  }).join('\n');
+  return flattened.map(p => `- IOC: \`${p.ioc}\` | Type: ${p.type} | Provider: ${p.provider} | URL: ${p.url} | Note: ${p.note}`).join('\n');
+}
+
+function formatSkippedThreatIntelPivotsText(rows) {
+  const skipped = flattenSkippedThreatIntelPivots(rows);
+  if (!skipped.length) return '';
+  return skipped.map(p => `- ${p.ioc} | ${p.type} | ${p.reason}`).join('\n');
+}
+
+function formatSkippedThreatIntelPivotsMarkdown(rows) {
+  const skipped = flattenSkippedThreatIntelPivots(rows);
+  if (!skipped.length) return '';
+  return skipped.map(p => `- IOC: \`${p.ioc}\` | Type: ${p.type} | Reason: ${p.reason}`).join('\n');
 }
 
 /* ─── Dynamic analysis handoff (external links only — manual analyst step) ─ */
@@ -679,6 +685,12 @@ function generateAnalystReport(ctx) {
   sections.push('\nTHREAT INTEL PIVOTS');
   sections.push('Manual analyst pivots. ' + THREAT_INTEL_PIVOT_PRIVACY_NOTE);
   sections.push(formatThreatIntelPivotsText(threatIntelPivotRows));
+  const skippedPivotText = formatSkippedThreatIntelPivotsText(threatIntelPivotRows);
+  if (skippedPivotText) {
+    sections.push('\nNON-ACTIONABLE / TRAINING INDICATORS');
+    sections.push(SKIPPED_PIVOT_SECTION_NOTE);
+    sections.push(skippedPivotText);
+  }
 
   sections.push('\nSTRINGS INTELLIGENCE');
   sections.push(stringsIntelligence.length ? stringsIntelligence.map(c => `- ${c.name} (${c.confidence}): ${c.items.slice(0, 6).join('; ')}`).join('\n') : 'No high-signal string categories detected.');
@@ -1034,13 +1046,15 @@ function renderHuntingQueries(queries) {
 function renderThreatIntelPivots(rows) {
   const body = $('reputation-body');
   if (!body) return;
-  if (!rows.length) {
+  const actionableRows = (rows || []).filter(row => row.pivots && row.pivots.length);
+  const skippedRows = (rows || []).filter(row => !row.pivots || !row.pivots.length);
+  if (!actionableRows.length && !skippedRows.length) {
     body.innerHTML = '<div class="no-ioc">No actionable IOCs available for manual threat-intelligence pivots yet.</div>';
     return;
   }
 
   const order = ['Hashes', 'URLs', 'Domains', 'IP Addresses', 'Other Indicators'];
-  const grouped = order.map(category => [category, rows.filter(row => row.category === category)])
+  const grouped = order.map(category => [category, actionableRows.filter(row => row.category === category)])
     .filter(([, items]) => items.length);
   const hasOverflow = grouped.some(([, items]) => items.length > 10);
   let html = `
@@ -1049,13 +1063,15 @@ function renderThreatIntelPivots(rows) {
       <div class="field-hint">Manual links for analyst validation. No automatic IOC submission.</div>
     </div>`;
 
+  if (!actionableRows.length) {
+    html += '<div class="no-ioc">No actionable public indicators available for reputation pivots.</div>';
+  }
+
   grouped.forEach(([category, items]) => {
     html += `<div class="pivot-group"><div class="ioc-type-head">${escapeHtml(category)}<span class="ioc-count">${items.length}</span></div>`;
     items.forEach((row, idx) => {
       const hiddenClass = idx >= 10 ? ' pivot-row--extra' : '';
-      const buttons = row.pivots.length
-        ? `<div class="pivot-buttons">${row.pivots.map(p => `<a class="pivot-provider" href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(p.title)}" aria-label="${escapeHtml(p.ariaLabel)}">${escapeHtml(p.shortName)}</a>`).join('')}</div>`
-        : `<div class="pivot-skip">${escapeHtml(row.nonPivotReason || NON_ACTIONABLE_PIVOT_REASON)}</div>`;
+      const buttons = `<div class="pivot-buttons">${row.pivots.map(p => `<a class="pivot-provider" href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(p.title)}" aria-label="${escapeHtml(p.ariaLabel)}">${escapeHtml(p.shortName)}</a>`).join('')}</div>`;
       html += `<div class="pivot-row${hiddenClass}">
         <div class="pivot-value-wrap">
           <code class="pivot-value">${escapeHtml(row.ioc)}</code>
@@ -1072,6 +1088,19 @@ function renderThreatIntelPivots(rows) {
     html += '</div>';
   });
   if (hasOverflow) html += '<button type="button" class="btn-export pivot-toggle" id="pivot-show-all">Show all pivots</button>';
+  if (skippedRows.length) {
+    html += `<details class="pivot-skipped">
+      <summary>Non-actionable / Training Indicators <span class="ioc-count">${skippedRows.length}</span></summary>
+      <p class="field-hint">${escapeHtml(SKIPPED_PIVOT_SECTION_NOTE)}</p>
+      <div class="pivot-skipped-list">
+        ${skippedRows.map(row => `<div class="pivot-skipped-row">
+          <code class="pivot-value">${escapeHtml(row.ioc)}</code>
+          <span>${escapeHtml(row.type)}</span>
+          <span>${escapeHtml(row.nonPivotReason || NON_ACTIONABLE_PIVOT_REASON)}</span>
+        </div>`).join('')}
+      </div>
+    </details>`;
+  }
   body.innerHTML = html;
 
   const toggle = $('pivot-show-all');
@@ -1228,6 +1257,7 @@ async function runAnalysisPipeline() {
   const iocActionability = buildIOCActionability(iocs, isDemo, undefined, isLocalPrivateIp);
   const threatIntelPivotRows = buildThreatIntelPivotRows(iocActionability);
   const threatIntelPivots = flattenThreatIntelPivots(threatIntelPivotRows);
+  const skippedThreatIntelPivots = flattenSkippedThreatIntelPivots(threatIntelPivotRows);
   const blocklist = blocklistItems(iocActionability);
   const exportNotes = actionableExportNotes(iocActionability, blocklist);
   const detectionEngineering = buildDetectionEngineering({ draftYara, draftSigma, huntingQueries, blocklist });
@@ -1293,6 +1323,7 @@ async function runAnalysisPipeline() {
     behaviorTimeline: timeline, draftYara, draftSigma, detectionEngineering,
     iocActionability, huntingQueries, reGuidance,
     threatIntelPivots,
+    skippedThreatIntelPivots,
     threatIntelPivotRows,
     manualReputationPivots: threatIntelPivots.filter(p => p.url),
     blocklist,
@@ -1447,6 +1478,12 @@ ${r.iocActionability.map(x => `- ${x.type}: ${x.value} | actionable=${x.actionab
 Manual analyst pivots. ${THREAT_INTEL_PIVOT_PRIVACY_NOTE}
 
 ${formatThreatIntelPivotsMarkdown(r.threatIntelPivotRows || [])}
+${(r.skippedThreatIntelPivots || []).length ? `
+## Non-actionable / Training Indicators
+${SKIPPED_PIVOT_SECTION_NOTE}
+
+${formatSkippedThreatIntelPivotsMarkdown(r.threatIntelPivotRows || [])}
+` : ''}
 
 ## Strings Intelligence
 ${r.stringsIntelligence.map(c => `- ${c.name} (${c.confidence}): ${c.items.slice(0, 6).join('; ')}`).join('\n') || '- none'}

@@ -640,10 +640,10 @@ export function compareSamples(inputA, inputB, behaviorRules = [], yaraRules = [
   };
 }
 
-const SAFE_PUBLIC_RESOLVERS = new Set(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1', '9.9.9.9']);
+const SAFE_PUBLIC_RESOLVERS = new Set(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1', '9.9.9.9', '149.112.112.112', '208.67.222.222', '208.67.220.220']);
 const RESERVED_DEMO_DOMAINS = ['example.com', 'example.org', 'example.net', 'example.edu'];
-const RESERVED_DEMO_TLDS = ['example', 'test', 'invalid', 'localhost'];
-const RESERVED_SINGLE_LABELS = new Set(['test', 'localhost', 'invalid', 'local']);
+const RESERVED_DEMO_TLDS = ['example', 'test', 'invalid', 'localhost', 'local', 'lan', 'home', 'internal', 'corp', 'domain'];
+const RESERVED_SINGLE_LABELS = new Set(['test', 'demo', 'sample', 'localhost', 'local', 'localdomain', 'invalid', 'training']);
 
 function ipv4Parts(value) {
   const m = String(value || '').match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
@@ -680,6 +680,17 @@ export function isDocumentationIp(ip) {
     (a === 203 && b === 0 && c === 113);
 }
 
+function isReservedSpecialIp(ip) {
+  const parts = ipv4Parts(ip);
+  if (!parts) return false;
+  const [a, b] = parts;
+  return (a === 100 && b >= 64 && b <= 127) ||
+    (a === 192 && b === 0) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a >= 224 && a <= 239) ||
+    (a >= 240 && a <= 255);
+}
+
 export function isKnownPublicResolverIp(ip) {
   return SAFE_PUBLIC_RESOLVERS.has(String(ip || '').trim());
 }
@@ -688,6 +699,7 @@ export function isReservedDemoDomain(value) {
   const host = hostFromValue(value);
   if (!host) return false;
   if (RESERVED_SINGLE_LABELS.has(host)) return true;
+  if (/(^|[.-])(demo|training|sample)([.-]|$)/.test(host)) return true;
   if (RESERVED_DEMO_DOMAINS.some(d => host === d || host.endsWith(`.${d}`))) return true;
   const tld = host.split('.').pop();
   return RESERVED_DEMO_TLDS.includes(tld);
@@ -709,6 +721,13 @@ function networkActionability(type, value, isLocalPrivateIp) {
       actionable: false,
       reason: 'Reserved documentation IP range; training/demo indicator only.',
       recommendedAction: 'Keep for report context; do not block.',
+    };
+  }
+  if (ipHost && isReservedSpecialIp(ipHost)) {
+    return {
+      actionable: false,
+      reason: 'Reserved/special IP range; not suitable for reputation pivot or blocklists.',
+      recommendedAction: 'Keep for context only; do not block shared, multicast, benchmarking, or reserved infrastructure.',
     };
   }
   if (ipHost && isKnownPublicResolverIp(ipHost)) {

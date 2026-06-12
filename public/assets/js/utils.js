@@ -240,15 +240,20 @@ export function classifyStrings(text) {
 /** True for loopback/private/link-local/reserved IPv4 (and IPv6 loopback/ULA/link-local).
     Such addresses are local-only indicators, never external IOCs. */
 export function isPrivateOrReservedIp(ip) {
-  if (ip.includes(':')) return /^(::1|fe80:|fc|fd)/i.test(ip);
+  if (ip.includes(':')) return /^(::|::1|fe8|fe9|fea|feb|fc|fd|ff|2001:db8:|2001:db8::)/i.test(ip);
   const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (!m) return false;
-  const a = +m[1], b = +m[2];
+  const a = +m[1], b = +m[2], c = +m[3], d = +m[4];
   if (a === 10 || a === 127 || a === 0) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
   if (a === 192 && b === 168) return true;
   if (a === 169 && b === 254) return true;
-  if (a === 255 && b === 255 && +m[3] === 255 && +m[4] === 255) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a === 192 && b === 0) return true;
+  if (a === 198 && (b === 18 || b === 19)) return true;
+  if (a >= 224 && a <= 239) return true;
+  if (a >= 240 && a <= 255) return true;
+  if (a === 255 && b === 255 && c === 255 && d === 255) return true;
   return false;
 }
 
