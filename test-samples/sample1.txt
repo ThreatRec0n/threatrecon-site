@@ -1,0 +1,7 @@
+ThreatRecon audit sample 1 - benign static IOC test.
+Documentation IPs: 192.0.2.1 and 198.51.100.23
+Domain: example-malicious-test.com
+Registry: HKCU\Software\TestKey\Run
+Command: powershell -enc SQBFAFgA
+SHA256-lookalike: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
+Suspicious string marker: Invoke-Expression is not executed in this text sample.

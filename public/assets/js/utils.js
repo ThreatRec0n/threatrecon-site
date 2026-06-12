@@ -224,8 +224,17 @@ export function extractEncodedBlobs(input) {
 }
 
 /** Classify interesting strings into network/crypto/evasion/suspicious buckets. */
+export function extractPrintableStrings(text, minLength = 4, limit = 300) {
+  const min = Math.max(1, Number(minLength) || 4);
+  return [...new Set(String(text || '').match(new RegExp(`[ -~]{${min},}`, 'g')) || [])]
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+/** Classify interesting printable strings into network/crypto/evasion/suspicious buckets. */
 export function classifyStrings(text) {
-  const lines = text.split(/\n/).filter(l => l.trim().length > 5);
+  const lines = extractPrintableStrings(text, 5, 300);
   const results = [];
   for (const line of lines.slice(0, 300)) {
     const t = line.trim();
@@ -279,8 +288,8 @@ export function extractIOCs(text) {
   const sha1Rx = /\b[a-fA-F0-9]{40}\b/g;
   const sha256Rx = /\b[a-fA-F0-9]{64}\b/g;
   const emailRx = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-  const regRx = /HKEY_[A-Z_]+(?:\\[^\s"']+)+/gi;
-  const pathWinRx = /[A-Za-z]:\\(?:[^\s"'<>\n]+\\)*[^\s"'<>\n]*/g;
+  const regRx = /(?:HKEY_[A-Z_]+|HK(?:CU|LM|CR|U|CC)):?(?:\\[^\s"']+)+/gi;
+  const pathWinRx = /(?<![A-Za-z])[A-Za-z]:\\(?:[^\s"'<>\n]+\\)*[^\s"'<>\n]*/g;
   const pathUnixRx = /\/(?:tmp|var|etc|home|root|bin|usr|opt|dev|proc)\/[^\s"'<>\n]*/g;
   const btcRx = /\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g;
   const cveRx = /CVE-\d{4}-\d{4,7}/gi;

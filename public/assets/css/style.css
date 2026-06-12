@@ -614,6 +614,49 @@ code {
   padding: 12px;
 }
 
+.walk-output-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.walk-output-card {
+  border: 1px solid rgba(100, 255, 218, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 212, 255, 0.04);
+  padding: 12px;
+}
+
+.walk-output-card h3 {
+  font-family: var(--term);
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.walk-code {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--term);
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.walk-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text2);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .walk-row {
   display: flex;
   justify-content: space-between;
@@ -665,6 +708,10 @@ code {
 @media (max-width: 820px) {
   .landing-split,
   .walkthrough-card {
+    grid-template-columns: 1fr;
+  }
+
+  .walk-output-grid {
     grid-template-columns: 1fr;
   }
 }

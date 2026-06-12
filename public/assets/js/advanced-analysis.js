@@ -425,7 +425,19 @@ falsepositives:
   - Unknown
 level: low`;
   }
-  const terms = [...new Set(matches.flatMap(m => m[5]))].slice(0, 16);
+  const iocs = extractIOCs(input);
+  const matchedLines = String(input || '').split(/\n+/)
+    .map(line => line.trim())
+    .filter(line => line && matches.some(([, rx]) => rx.test(line)))
+    .slice(0, 6);
+  const exactTerms = [
+    ...(iocs.registry || []),
+    ...(iocs.urls || []),
+    ...(iocs.domains || []),
+    ...(iocs.paths || []),
+    ...matchedLines,
+  ];
+  const terms = [...new Set([...matches.flatMap(m => m[5]), ...exactTerms])].slice(0, 16);
   return `title: ThreatRecon ${sigmaEscape(matches[0][0])}
 id: 00000000-0000-4000-8000-000000000000
 status: experimental

@@ -92,7 +92,8 @@ assert(page.includes('Manual threat-intelligence pivots'), 'homepage source must
 assert(page.includes('without automatic IOC submission'), 'homepage source must mention no automatic IOC submission');
 assert(page.includes('Privacy and Safety'), 'homepage source must expose privacy and safety copy');
 assert(page.includes('Static Malware Triage Walkthrough'), 'homepage source must expose walkthrough copy');
-assert(page.includes('Visual proof placeholders'), 'homepage source must expose visual proof placeholder copy');
+assert(page.includes('sample2.ps1'), 'homepage source must expose verified sample2 walkthrough copy');
+assert(page.includes('Verified analyzer outputs'), 'homepage source must expose verified analyzer output copy');
 assert(page.includes('Defensive use disclaimer'), 'homepage source must expose defensive use disclaimer copy');
 assert(page.includes('Known Limitations'), 'homepage source must expose known limitations copy');
 assert(page.includes('linkedRoutes.map'), 'homepage source must render public route links from registry');
@@ -114,7 +115,8 @@ assert(shell.includes('Detection Engineering'), 'detection engineering heading m
 assert(shell.includes('Reverse Engineering Support'), 'reverse engineering heading missing');
 assert(shell.includes('Privacy and Safety'), 'privacy and safety heading missing');
 assert(shell.includes('Static Malware Triage Walkthrough'), 'walkthrough section missing');
-assert(shell.includes('Visual proof placeholders'), 'visual proof placeholders section missing');
+assert(shell.includes('sample2.ps1'), 'verified sample2 walkthrough missing');
+assert(shell.includes('Verified analyzer outputs'), 'verified analyzer outputs section missing');
 assert(shell.includes('Defensive use disclaimer'), 'defensive use disclaimer missing');
 assert(shell.includes('Known Limitations'), 'known limitations section missing');
 assert(shell.includes('ThreatRecon.io provides static analysis assistance and analyst training workflows.'), 'known limitations copy missing');
