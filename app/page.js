@@ -84,7 +84,7 @@ export default function Page() {
           <div className="seo-topic-grid">
             <div>
               <h2>IOC Extraction and Threat Hunting</h2>
-              <p>Extract indicators and generate safe threat hunting output for Splunk, Defender KQL, Elastic, DNS, firewall, and EDR workflows.</p>
+              <p>Extract indicators and generate safe threat hunting output for Splunk, Defender KQL, Elastic, DNS, firewall, and EDR workflows. Manual threat-intelligence pivots help analysts validate IOCs in VirusTotal, MalwareBazaar, URLhaus, AlienVault OTX, ThreatFox, AbuseIPDB, and GreyNoise without automatic IOC submission.</p>
             </div>
             <div>
               <h2>Reverse Engineering Support</h2>

@@ -64,7 +64,7 @@ export const THREATRECON_BODY = `
     <p>ThreatRecon.io is a browser based static malware triage workbench built for safe first pass analysis of suspicious scripts, logs, IOCs, command lines, and text artifacts. It helps analysts perform local file analysis, extract indicators, identify suspicious behaviors, map findings to MITRE ATT&amp;CK, decode obfuscated content, generate draft YARA and Sigma rules, and prepare analyst reporting for review.</p>
     <p>All analysis is performed locally in the browser. ThreatRecon does not upload samples, execute files, detonate malware, or submit artifacts to third party services automatically. External sandbox and reputation links are manual analyst pivots only.</p>
     <div class="seo-topic-grid">
-      <div><h2>IOC Extraction and Threat Hunting</h2><p>Extract indicators and generate safe threat hunting output for Splunk, Defender KQL, Elastic, DNS, firewall, and EDR workflows.</p></div>
+      <div><h2>IOC Extraction and Threat Hunting</h2><p>Extract indicators and generate safe threat hunting output for Splunk, Defender KQL, Elastic, DNS, firewall, and EDR workflows. Manual threat-intelligence pivots help analysts validate IOCs in VirusTotal, MalwareBazaar, URLhaus, AlienVault OTX, ThreatFox, AbuseIPDB, and GreyNoise without automatic IOC submission.</p></div>
       <div><h2>Detection Engineering</h2><p>Create draft YARA and Sigma content from local evidence, then review and tune the output before operational use.</p></div>
       <div><h2>Reverse Engineering Support</h2><p>Review strings, entropy, PE headers, imports, sections, suspicious APIs, deobfuscation output, and tool guidance for authorized analysis.</p></div>
       <div><h2>Privacy and Safety</h2><p>Files stay in the browser. ThreatRecon does not require accounts, logins, sample uploads, or automatic artifact submission.</p></div>
@@ -357,7 +357,7 @@ export const THREATRECON_BODY = `
     </div>
 
     <div class="panel" data-section="reputation">
-      <div class="panel-head"><div class="dot dot-blue"></div><div class="panel-head-text"><span class="panel-head-title">Manual Reputation Pivot</span><span class="panel-head-desc">VirusTotal, MalwareBazaar, ThreatFox, URLhaus, and OTX links — manual only</span></div></div>
+      <div class="panel-head"><div class="dot dot-blue"></div><div class="panel-head-text"><span class="panel-head-title">Threat Intel Pivots</span><span class="panel-head-desc">Manual links for analyst validation. No automatic IOC submission.</span></div></div>
       <div class="panel-body" id="reputation-body"></div>
     </div>
 
@@ -515,6 +515,7 @@ export const THREATRECON_BODY = `
         <li><span class="ok">Static analysis only.</span> It inspects text patterns; it does not run or detonate anything.</li>
         <li><span class="ok">100% in-browser.</span> Hashing, entropy, IOC extraction, rule matching, and decoding all run client-side.</li>
         <li><span class="ok">No analysis network calls.</span> Analytics are limited to site usage and performance telemetry. Analysis content remains local in the browser.</li>
+        <li><span class="ok">Manual threat-intelligence pivots.</span> ThreatRecon does not automatically submit files, hashes, URLs, domains, or IPs to third-party services.</li>
         <li><span class="ok">No upload, no storage.</span> Files you choose are read locally with FileReader and never sent anywhere or persisted server-side.</li>
       </ul>
     </div></div>

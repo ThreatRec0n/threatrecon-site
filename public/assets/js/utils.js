@@ -252,12 +252,23 @@ export function isPrivateOrReservedIp(ip) {
   return false;
 }
 
+function refangForExtraction(value) {
+  return String(value || '')
+    .replace(/^hxxps/i, 'https')
+    .replace(/^hxxp/i, 'http')
+    .replace(/\[\.]|\(\.\)/g, '.')
+    .replace(/\[:\/\/\]/g, '://')
+    .replace(/\[:\]/g, ':');
+}
+
 /** Extract IOCs from text. All regex-based; capped per type to bound output. */
 export function extractIOCs(text) {
   const ipRx = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
   const urlRx = /https?:\/\/[^\s"'<>\]]+/gi;
+  const defangedUrlRx = /hxxps?(?::\/\/|\[:\/\/\]|\[:\]\/\/)[^\s"'<>)]+/gi;
   const onionRx = /\b[a-z2-7][a-z2-7-]{14,54}[a-z2-7]\.onion\b/gi;
   const domainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|edu|io|ru|cn|tk|xyz|top|cc|pw|onion|info|biz|co|me|us|uk|de|fr|to|site|club|test|example|invalid|localhost|tld)\b/gi;
+  const defangedDomainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\[\.]|\(\.\)))+(?:com|net|org|edu|io|ru|cn|tk|xyz|top|cc|pw|onion|info|biz|co|me|us|uk|de|fr|to|site|club|test|example|invalid|localhost|tld)\b/gi;
   const reservedSingleLabelRx = /(?:^|[^A-Za-z0-9.-])(localhost|local|invalid|test)(?=$|[^A-Za-z0-9.-])/gi;
   const md5Rx = /\b[a-fA-F0-9]{32}\b/g;
   const sha1Rx = /\b[a-fA-F0-9]{40}\b/g;
@@ -270,19 +281,19 @@ export function extractIOCs(text) {
   const cveRx = /CVE-\d{4}-\d{4,7}/gi;
   const mutexRx = /(?:mutex|mutant|CreateMutex(?:A|W)?)\s*[:=]?\s*["']?([A-Za-z0-9_.\\-{}]{6,80})/gi;
 
-  const urls = [...new Set(text.match(urlRx) || [])].slice(0, 12);
+  const urls = [...new Set([...(text.match(urlRx) || []), ...(text.match(defangedUrlRx) || [])])].slice(0, 12);
   const reservedSingleLabels = [];
   let singleLabelMatch;
   while ((singleLabelMatch = reservedSingleLabelRx.exec(text)) !== null) reservedSingleLabels.push(singleLabelMatch[1]);
-  const rawDomains = [...new Set([...(text.match(domainRx) || []), ...reservedSingleLabels])];
+  const rawDomains = [...new Set([...(text.match(domainRx) || []), ...(text.match(defangedDomainRx) || []), ...reservedSingleLabels])];
   const urlHosts = new Set(urls.map(u => {
     try {
-      return new URL(u).hostname.toLowerCase();
+      return new URL(refangForExtraction(u)).hostname.toLowerCase();
     } catch {
       return '';
     }
   }).filter(Boolean));
-  const domains = rawDomains.filter(d => !urlHosts.has(String(d).toLowerCase())).slice(0, 24);
+  const domains = rawDomains.filter(d => !urlHosts.has(refangForExtraction(d).toLowerCase())).slice(0, 24);
 
   // Separate loopback/private/reserved IPs into a local-only bucket so they are
   // NOT treated as external IOCs or recommended for blocking.

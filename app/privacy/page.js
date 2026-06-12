@@ -26,7 +26,7 @@ export default function PrivacyPage() {
       <div className="panel">
         <div className="panel-head"><div className="dot dot-blue"></div>External links</div>
         <div className="panel-body">
-          <p>External sandbox and reputation links take you away from ThreatRecon. Those sites have their own privacy policies. ThreatRecon does not control third-party data handling.</p>
+          <p>External sandbox and reputation links take you away from ThreatRecon. Threat-intelligence pivot links are manual. ThreatRecon does not automatically submit files, hashes, URLs, domains, or IPs to third-party services. Those sites have their own privacy policies, and ThreatRecon does not control third-party data handling.</p>
         </div>
       </div>
       <div className="panel">

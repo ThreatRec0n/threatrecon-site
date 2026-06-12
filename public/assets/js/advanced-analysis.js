@@ -652,8 +652,17 @@ function ipv4Parts(value) {
   return parts.every(p => Number.isInteger(p) && p >= 0 && p <= 255) ? parts : null;
 }
 
+function refangForHost(value) {
+  return String(value || '')
+    .replace(/^hxxps/i, 'https')
+    .replace(/^hxxp/i, 'http')
+    .replace(/\[\.]|\(\.\)/g, '.')
+    .replace(/\[:\/\/\]/g, '://')
+    .replace(/\[:\]/g, ':');
+}
+
 function hostFromValue(value) {
-  const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
+  const raw = refangForHost(value).trim().toLowerCase().replace(/\.$/, '');
   if (!raw) return '';
   try {
     return new URL(raw).hostname.toLowerCase().replace(/\.$/, '');

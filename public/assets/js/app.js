@@ -36,6 +36,12 @@ import {
   BEHAVIOR_RULES, YARA_RULES, MITRE_MAP, DEMO_SAMPLE,
   KB_DATA, TOOLS_DATA, CS_DATA, SB_DATA, DYNAMIC_ANALYSIS_CONFIG,
 } from './rules.js';
+import {
+  buildThreatIntelPivotRows,
+  flattenThreatIntelPivots,
+  NON_ACTIONABLE_PIVOT_REASON,
+  THREAT_INTEL_PIVOT_PRIVACY_NOTE,
+} from './threat-intel-pivots.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -475,25 +481,24 @@ function iocRows(iocActionability) {
   }));
 }
 
-function pivotLinksForIOCs(iocs) {
-  const links = [];
-  const add = (label, url, value) => links.push({ label, url, value });
-  [...(iocs.md5 || []), ...(iocs.sha1 || []), ...(iocs.sha256 || [])].slice(0, 8).forEach(h => {
-    add('VirusTotal hash search', `https://www.virustotal.com/gui/search/${encodeURIComponent(h)}`, h);
-    add('MalwareBazaar hash search', `https://bazaar.abuse.ch/browse.php?search=${encodeURIComponent(h)}`, h);
-    add('ThreatFox search', 'https://threatfox.abuse.ch/browse/', h);
-  });
-  (iocs.urls || []).slice(0, 6).forEach(u => {
-    add('VirusTotal URL search', `https://www.virustotal.com/gui/search/${encodeURIComponent(u)}`, u);
-    add('URLhaus URL search', `https://urlhaus.abuse.ch/browse.php?search=${encodeURIComponent(u)}`, u);
-    add('OTX URL search', `https://otx.alienvault.com/indicator/url/${encodeURIComponent(u)}`, u);
-  });
-  [...(iocs.domains || []), ...(iocs.ips || []).filter(ip => !isLocalPrivateIp(ip))].slice(0, 8).forEach(v => {
-    add('VirusTotal indicator search', `https://www.virustotal.com/gui/search/${encodeURIComponent(v)}`, v);
-    add('OTX indicator search', `https://otx.alienvault.com/indicator/domain/${encodeURIComponent(v)}`, v);
-    add('ThreatFox search', 'https://threatfox.abuse.ch/browse/', v);
-  });
-  return links.slice(0, 24);
+function formatThreatIntelPivotsText(rows) {
+  const flattened = flattenThreatIntelPivots(rows);
+  if (!flattened.length) return 'No threat-intelligence pivots generated.';
+  return flattened.map(p => {
+    if (!p.url) return `- ${p.ioc} | ${p.type} | actionable=no | ${p.reason || NON_ACTIONABLE_PIVOT_REASON}`;
+    return `- ${p.ioc} | ${p.type} | ${p.provider} | ${p.url} | ${p.note}`;
+  }).join('\n');
+}
+
+function formatThreatIntelPivotsMarkdown(rows) {
+  const flattened = flattenThreatIntelPivots(rows);
+  if (!flattened.length) return '- none';
+  return flattened.map(p => {
+    if (!p.url) {
+      return `- IOC: \`${p.ioc}\` | Type: ${p.type} | Provider: none | URL: none | Note: ${p.reason || NON_ACTIONABLE_PIVOT_REASON}`;
+    }
+    return `- IOC: \`${p.ioc}\` | Type: ${p.type} | Provider: ${p.provider} | URL: ${p.url} | Note: ${p.note}`;
+  }).join('\n');
 }
 
 /* ─── Dynamic analysis handoff (external links only — manual analyst step) ─ */
@@ -602,7 +607,7 @@ function generateAnalystReport(ctx) {
     mitreList, h256, malwareType, capabilities, deobf, isDemo, confidence,
     category, timeline, huntingQueries, reGuidance, peTriage, scriptFindings,
     exportNotes, scores, workflowMode, stringsIntelligence, apiRisk, attackTable,
-    draftYara, draftSigma, iocActionability } = ctx;
+    draftYara, draftSigma, iocActionability, threatIntelPivotRows } = ctx;
   const criticals = behaviors.filter(b => b.sev === 'CRITICAL');
   const highs = behaviors.filter(b => b.sev === 'HIGH');
   const meds = behaviors.filter(b => b.sev === 'MED');
@@ -670,6 +675,10 @@ function generateAnalystReport(ctx) {
 
   sections.push('\nIOC ACTIONABILITY');
   sections.push(iocActionability.length ? iocActionability.map(r => `- ${r.type}: ${r.value} | actionable=${r.actionable ? 'yes' : 'no'} | ${r.reason} | ${r.recommendedAction}`).join('\n') : 'No IOC actionability rows generated.');
+
+  sections.push('\nTHREAT INTEL PIVOTS');
+  sections.push('Manual analyst pivots. ' + THREAT_INTEL_PIVOT_PRIVACY_NOTE);
+  sections.push(formatThreatIntelPivotsText(threatIntelPivotRows));
 
   sections.push('\nSTRINGS INTELLIGENCE');
   sections.push(stringsIntelligence.length ? stringsIntelligence.map(c => `- ${c.name} (${c.confidence}): ${c.items.slice(0, 6).join('; ')}`).join('\n') : 'No high-signal string categories detected.');
@@ -1022,13 +1031,58 @@ function renderHuntingQueries(queries) {
     </div>`).join('');
 }
 
-function renderManualPivots(links) {
+function renderThreatIntelPivots(rows) {
   const body = $('reputation-body');
   if (!body) return;
-  body.innerHTML = links.length
-    ? `<div class="field-hint">External links are manual analyst pivots. Do not submit sensitive samples or proprietary data to public services unless authorized.</div>` +
-      links.map(l => `<a class="ioc-pill" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.label)}: ${escapeHtml(l.value)} ↗</a>`).join('')
-    : '<div class="no-ioc">No manual reputation pivot links generated yet.</div>';
+  if (!rows.length) {
+    body.innerHTML = '<div class="no-ioc">No actionable IOCs available for manual threat-intelligence pivots yet.</div>';
+    return;
+  }
+
+  const order = ['Hashes', 'URLs', 'Domains', 'IP Addresses', 'Other Indicators'];
+  const grouped = order.map(category => [category, rows.filter(row => row.category === category)])
+    .filter(([, items]) => items.length);
+  const hasOverflow = grouped.some(([, items]) => items.length > 10);
+  let html = `
+    <div class="pivot-intro">
+      <strong>Manual analyst pivots.</strong> ${escapeHtml(THREAT_INTEL_PIVOT_PRIVACY_NOTE)}
+      <div class="field-hint">Manual links for analyst validation. No automatic IOC submission.</div>
+    </div>`;
+
+  grouped.forEach(([category, items]) => {
+    html += `<div class="pivot-group"><div class="ioc-type-head">${escapeHtml(category)}<span class="ioc-count">${items.length}</span></div>`;
+    items.forEach((row, idx) => {
+      const hiddenClass = idx >= 10 ? ' pivot-row--extra' : '';
+      const buttons = row.pivots.length
+        ? `<div class="pivot-buttons">${row.pivots.map(p => `<a class="pivot-provider" href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(p.title)}" aria-label="${escapeHtml(p.ariaLabel)}">${escapeHtml(p.shortName)}</a>`).join('')}</div>`
+        : `<div class="pivot-skip">${escapeHtml(row.nonPivotReason || NON_ACTIONABLE_PIVOT_REASON)}</div>`;
+      html += `<div class="pivot-row${hiddenClass}">
+        <div class="pivot-value-wrap">
+          <code class="pivot-value">${escapeHtml(row.ioc)}</code>
+          <div class="pivot-meta">
+            <span>type: ${escapeHtml(row.type)}</span>
+            <span>actionable: ${row.actionable ? 'yes' : 'no'}</span>
+            ${row.actionabilityReason ? `<span>${escapeHtml(row.actionabilityReason)}</span>` : ''}
+          </div>
+          ${row.refangNote ? `<div class="pivot-refang-note">${escapeHtml(row.refangNote)}</div>` : ''}
+        </div>
+        ${buttons}
+      </div>`;
+    });
+    html += '</div>';
+  });
+  if (hasOverflow) html += '<button type="button" class="btn-export pivot-toggle" id="pivot-show-all">Show all pivots</button>';
+  body.innerHTML = html;
+
+  const toggle = $('pivot-show-all');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      const expanded = toggle.dataset.expanded === 'true';
+      body.querySelectorAll('.pivot-row--extra').forEach(row => row.classList.toggle('pivot-row--visible', !expanded));
+      toggle.dataset.expanded = expanded ? 'false' : 'true';
+      toggle.textContent = expanded ? 'Show all pivots' : 'Show fewer pivots';
+    });
+  }
 }
 
 function renderDeobf(deobf) {
@@ -1159,7 +1213,6 @@ async function runAnalysisPipeline() {
   const category = likelyCategory(malwareType, capabilities, iocs, behaviors);
   const reGuidance = buildREGuidance({ peTriage, scriptFindings, capabilities, malwareType, iocs, behaviors });
   const huntingQueries = buildHuntingQueries(iocs, suspiciousCmds);
-  const pivotLinks = pivotLinksForIOCs(iocs);
 
   // MITRE technique set
   const mitreSet = new Set();
@@ -1173,6 +1226,8 @@ async function runAnalysisPipeline() {
   const draftYara = generateDraftYara({ iocs, category, apiRisk, stringsIntelligence, behaviors, isDemo });
   const draftSigma = generateDraftSigma(input, attackTable);
   const iocActionability = buildIOCActionability(iocs, isDemo, undefined, isLocalPrivateIp);
+  const threatIntelPivotRows = buildThreatIntelPivotRows(iocActionability);
+  const threatIntelPivots = flattenThreatIntelPivots(threatIntelPivotRows);
   const blocklist = blocklistItems(iocActionability);
   const exportNotes = actionableExportNotes(iocActionability, blocklist);
   const detectionEngineering = buildDetectionEngineering({ draftYara, draftSigma, huntingQueries, blocklist });
@@ -1206,7 +1261,7 @@ async function runAnalysisPipeline() {
   renderGeneratedRule('draft-sigma-body', draftSigma, 'Sigma');
   renderIOCActionability(iocActionability);
   renderDetectionEngineering(detectionEngineering);
-  renderManualPivots(pivotLinks);
+  renderThreatIntelPivots(threatIntelPivotRows);
   updateDynamicContextualActions(iocs, behaviors, capabilities, malwareType);
   renderDeobf(deobf);
 
@@ -1217,7 +1272,7 @@ async function runAnalysisPipeline() {
     deobf, recommendations, isDemo, confidence, category, timeline, huntingQueries,
     reGuidance, peTriage, scriptFindings, exportNotes, scores, workflowMode,
     stringsIntelligence, apiRisk, attackTable, draftYara, draftSigma,
-    iocActionability, detectionEngineering,
+    iocActionability, detectionEngineering, threatIntelPivotRows,
   });
   typewrite($('ai-text'), report);
 
@@ -1237,7 +1292,10 @@ async function runAnalysisPipeline() {
     peTriage, scriptFindings, stringsIntelligence, apiRisk, attackTable,
     behaviorTimeline: timeline, draftYara, draftSigma, detectionEngineering,
     iocActionability, huntingQueries, reGuidance,
-    manualReputationPivots: pivotLinks, blocklist,
+    threatIntelPivots,
+    threatIntelPivotRows,
+    manualReputationPivots: threatIntelPivots.filter(p => p.url),
+    blocklist,
     actionableExportNotes: exportNotes,
     iocCsvRows: iocRows(iocActionability), recommendations, report,
     dynamicAnalysisNextSteps: buildDynamicAnalysisNextSteps(),
@@ -1384,6 +1442,11 @@ ${r.actionableExportNotes.length ? `\n### Actionable export notes\n${r.actionabl
 
 ## IOC Actionability
 ${r.iocActionability.map(x => `- ${x.type}: ${x.value} | actionable=${x.actionable ? 'yes' : 'no'} | ${x.reason}`).join('\n') || '- none'}
+
+## Threat Intel Pivots
+Manual analyst pivots. ${THREAT_INTEL_PIVOT_PRIVACY_NOTE}
+
+${formatThreatIntelPivotsMarkdown(r.threatIntelPivotRows || [])}
 
 ## Strings Intelligence
 ${r.stringsIntelligence.map(c => `- ${c.name} (${c.confidence}): ${c.items.slice(0, 6).join('; ')}`).join('\n') || '- none'}

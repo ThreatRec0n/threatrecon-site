@@ -85,6 +85,11 @@ assert(!sitemap.includes('/admin/'), 'sitemap must not include admin routes');
 assert(page.includes('Analyze suspicious files locally in your browser.'), 'homepage source must expose crawler-readable hero copy');
 assert(page.includes('Static Malware Analysis'), 'homepage source must expose static malware analysis copy');
 assert(page.includes('IOC Extraction and Threat Hunting'), 'homepage source must expose IOC/threat hunting copy');
+assert(page.includes('Manual threat-intelligence pivots'), 'homepage source must expose manual threat-intelligence pivot copy');
+['VirusTotal', 'MalwareBazaar', 'URLhaus', 'AlienVault OTX', 'ThreatFox', 'AbuseIPDB', 'GreyNoise'].forEach(provider => {
+  assert(page.includes(provider), `homepage source must mention ${provider}`);
+});
+assert(page.includes('without automatic IOC submission'), 'homepage source must mention no automatic IOC submission');
 assert(page.includes('Privacy and Safety'), 'homepage source must expose privacy and safety copy');
 assert(page.includes('Static Malware Triage Walkthrough'), 'homepage source must expose walkthrough copy');
 assert(page.includes('Visual proof placeholders'), 'homepage source must expose visual proof placeholder copy');
@@ -99,6 +104,12 @@ assert(shell.includes('Analyze suspicious files locally in your browser.'), 'cli
 assert(shell.includes('How It Works'), 'how it works section missing');
 assert(shell.includes('Static Malware Analysis'), 'static malware analysis heading missing');
 assert(shell.includes('IOC Extraction and Threat Hunting'), 'IOC/threat hunting heading missing');
+assert(shell.includes('Manual threat-intelligence pivots'), 'client shell manual pivot copy missing');
+['VirusTotal', 'MalwareBazaar', 'URLhaus', 'AlienVault OTX', 'ThreatFox', 'AbuseIPDB', 'GreyNoise'].forEach(provider => {
+  assert(shell.includes(provider), `client shell must mention ${provider}`);
+});
+assert(shell.includes('without automatic IOC submission'), 'client shell must mention no automatic IOC submission');
+assert(shell.includes('Threat Intel Pivots'), 'client shell Threat Intel Pivots section missing');
 assert(shell.includes('Detection Engineering'), 'detection engineering heading missing');
 assert(shell.includes('Reverse Engineering Support'), 'reverse engineering heading missing');
 assert(shell.includes('Privacy and Safety'), 'privacy and safety heading missing');

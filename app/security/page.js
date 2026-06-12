@@ -24,6 +24,12 @@ export default function SecurityPage() {
         </div>
       </div>
       <div className="panel">
+        <div className="panel-head"><div className="dot dot-blue"></div>Manual Threat Intelligence Pivots</div>
+        <div className="panel-body">
+          <p>Threat-intelligence pivot links are manual. ThreatRecon does not automatically submit files, hashes, URLs, domains, or IPs to third-party services.</p>
+        </div>
+      </div>
+      <div className="panel">
         <div className="panel-head"><div className="dot dot-purple"></div>No Account Requirement</div>
         <div className="panel-body">
           <p>The site does not require user accounts. The site does not require login.</p>

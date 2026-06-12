@@ -1428,6 +1428,117 @@ textarea.textarea-sm { min-height: 80px; }
   border-color: var(--border2);
 }
 
+.pivot-intro {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 212, 255, 0.22);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 212, 255, 0.06);
+  color: var(--text2);
+  font-size: 11px;
+}
+
+.pivot-intro strong {
+  color: var(--accent);
+}
+
+.pivot-group {
+  margin-bottom: 16px;
+}
+
+.pivot-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(30, 40, 64, 0.45);
+}
+
+.pivot-row:last-child {
+  border-bottom: none;
+}
+
+.pivot-row--extra {
+  display: none;
+}
+
+.pivot-row--extra.pivot-row--visible {
+  display: grid;
+}
+
+.pivot-value-wrap {
+  min-width: 0;
+}
+
+.pivot-value {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.pivot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--text3);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.pivot-meta span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pivot-refang-note,
+.pivot-skip {
+  margin-top: 6px;
+  color: var(--yellow);
+  font-size: 10px;
+}
+
+.pivot-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 360px;
+}
+
+.pivot-provider {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  background: var(--bg3);
+  color: var(--accent);
+  font-family: var(--head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.pivot-provider:hover {
+  border-color: var(--accent);
+  background: rgba(0, 212, 255, 0.10);
+  text-decoration: none;
+}
+
+.pivot-toggle {
+  margin-top: 6px;
+}
+
 .no-ioc,
 .yara-empty {
   font-size: 12px;
@@ -2386,6 +2497,16 @@ body::after {
   .trust-badges li { width: 100%; text-align: center; }
 
   .panel-head { font-size: 10px; }
+
+  .pivot-row,
+  .pivot-row--extra.pivot-row--visible {
+    grid-template-columns: 1fr;
+  }
+
+  .pivot-buttons {
+    justify-content: flex-start;
+    max-width: 100%;
+  }
 
   .toast {
     right: 12px;
