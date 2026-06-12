@@ -115,6 +115,10 @@ function bestPrintableBase64Decode(b64) {
   return candidates[0]?.decoded || null;
 }
 
+function trimTrailingDecodeArtifacts(value) {
+  return String(value || '').replace(/[^\x09\x0A\x0D\x20-\x7E]+$/g, '');
+}
+
 /** Decode a PowerShell -EncodedCommand value (Base64 of UTF-16LE). */
 export function decodePsEncoded(b64) {
   const raw = tryAtob(b64);
@@ -122,7 +126,7 @@ export function decodePsEncoded(b64) {
   // UTF-16LE: every other byte is typically 0x00 for ASCII text.
   let out = '';
   for (let i = 0; i < raw.length; i += 2) out += raw[i];
-  return out;
+  return trimTrailingDecodeArtifacts(out);
 }
 
 /** Percent (URL) decode, returning null when invalid. */
@@ -276,24 +280,36 @@ export function classifyStrings(text) {
   return results.slice(0, 30);
 }
 
-/** True for loopback/private/link-local/reserved IPv4 (and IPv6 loopback/ULA/link-local).
-    Such addresses are local-only indicators, never external IOCs. */
-export function isPrivateOrReservedIp(ip) {
-  if (ip.includes(':')) return /^(::|::1|fe8|fe9|fea|feb|fc|fd|ff|2001:db8:|2001:db8::)/i.test(ip);
-  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!m) return false;
+export function classifyIpAddress(ip) {
+  const value = String(ip || '').trim();
+  if (value.includes(':')) {
+    if (/^(::1|::)$/i.test(value)) return { reserved: true, category: 'loopback', reason: 'Loopback address (RFC 1122).' };
+    if (/^fe8|^fe9|^fea|^feb/i.test(value)) return { reserved: true, category: 'link-local', reason: 'Link-local address (RFC 4291).' };
+    if (/^fc|^fd/i.test(value)) return { reserved: true, category: 'unique-local', reason: 'Unique local IPv6 address (RFC 4193).' };
+    if (/^ff/i.test(value)) return { reserved: true, category: 'multicast', reason: 'Multicast address; not suitable for IOC blocking.' };
+    if (/^2001:db8:/i.test(value) || /^2001:db8::/i.test(value)) return { reserved: true, category: 'documentation', reason: 'Reserved documentation address (RFC 3849) — commonly used in examples and test data.' };
+    return { reserved: false, category: 'public', reason: 'Public routable IP indicator requiring validation.' };
+  }
+  const m = value.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return { reserved: false, category: 'invalid', reason: 'Not a valid IP address.' };
   const a = +m[1], b = +m[2], c = +m[3], d = +m[4];
-  if (a === 10 || a === 127 || a === 0) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 192 && b === 0) return true;
-  if (a === 198 && (b === 18 || b === 19)) return true;
-  if (a >= 224 && a <= 239) return true;
-  if (a >= 240 && a <= 255) return true;
-  if (a === 255 && b === 255 && c === 255 && d === 255) return true;
-  return false;
+  if (a === 127) return { reserved: true, category: 'loopback', reason: 'Loopback address (RFC 1122).' };
+  if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return { reserved: true, category: 'private', reason: 'Private network address (RFC 1918).' };
+  if (a === 169 && b === 254) return { reserved: true, category: 'link-local', reason: 'Link-local address (RFC 3927).' };
+  if ((a === 192 && b === 0 && c === 2) || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113)) return { reserved: true, category: 'documentation', reason: 'Reserved documentation address (RFC 5737) — commonly used in examples and test data.' };
+  if (a === 0) return { reserved: true, category: 'current-network', reason: 'Current network address range (0.0.0.0/8; RFC 1122).' };
+  if (a === 100 && b >= 64 && b <= 127) return { reserved: true, category: 'shared-address-space', reason: 'Shared carrier-grade NAT address (RFC 6598).' };
+  if (a === 192 && b === 0) return { reserved: true, category: 'iana-special-purpose', reason: 'IANA special-purpose address range (RFC 6890).' };
+  if (a === 198 && (b === 18 || b === 19)) return { reserved: true, category: 'benchmarking', reason: 'Benchmark testing address range (RFC 2544).' };
+  if (a === 255 && b === 255 && c === 255 && d === 255) return { reserved: true, category: 'broadcast', reason: 'Limited broadcast address (RFC 919/RFC 922).' };
+  if (a >= 224 && a <= 239) return { reserved: true, category: 'multicast', reason: 'Multicast address range (RFC 5771).' };
+  if (a >= 240 && a <= 255) return { reserved: true, category: 'reserved', reason: 'Reserved IPv4 address range (RFC 1112/RFC 6890).' };
+  return { reserved: false, category: 'public', reason: 'Public routable IP indicator requiring validation.' };
+}
+
+/** True for non-routable/private/reserved IPs that should not be treated as external IOCs. */
+export function isPrivateOrReservedIp(ip) {
+  return classifyIpAddress(ip).reserved;
 }
 
 function refangForExtraction(value) {
@@ -364,7 +380,7 @@ export function extractIOCs(text) {
 
   return {
     ips: ips.slice(0, 12),
-    localIndicators: localIndicators.slice(0, 8),
+    localIndicators: localIndicators.slice(0, 16),
     urls,
     domains,
     onion: [...new Set(text.match(onionRx) || [])].slice(0, 8),

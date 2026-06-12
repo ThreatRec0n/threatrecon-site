@@ -1,4 +1,4 @@
-import { extractIOCs, shannonEntropy, rot13 } from './utils.js';
+import { classifyIpAddress, extractIOCs, shannonEntropy, rot13 } from './utils.js';
 
 const MAX_STRINGS = 500;
 const MAX_DECODED = 30;
@@ -366,6 +366,29 @@ function yaraRuleName(category) {
   return `ThreatRecon_${String(category || 'Suspicious_Triage').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Suspicious_Triage'}`;
 }
 
+function yaraStringPrefix(reason) {
+  const key = String(reason || '').toLowerCase();
+  if (key === 'behavior') return 'behavior';
+  if (key === 'artifact') return 'artifact';
+  if (/network|url|domain/.test(key)) return 'network';
+  if (/^ips?$/.test(key)) return 'ip';
+  if (/registry/.test(key)) return 'registry';
+  if (/powershell/.test(key)) return 'powershell';
+  if (/file path/.test(key)) return 'artifact';
+  if (/suspicious command/.test(key)) return 'command';
+  return key.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'string';
+}
+
+function buildYaraCondition(selected) {
+  const prefixes = [...new Set(selected.map(s => s.prefix))];
+  const hasBehavior = prefixes.includes('behavior');
+  const concretePrefixes = prefixes.filter(p => ['artifact', 'network', 'ip', 'registry', 'powershell', 'command'].includes(p));
+  if (hasBehavior && concretePrefixes.length) {
+    return `(any of ($behavior*)) and (any of (${concretePrefixes.map(p => `$${p}*`).join(', ')}))`;
+  }
+  return selected.length ? 'any of them' : '$review_required';
+}
+
 export function generateDraftYara({ iocs, category, apiRisk, stringsIntelligence, behaviors, isDemo }) {
   const candidates = [];
   const add = (value, reason) => {
@@ -379,9 +402,14 @@ export function generateDraftYara({ iocs, category, apiRisk, stringsIntelligence
   [...(iocs.registry || []), ...(iocs.paths || []), ...(iocs.mutex || [])].forEach(v => add(v, 'artifact'));
   [...(iocs.urls || []), ...(iocs.domains || [])].forEach(v => add(v, 'network'));
   (stringsIntelligence || []).forEach(c => c.items.slice(0, 2).forEach(v => add(v, c.name)));
-  const selected = candidates.slice(0, MAX_RULE_STRINGS);
-  const strings = selected.map((s, idx) => `    $s${idx + 1} = "${yaraString(s.value)}" nocase // ${yaraString(s.reason)}`).join('\n');
-  const needed = selected.length >= 4 ? '3 of them' : selected.length >= 2 ? '2 of them' : 'any of them';
+  const counts = {};
+  const selected = candidates.slice(0, MAX_RULE_STRINGS).map(candidate => {
+    const prefix = yaraStringPrefix(candidate.reason);
+    counts[prefix] = (counts[prefix] || 0) + 1;
+    return { ...candidate, prefix, id: `${prefix}${counts[prefix]}` };
+  });
+  const strings = selected.map(s => `    $${s.id} = "${yaraString(s.value)}" nocase // ${yaraString(s.reason)}`).join('\n');
+  const condition = buildYaraCondition(selected);
   return `rule ${yaraRuleName(category)} {
   meta:
     description = "Draft rule generated from local static triage"
@@ -389,9 +417,12 @@ export function generateDraftYara({ iocs, category, apiRisk, stringsIntelligence
     source = "Local browser analysis"
     confidence = "${selected.length >= 4 ? 'medium' : 'low'}"
   strings:
-${strings || '    $s1 = "review_required" nocase'}
+${strings || '    $review_required = "review_required" nocase'}
   condition:
-    ${selected.length ? needed : '$s1'}
+    // Draft condition: requires at least one behavioral indicator AND at least one
+    // concrete artifact (file path, registry key, network indicator, IP, or command)
+    // when both categories are available. Analyst review required before production use.
+    ${condition}
 }`;
 }
 
@@ -729,9 +760,10 @@ function networkActionability(type, value, isLocalPrivateIp) {
   const ipHost = ipv4Parts(host) ? host : null;
 
   if (ipHost && isLocalPrivateIp && isLocalPrivateIp(ipHost)) {
+    const classification = classifyIpAddress(ipHost);
     return {
       actionable: false,
-      reason: 'Local/private/special IP is local context only.',
+      reason: classification.reason,
       recommendedAction: 'Use for host triage or lab context; do not add to network blocklists.',
     };
   }
@@ -747,13 +779,6 @@ function networkActionability(type, value, isLocalPrivateIp) {
       actionable: false,
       reason: 'Reserved/special IP range; not suitable for reputation pivot or blocklists.',
       recommendedAction: 'Keep for context only; do not block shared, multicast, benchmarking, or reserved infrastructure.',
-    };
-  }
-  if (ipHost && isKnownPublicResolverIp(ipHost)) {
-    return {
-      actionable: false,
-      reason: 'Known public DNS resolver; do not block from demo/static context.',
-      recommendedAction: 'Validate surrounding behavior instead of blocking shared resolver infrastructure.',
     };
   }
   if (!ipHost && isReservedDemoDomain(host)) {
@@ -785,7 +810,17 @@ export function buildIOCActionability(iocs, _isDemo, _isDocumentationIp, isLocal
     const verdict = networkActionability('ip', value, isLocalPrivateIp);
     rows.push({ type: 'ip', value, confidence: 'High', ...verdict });
   });
-  add('local_ip', iocs.localIndicators, 'High', false, 'Local/private/special IP is local context only.', 'Use for host triage, not network blocklists.');
+  (iocs.localIndicators || []).forEach(value => {
+    const classification = classifyIpAddress(value);
+    rows.push({
+      type: 'local_ip',
+      value,
+      confidence: 'High',
+      actionable: false,
+      reason: classification.reason,
+      recommendedAction: 'Use for host triage or lab context; do not add to network blocklists.',
+    });
+  });
   (iocs.domains || []).forEach(value => {
     const verdict = networkActionability('domain', value, isLocalPrivateIp);
     rows.push({ type: 'domain', value, confidence: 'Medium', ...verdict });

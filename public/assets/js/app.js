@@ -712,7 +712,7 @@ function generateAnalystReport(ctx) {
 
   sections.push('\nRECOMMENDED CONTAINMENT');
   if (isDemo) sections.push('Because this is demo mode, response actions are shown for analyst training only.');
-  if ((iocs.localIndicators || []).length) sections.push('Note: loopback/local indicators (e.g. 127.0.0.1) are local-only and must NOT be blocked at the firewall or DNS layer or treated as external IOCs.');
+  if ((iocs.localIndicators || []).length) sections.push('Note: non-routable or reserved indicators (for example loopback, private, link-local, or documentation ranges) must NOT be blocked at the firewall or DNS layer or treated as external IOCs.');
   sections.push(ctx.recommendations.map(r => `- ${r}`).join('\n'));
 
   sections.push('\nRECOMMENDED HUNTING QUERIES');
@@ -758,7 +758,7 @@ function renderStatic(h256, h1, md5hash, input, entropy) {
 function renderIOC(iocs) {
   const defs = [
     { key: 'ips', label: 'IP Addresses (external)', cls: 'ip', link: v => `https://www.shodan.io/host/${encodeURIComponent(v)}` },
-    { key: 'localIndicators', label: 'Local / Loopback Indicators (not external IOCs)', cls: 'reg', link: null },
+    { key: 'localIndicators', label: 'Non-routable / Reserved Indicators (not external IOCs)', cls: 'reg', link: null },
     { key: 'urls', label: 'URLs', cls: '', link: v => `https://urlscan.io/search/#${encodeURIComponent(v)}` },
     { key: 'domains', label: 'Domains', cls: 'domain', link: v => `https://urlscan.io/search/#${encodeURIComponent(v)}` },
     { key: 'onion', label: 'Onion Addresses', cls: 'domain', link: null },
@@ -1388,19 +1388,29 @@ function loadIOC() {
 }
 
 /* ─── Exports (client-side blobs; nothing leaves the browser) ───────────── */
-function download(filename, text, type) {
-  const blob = new Blob([text], { type });
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function copyExportContent(content) {
+  if (!navigator.clipboard || !content) return;
+  navigator.clipboard.writeText(content).catch(() => {});
 }
 
 function exportJSON() {
   if (!lastReport) return;
-  download(`threatrecon-report-${Date.now()}.json`, JSON.stringify(lastReport, null, 2), 'application/json');
-  showToast('JSON report downloaded');
+  const json = JSON.stringify(lastReport, null, 2);
+  downloadFile('threatrecon-report.json', json, 'application/json');
+  copyExportContent(json);
+  showToast('JSON report downloaded and copied');
 }
 
 function exportMarkdown() {
@@ -1527,8 +1537,9 @@ ${formatDynamicAnalysisMarkdown()}
 
 ---
 *Generated locally by ThreatRecon Malware Triage Workbench — static analysis only, no sample upload, no API calls.*`;
-  download(`threatrecon-report-${Date.now()}.md`, md, 'text/markdown');
-  showToast('Markdown report downloaded');
+  downloadFile('threatrecon-report.md', md, 'text/markdown');
+  copyExportContent(md);
+  showToast('Markdown report downloaded and copied');
 }
 
 function csvEscape(v) {
@@ -1549,8 +1560,10 @@ function exportIOCCSV() {
   const rows = [header.join(',')].concat(noteRows.concat(lastReport.iocCsvRows).map(r =>
     [r.type, r.value, r.source, r.confidence, r.notes].map(csvEscape).join(',')
   ));
-  download(`threatrecon-iocs-${Date.now()}.csv`, rows.join('\n'), 'text/csv');
-  showToast('IOC CSV downloaded');
+  const csv = rows.join('\n');
+  downloadFile('threatrecon-iocs.csv', csv, 'text/csv');
+  copyExportContent(csv);
+  showToast('IOC CSV downloaded and copied');
 }
 
 function exportBlocklist() {
@@ -1577,20 +1590,26 @@ function exportBlocklist() {
     return [type, v].map(csvEscape).join(',');
   }) : ['note,no actionable IOCs found'];
   const csv = ['type,value'].concat(csvRows).join('\n');
-  download(`threatrecon-blocklist-${Date.now()}.txt`, plain + '\n\n# CSV\n' + csv + '\n', 'text/plain');
-  showToast('Blocklist downloaded');
+  const blocklist = plain + '\n\n# CSV\n' + csv + '\n';
+  downloadFile('threatrecon-blocklist.txt', blocklist, 'text/plain');
+  copyExportContent(blocklist);
+  showToast('Blocklist downloaded and copied');
 }
 
 function exportYARA() {
   if (!lastReport) return;
-  download(`threatrecon-draft-yara-${Date.now()}.yar`, lastReport.draftYara || '// No draft YARA generated.\n', 'text/plain');
-  showToast('Draft YARA downloaded');
+  const yara = lastReport.draftYara || '// No draft YARA generated.\n';
+  downloadFile('threatrecon-draft.yar', yara, 'text/plain');
+  copyExportContent(yara);
+  showToast('Draft YARA downloaded and copied');
 }
 
 function exportSigma() {
   if (!lastReport) return;
-  download(`threatrecon-draft-sigma-${Date.now()}.yml`, lastReport.draftSigma || '# No draft Sigma generated.\n', 'text/yaml');
-  showToast('Draft Sigma downloaded');
+  const sigma = lastReport.draftSigma || '# No draft Sigma generated.\n';
+  downloadFile('threatrecon-draft.yml', sigma, 'text/yaml');
+  copyExportContent(sigma);
+  showToast('Draft Sigma downloaded and copied');
 }
 
 function copyIOCs() {

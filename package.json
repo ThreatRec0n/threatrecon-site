@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node tests/md5.test.mjs && node tests/xss-escape.test.mjs && node tests/advanced-analysis.test.mjs && node tests/threat-intel-pivots.test.mjs && node tests/seo-security.test.mjs && node scripts/verification-regression.mjs",
+    "test": "node tests/md5.test.mjs && node tests/xss-escape.test.mjs && node tests/advanced-analysis.test.mjs && node tests/threat-intel-pivots.test.mjs && node tests/seo-security.test.mjs && node scripts/verification-regression.mjs && node scripts/export-functions-check.mjs && node scripts/yara-condition-check.mjs",
     "security:audit": "npm audit",
     "security:grep": "node scripts/security-grep.mjs"
   },

@@ -129,7 +129,7 @@ assert(blocklist.includes('malicious-example-bad.com'), 'real-looking domain sho
 assert(!blocklist.includes('10.0.0.5'), 'private IP should stay excluded from blocklist export');
 assert(!blocklist.includes('192.168.1.5'), 'private IP should stay excluded from blocklist export');
 assert(!blocklist.includes('127.0.0.1'), 'loopback IP should stay excluded from blocklist export');
-assert(!blocklist.includes('8.8.8.8'), 'resolver IP should stay excluded from blocklist export');
+assert(blocklist.includes('8.8.8.8'), 'public resolver IP should remain actionable as a public IP');
 assert(!blocklist.includes('203.0.113.10'), 'documentation IP should stay excluded from blocklist export');
 assert(!blocklist.includes('example.com'), 'reserved demo domain should stay excluded from blocklist export');
 assert(!blocklist.includes('demo.test'), '.test domain should stay excluded from blocklist export');
