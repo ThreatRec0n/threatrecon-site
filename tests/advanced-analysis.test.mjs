@@ -70,9 +70,10 @@ assert.strictEqual(rowFor('127.0.0.1')?.actionable, false, '127.0.0.1 should not
 ['10.0.0.9', '172.16.5.4', '192.168.1.20', '169.254.1.2', '0.0.0.0', '255.255.255.255'].forEach(ip => {
   assert(safeIocs.localIndicators.includes(ip), `${ip} should be local context`);
 });
-['example.org', 'example.net', 'sub.example.com', 'internal.test', 'docs.example', 'bad.invalid', 'service.localhost', 'localhost'].forEach(domain => {
+['example.org', 'example.net', 'sub.example.com', 'internal.test', 'docs.example', 'bad.invalid', 'service.localhost'].forEach(domain => {
   assert.strictEqual(rowFor(domain)?.actionable, false, `${domain} should not be actionable`);
 });
+assert(!safeIocs.domains.includes('localhost'), 'bare localhost should not be extracted as a domain IOC');
 const safeBlocklist = buildActionableBlocklist(safeRows);
 ['8.8.8.8', 'http://example.com/payload.exe', '203.0.113.44', 'http://203.0.113.44/update', 'localhost', 'example.org', 'example.net', 'sub.example.com', 'internal.test', 'docs.example', 'bad.invalid', 'service.localhost'].forEach(value => {
   assert(!safeBlocklist.includes(value), `${value} should be excluded from blocklist`);

@@ -3,6 +3,7 @@ import { extractIOCs, shannonEntropy, rot13 } from './utils.js';
 const MAX_STRINGS = 500;
 const MAX_DECODED = 30;
 const MAX_RULE_STRINGS = 14;
+const MAX_YARA_STRING_LENGTH = 200;
 
 export const API_RISK_DEFINITIONS = [
   { api: 'VirtualAllocEx', category: 'Process injection', risk: 'High', why: 'Allocates memory inside another process, often before code injection.' },
@@ -352,7 +353,13 @@ export function buildApiRisk(pe) {
 }
 
 function yaraString(s) {
-  return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').slice(0, 120);
+  const value = String(s);
+  if (value.length <= MAX_YARA_STRING_LENGTH) {
+    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+  const boundary = value.lastIndexOf(' ', MAX_YARA_STRING_LENGTH - 3);
+  const end = boundary >= 80 ? boundary : MAX_YARA_STRING_LENGTH - 3;
+  return (value.slice(0, end).trimEnd() + '...').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 function yaraRuleName(category) {

